@@ -814,10 +814,11 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="settings-group-title">Scene generation</div>
           <label class="check-field"><input id="settings-show-image-area" type="checkbox" checked><span>Show generated image area</span></label>
           <p class="settings-note">Turn this off for a text-first workspace. Your image settings and references stay saved and return when you turn the area back on.</p>
-          <div class="field"><label for="settings-image-provider">Image provider</label><select id="settings-image-provider" data-help="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; Custom connects to an OpenAI-compatible local server or gateway." aria-description="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; Custom connects to an OpenAI-compatible local server or gateway."><option value="openai">OpenAI Images API</option><option value="novelai">NovelAI Image API</option><option value="stability">Stability AI</option><option value="compatible">Custom OpenAI-compatible images</option></select></div>
-          <div class="field full" id="image-api-base-field"><label for="settings-image-api-base">Image API base URL</label><input id="settings-image-api-base" data-help="Base address for the custom image server. The harness appends /images/generations. Use HTTP only for a server on this computer; use HTTPS for a remote server." aria-description="Base address for the custom image server. The harness appends /images/generations. Use HTTP only for a server on this computer; use HTTPS for a remote server." placeholder="http://127.0.0.1:8188/v1"><p class="settings-note">For a local or compatible image server. Include /v1 when it requires it; do not append /images/generations. HTTP is allowed only on this computer.</p></div>
-          <div class="field full"><label for="settings-image-api-key">Image API key / token</label><input id="settings-image-api-key" data-help="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Stability and custom servers do not reuse another provider's key." aria-description="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Stability and custom servers do not reuse another provider's key." type="password" autocomplete="new-password" placeholder="Optional — uses text key only for the same provider"></div>
-          <div class="field"><label for="settings-image-model">Image model</label><input id="settings-image-model" data-help="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name." aria-description="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name." value="gpt-image-2" placeholder="gpt-image-2 or nai-diffusion-5-full"></div>
+          <div class="field"><label for="settings-image-provider">Image provider</label><select id="settings-image-provider" data-help="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; AUTOMATIC1111, Forge, Fooocus, and ComfyUI connect to local servers." aria-description="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; AUTOMATIC1111, Forge, Fooocus, and ComfyUI connect to local servers."><option value="openai">OpenAI Images API</option><option value="novelai">NovelAI Image API</option><option value="stability">Stability AI</option><option value="automatic1111">AUTOMATIC1111 / Forge API</option><option value="fooocus">Fooocus API</option><option value="comfyui">ComfyUI workflow API</option><option value="compatible">Custom OpenAI-compatible images</option></select></div>
+          <div class="field full" id="image-api-base-field"><label for="settings-image-api-base">Image API base URL</label><input id="settings-image-api-base" data-help="Base address for a local image UI. The harness appends that UI's API route. Use HTTP only for a server on this computer; use HTTPS for a remote server." aria-description="Base address for a local image UI. The harness appends that UI's API route. Use HTTP only for a server on this computer; use HTTPS for a remote server." placeholder="http://127.0.0.1:1234/v1"><p class="settings-note" id="image-api-base-note">For a local or compatible image server. The route is selected automatically; do not append it yourself. HTTP is allowed only on this computer.</p></div>
+          <div class="field full" id="image-workflow-field"><label for="settings-image-workflow">ComfyUI API workflow JSON</label><textarea id="settings-image-workflow" class="system-prompt" data-help="Export a workflow from ComfyUI in API format, then replace the positive text node with {{prompt}} and the negative text node with {{negative_prompt}}. The harness submits it and downloads the first image output." aria-description="Export a workflow from ComfyUI in API format, then replace the positive text node with {{prompt}} and the negative text node with {{negative_prompt}}. The harness submits it and downloads the first image output." spellcheck="false" placeholder="Paste an API-format workflow containing {{prompt}}"></textarea><p class="settings-note">ComfyUI is workflow-driven, so the harness needs your exported API-format workflow. Use the literal placeholders <code>{{prompt}}</code> and optionally <code>{{negative_prompt}}</code> in the text nodes you want replaced.</p></div>
+          <div class="field full"><label for="settings-image-api-key">Image API key / token</label><input id="settings-image-api-key" data-help="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." aria-description="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." type="password" autocomplete="new-password" placeholder="Optional — uses text key only for the same provider"></div>
+          <div class="field"><label for="settings-image-model">Image model</label><input id="settings-image-model" data-help="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name. ComfyUI takes its checkpoint from the workflow instead." aria-description="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name. ComfyUI takes its checkpoint from the workflow instead." value="gpt-image-2" placeholder="gpt-image-2 or nai-diffusion-5-full"><p class="settings-note" id="image-model-note"></p></div>
           <div class="field"><label for="settings-image-size">Image shape</label><select id="settings-image-size"><option value="1536x1024">Landscape — 3:2</option><option value="1024x1024">Square — 1:1</option><option value="1024x1536">Portrait — 2:3</option></select></div>
           <div class="field"><label for="settings-image-quality">Image quality</label><select id="settings-image-quality" data-help="Requests a quality level where the selected provider supports it. Some providers may ignore this setting or map it to their own quality controls." aria-description="Requests a quality level where the selected provider supports it. Some providers may ignore this setting or map it to their own quality controls."><option value="auto">Auto</option><option value="low">Low — faster / cheaper</option><option value="medium">Medium</option><option value="high">High — slower / more detailed</option></select></div>
           <div class="field full"><label for="settings-art-direction">Image prompt guidance / style</label><textarea class="image-direction" id="settings-art-direction" placeholder="Optional style guidance: medium, lighting, palette, composition, recurring visual motifs, and what to avoid…"></textarea></div>
@@ -1116,6 +1117,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       responseLength: "medium",
       imageProvider: "openai",
       imageApiBaseUrl: "",
+      imageWorkflow: "",
       imageModel: "gpt-image-2",
       imageSize: "1536x1024",
       imageQuality: "auto",
@@ -1151,7 +1153,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       // Which providers the local server can supply a key for, reported by /api/health. Per provider
       // rather than one flag, because a server OpenAI key says nothing about NovelAI readiness.
       serverKeys: { openai: false, novelai: false },
-      serverImageKeys: { openai: false, novelai: false, stability: false, compatible: false },
+      serverImageKeys: { openai: false, novelai: false, stability: false, automatic1111: false, fooocus: false, comfyui: false, compatible: false },
       serverEnvFile: false,
       serverEnvFileReadable: false,
       serverEnvActiveSettings: [],
@@ -1444,12 +1446,25 @@ this program. If not, see https://www.gnu.org/licenses/.
       setControlValue("settings-response-length", state.responseLength);
       setControlValue("settings-image-provider", state.imageProvider);
       setControlValue("settings-image-api-base", state.imageApiBaseUrl);
+      setControlValue("settings-image-workflow", state.imageWorkflow);
       setControlValue("settings-image-api-key", state.imageApiKey);
       setControlValue("settings-image-model", state.imageModel);
       setControlValue("settings-image-size", state.imageSize);
       setControlValue("settings-image-quality", state.imageQuality);
       $("settings-show-image-area").checked = state.showImageArea;
-      $("image-api-base-field").hidden = state.imageProvider !== "compatible";
+      const localImageProviders = ["automatic1111", "fooocus", "comfyui", "compatible"];
+      $("image-api-base-field").hidden = !localImageProviders.includes(state.imageProvider);
+      $("image-workflow-field").hidden = state.imageProvider !== "comfyui";
+      const baseNotes = {
+        automatic1111: "AUTOMATIC1111 and Forge usually run at http://127.0.0.1:7860. The harness appends /sdapi/v1/txt2img.",
+        fooocus: "Fooocus API (the Fooocus-API extension) usually runs at http://127.0.0.1:8888. The harness appends /v1/generation/text-to-image.",
+        comfyui: "ComfyUI usually runs at http://127.0.0.1:8188. The harness submits your workflow to /prompt and fetches its first output image.",
+        compatible: "For an OpenAI-compatible image server. The harness appends /images/generations and does not require /v1 unless your server uses it."
+      };
+      $("settings-image-api-base").placeholder = state.imageProvider === "automatic1111" ? "http://127.0.0.1:7860" : state.imageProvider === "fooocus" ? "http://127.0.0.1:8888" : state.imageProvider === "comfyui" ? "http://127.0.0.1:8188" : "http://127.0.0.1:1234/v1";
+      $("image-api-base-note").textContent = baseNotes[state.imageProvider] || "";
+      $("settings-image-model").placeholder = state.imageProvider === "comfyui" ? "Set in the workflow" : state.imageProvider === "automatic1111" ? "Optional checkpoint name" : state.imageProvider === "fooocus" ? "Optional base model name" : state.imageProvider === "stability" ? "stable-image-core" : state.imageProvider === "novelai" ? "nai-diffusion-5-full" : "gpt-image-2";
+      $("image-model-note").textContent = state.imageProvider === "comfyui" ? "ComfyUI reads the checkpoint, sampler, and dimensions from your workflow; this field is ignored." : state.imageProvider === "automatic1111" ? "Leave blank to use the checkpoint already selected in the UI, or enter its exact checkpoint name." : state.imageProvider === "fooocus" ? "Enter the exact base model filename when you want to override Fooocus's selected model." : "Use the exact model ID your provider or server accepts.";
       setControlValue("settings-art-direction", state.artDirection);
       setControlValue("settings-negative-prompt", state.negativePrompt);
       setControlValue("settings-system-prompt", state.systemPrompt);
@@ -1512,7 +1527,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         const parts = [];
         if (has) parts.push("Style reference set" + (state.styleReferenceName ? " (" + state.styleReferenceName + ")" : "") + ".");
         if (opted.length) parts.push(opted.length + " character reference" + (opted.length === 1 ? "" : "s") + ": " + opted.map(member => member.name).join(", ") + ".");
-        parts.push("Sent with every GENERATE IMAGE call, which uses the OpenAI images edits endpoint when any reference is present.");
+        parts.push(state.imageProvider === "openai"
+          ? "Sent with every GENERATE IMAGE call through OpenAI's images edits endpoint."
+          : "Stored for later, but the selected image provider does not accept these references; switch to OpenAI to use them.");
         note.textContent = parts.join(" ");
       } else {
         note.textContent = "No style reference. When one is set, every generated image is conditioned on it for medium, palette, and linework — its subject and composition are explicitly not copied.";
@@ -2225,7 +2242,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
 
     // Style sheet first, then each party member the player has opted in, capped at what the server
-    // accepts. Only OpenAI is wired for reference conditioning, so NovelAI gets none.
+    // accepts. Only OpenAI is wired for reference conditioning, so other providers get none.
     function buildImageReferences() {
       if (state.imageProvider !== "openai") return [];
       const references = [];
@@ -2273,7 +2290,8 @@ this program. If not, see https://www.gnu.org/licenses/.
             apiKey: (state.imageApiKey.trim() || (state.imageProvider === state.provider ? state.apiKey.trim() : "")),
             provider: state.imageProvider,
             apiBaseUrl: state.imageApiBaseUrl,
-            model: state.imageModel.trim() || "gpt-image-2",
+            workflow: state.imageWorkflow,
+            model: state.imageModel.trim() || (state.imageProvider === "openai" ? "gpt-image-2" : state.imageProvider === "novelai" ? "nai-diffusion-5-full" : state.imageProvider === "stability" ? "stable-image-core" : ""),
             size: state.imageSize,
             quality: state.imageQuality,
             prompt,
@@ -3602,6 +3620,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           responseLength: state.responseLength,
           imageProvider: state.imageProvider,
           imageApiBaseUrl: state.imageApiBaseUrl,
+          imageWorkflow: state.imageWorkflow,
           imageModel: state.imageModel,
           imageSize: state.imageSize,
           imageQuality: state.imageQuality,
@@ -3851,8 +3870,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.font = FONTS[settings.font] ? settings.font : "classic";
       state.grounding = ["strict", "balanced", "loose"].includes(settings.grounding) ? settings.grounding : "balanced";
       state.responseLength = ["short", "medium", "long"].includes(settings.responseLength) ? settings.responseLength : "medium";
-      state.imageProvider = ["openai", "novelai", "stability", "compatible"].includes(settings.imageProvider) ? settings.imageProvider : "openai";
+      state.imageProvider = ["openai", "novelai", "stability", "automatic1111", "fooocus", "comfyui", "compatible"].includes(settings.imageProvider) ? settings.imageProvider : "openai";
       state.imageApiBaseUrl = trusted ? String(settings.imageApiBaseUrl || "").slice(0, 2000) : "";
+      state.imageWorkflow = trusted ? String(settings.imageWorkflow || "").slice(0, 1024 * 1024) : "";
       state.imageModel = String(settings.imageModel || "gpt-image-2").slice(0, 120);
       state.imageSize = ["1536x1024", "1024x1024", "1024x1536"].includes(settings.imageSize) ? settings.imageSize : "1536x1024";
       state.imageQuality = ["auto", "low", "medium", "high"].includes(settings.imageQuality) ? settings.imageQuality : "auto";
@@ -4416,10 +4436,14 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (state.imageProvider === "novelai" && (!state.imageModel || state.imageModel === "gpt-image-2")) state.imageModel = "nai-diffusion-5-full";
       if (state.imageProvider === "openai" && (!state.imageModel || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "gpt-image-2";
       if (state.imageProvider === "stability" && (!state.imageModel || state.imageModel === "gpt-image-2" || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "stable-image-core";
-      if (state.imageProvider === "compatible" && (!state.imageModel || state.imageModel === "gpt-image-2" || state.imageModel.startsWith("nai-diffusion-") || state.imageModel === "stable-image-core")) state.imageModel = "your-image-model";
+      if (state.imageProvider === "automatic1111" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-checkpoint-name";
+      if (state.imageProvider === "fooocus" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-fooocus-model";
+      if (state.imageProvider === "comfyui" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name", "your-fooocus-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "";
+      if (state.imageProvider === "compatible" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name", "your-fooocus-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-image-model";
       renderAll();
     });
     $("settings-image-api-base").addEventListener("input", event => { state.imageApiBaseUrl = event.target.value.slice(0, 2000); renderPromptPreview(); });
+    $("settings-image-workflow").addEventListener("input", event => { state.imageWorkflow = event.target.value.slice(0, 1024 * 1024); renderPromptPreview(); });
     $("settings-image-model").addEventListener("input", event => { state.imageModel = event.target.value; renderPromptPreview(); });
     $("settings-image-size").addEventListener("change", event => { state.imageSize = event.target.value; renderAll(); });
     $("settings-image-quality").addEventListener("change", event => { state.imageQuality = event.target.value; renderAll(); });
@@ -4499,7 +4523,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       const keys = result.serverKeys && typeof result.serverKeys === "object" ? result.serverKeys : {};
       state.serverKeys = Object.fromEntries(TEXT_PROVIDER_IDS.map(name => [name, Boolean(keys[name])]));
       const imageKeys = result.serverImageKeys && typeof result.serverImageKeys === "object" ? result.serverImageKeys : {};
-      state.serverImageKeys = Object.fromEntries(["openai", "novelai", "stability", "compatible"].map(name => [name, Boolean(imageKeys[name])]));
+      state.serverImageKeys = Object.fromEntries(["openai", "novelai", "stability", "automatic1111", "fooocus", "comfyui", "compatible"].map(name => [name, Boolean(imageKeys[name])]));
       state.serverHealthError = "";
       state.serverEnvFile = Boolean(result.envFile);
       state.serverEnvFileReadable = Boolean(result.envFileReadable);

@@ -9,12 +9,21 @@ const adapter = require('./text-providers.js');
 const imageAdapter = require('./image-providers.js');
 const schema = { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false };
 
-test('image providers expose safe Stability and local-compatible presets', () => {
+test('image providers expose hosted, local UI, and compatible presets', () => {
   assert.equal(imageAdapter.providerName('stability'), 'stability');
   assert.equal(imageAdapter.providerName('unknown'), 'openai');
   assert.equal(imageAdapter.IMAGE_PRESETS.stability.key, 'STABILITY_API_KEY');
-  assert.equal(imageAdapter.compatibleUrl('http://127.0.0.1:8188/v1').pathname, '/v1/images/generations');
+  assert.equal(imageAdapter.compatibleUrl('http://127.0.0.1:1234/v1').pathname, '/v1/images/generations');
+  assert.equal(imageAdapter.localProviderUrl('automatic1111', '', 'sdapi/v1/txt2img').pathname, '/sdapi/v1/txt2img');
+  assert.equal(imageAdapter.localProviderUrl('fooocus', '', 'v1/generation/text-to-image').pathname, '/v1/generation/text-to-image');
+  assert.equal(imageAdapter.localProviderUrl('comfyui', '', 'prompt').pathname, '/prompt');
   assert.equal(imageAdapter.compatibleUrl('https://images.example/v1').protocol, 'https:');
+  const replaced = imageAdapter.replaceWorkflowPlaceholders({positive:{text:'{{prompt}}'},negative:{text:'{{negative_prompt}}'}}, 'scene prompt', 'avoid text');
+  assert.equal(replaced.workflow.positive.text, 'scene prompt');
+  assert.equal(replaced.workflow.negative.text, 'avoid text');
+  assert.equal(replaced.promptCount, 1);
+  assert.equal(replaced.negativeCount, 1);
+  assert.equal(imageAdapter.parseWorkflow('{"6":{"inputs":{"text":"{{prompt}}"}}}')['6'].inputs.text, '{{prompt}}');
   for (const url of ['http://images.example/v1', 'https://user:secret@images.example/v1', 'https://images.example/v1?token=secret', 'file:///tmp']) {
     assert.throws(() => imageAdapter.compatibleUrl(url));
   }
@@ -57,10 +66,36 @@ test('real local HTTP adapter covers turns, summaries, profiles, and scenarios w
   const captured = [];
   const fixture = http.createServer(async (req,res) => {
     let raw=''; for await (const part of req) raw+=part;
-    const body=JSON.parse(raw); captured.push({body,headers:req.headers,url:req.url});
+    const body=raw ? JSON.parse(raw) : null; captured.push({body,headers:req.headers,url:req.url});
+    const fixturePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
     if (req.url === '/v1/images/generations') {
       res.writeHead(200,{'Content-Type':'application/json'});
-      res.end(JSON.stringify({data:[{b64_json:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}]}));
+      res.end(JSON.stringify({data:[{b64_json:fixturePng.toString('base64')}]}));
+      return;
+    }
+    if (req.url === '/sdapi/v1/txt2img') {
+      res.writeHead(200,{'Content-Type':'application/json'});
+      res.end(JSON.stringify({images:[fixturePng.toString('base64')]}));
+      return;
+    }
+    if (req.url === '/v1/generation/text-to-image') {
+      res.writeHead(200,{'Content-Type':'application/json'});
+      res.end(JSON.stringify([{base64:fixturePng.toString('base64')}]))
+      return;
+    }
+    if (req.url === '/prompt') {
+      res.writeHead(200,{'Content-Type':'application/json'});
+      res.end(JSON.stringify({prompt_id:'fixture-prompt'}));
+      return;
+    }
+    if (req.url === '/history/fixture-prompt') {
+      res.writeHead(200,{'Content-Type':'application/json'});
+      res.end(JSON.stringify({'fixture-prompt':{outputs:{'9':{images:[{filename:'fixture.png',subfolder:'',type:'output'}]}}}}));
+      return;
+    }
+    if (req.url.startsWith('/view?')) {
+      res.writeHead(200,{'Content-Type':'image/png'});
+      res.end(fixturePng);
       return;
     }
     const name=body.response_format?.json_schema?.name;
@@ -102,5 +137,22 @@ test('real local HTTP adapter covers turns, summaries, profiles, and scenarios w
   assert.equal(imageRequest.headers.authorization,'Bearer image-test-key');
   assert.equal(imageRequest.body.model,'fixture-image-model');
   assert.equal(imageRequest.body.size,'1024x1024');
+  const localImageCases=[
+    {provider:'automatic1111',model:'fixture-checkpoint'},
+    {provider:'fooocus',model:'fixture-fooocus-model'},
+    {provider:'comfyui',model:'',workflow:'{"6":{"inputs":{"text":"{{prompt}}"}},"7":{"inputs":{"text":"{{negative_prompt}}"}}}'},
+  ];
+  for(const input of localImageCases){
+    const response=await fetch(`http://127.0.0.1:${port}/api/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...input,apiBaseUrl:`http://127.0.0.1:${fixture.address().port}`,prompt:'A local test image',size:'1024x1024',quality:'medium'})});
+    const result=await response.json();
+    assert.equal(response.status,200,JSON.stringify(result));
+    assert.match(result.imageDataUrl,/^data:image\/png;base64,/);
+  }
+  assert.equal(captured[5].url,'/sdapi/v1/txt2img');
+  assert.equal(captured[5].body.override_settings.sd_model_checkpoint,'fixture-checkpoint');
+  assert.equal(captured[6].url,'/v1/generation/text-to-image');
+  assert.equal(captured[6].body.require_base64,true);
+  assert.equal(captured[7].url,'/prompt');
+  assert.equal(captured[7].body.prompt['6'].inputs.text,'A local test image');
 });
 

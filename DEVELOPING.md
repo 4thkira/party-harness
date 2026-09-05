@@ -9,7 +9,7 @@ Run `node server.js`, then open the printed local address. Refresh the browser a
 | `rp-party-harness-prototype.html` | Layout, CSS variables, sample party/scenarios, prompts, UI events, and client state. |
 | `server.js` | Local HTTP routes, provider requests, structured response validation, and profile discovery. |
 | `text-providers.js` | Hosted/local text protocol adapters, preset URLs, auth, and output modes. |
-| `image-providers.js` | Image provider presets and safe custom image endpoint validation. |
+| `image-providers.js` | Image provider presets, safe local endpoint validation, and ComfyUI workflow placeholder handling. |
 | `harness-storage.js` | IndexedDB, fallback storage, save migration, and pooled transcript encoding. |
 | `start-party-harness.ps1` / `.cmd` | Windows startup. Other platforms can run Node directly. |
 | `.env.example` | Supported configuration placeholders. Never put actual credentials here. |
@@ -17,7 +17,7 @@ Run `node server.js`, then open the printed local address. Refresh the browser a
 
 Search for `DEFAULT_PARTY`, `DEFAULT_STAT_DEFINITIONS`, and `DEFAULT_SYSTEM_PROMPT` for starting content. Most colors and spacing are in the HTML style block. Keep IDs stable when changing labels: event handlers and checks refer to them.
 
-The browser sends roleplay requests to the local server, which calls the provider and normalizes structured replies. Changing that reply format requires matching server schema, normalization, and client handling. The custom backend field expects this roleplay contract; it is not an arbitrary OpenAI-compatible base URL.
+The browser sends roleplay requests to the local server, which calls the provider and normalizes structured replies. Changing that reply format requires matching server schema, normalization, and client handling. Image UI adapters are deliberately small: A1111/Forge and Fooocus send their documented JSON requests, while ComfyUI accepts a user-owned API-format workflow and only replaces explicit prompt placeholders. The custom backend field expects the roleplay contract; it is not an arbitrary OpenAI-compatible base URL.
 
 Keep API keys out of persistent state, session exports, and logs. Keep the server bound to loopback. Apply consequences only when their story beat is revealed; discard unrevealed consequences when branching. Late replies must not change a different session or overwrite newer edits. Preserve backward-compatible save imports.
 

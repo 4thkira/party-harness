@@ -120,6 +120,7 @@ const MAX_SESSION_SETUP_REQUEST_BODY_BYTES = 512 * 1024;
 const MAX_REFERENCE_IMAGES = 6;
 const MAX_REFERENCE_IMAGE_BYTES = 1536 * 1024;
 const MAX_IMAGE_REQUEST_BODY_BYTES = 16 * 1024 * 1024;
+const MAX_IMAGE_WORKFLOW_BYTES = 1024 * 1024;
 const MAX_UPSTREAM_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_UPSTREAM_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_DECOMPRESSED_IMAGE_BYTES = 16 * 1024 * 1024;
@@ -528,7 +529,8 @@ const UPSTREAM = {
 
 function upstreamRequest(target, payload, apiKey, clientResponse, overrides = {}) {
   // JSON unless a caller supplies an already-encoded body, which the multipart image-edits path does.
-  const body = overrides.rawBody || Buffer.from(JSON.stringify(payload));
+  const method = overrides.method || "POST";
+  const body = overrides.rawBody !== undefined ? overrides.rawBody : method === "GET" ? Buffer.alloc(0) : Buffer.from(JSON.stringify(payload));
   const contentType = overrides.contentType || "application/json";
   const requestPath = overrides.path || target.path;
   return new Promise((resolve, reject) => {
@@ -546,12 +548,12 @@ function upstreamRequest(target, payload, apiKey, clientResponse, overrides = {}
       hostname: target.hostname,
       port: target.port,
       path: requestPath,
-      method: "POST",
+      method,
       headers: {
         ...(target.authHeaders || (apiKey ? { "Authorization": "Bearer " + apiKey } : {})),
-        "Content-Type": contentType,
+        ...(body.length ? { "Content-Type": contentType } : {}),
         ...(target.headers ? target.headers() : {}),
-        "Content-Length": Buffer.byteLength(body)
+        "Content-Length": body.length
       },
       timeout: target.timeout
     }, response => {
@@ -585,7 +587,7 @@ function upstreamRequest(target, payload, apiKey, clientResponse, overrides = {}
     deadlineTimer = setTimeout(timedOut, target.timeout);
     request.on("timeout", timedOut);
     request.on("error", error => finish(reject, error));
-    request.write(body);
+    if (body.length) request.write(body);
     request.end();
   });
 }
@@ -654,6 +656,117 @@ const openAIImageRequest = (payload, apiKey, clientResponse) => upstreamRequest(
 const novelAIImageRequest = (payload, apiKey, clientResponse) => upstreamRequest(UPSTREAM.novelaiImage, payload, apiKey, clientResponse);
 const novelAITextRequest = (payload, apiKey, apiPath = "/oa/v1/chat/completions", clientResponse) =>
   upstreamRequest(UPSTREAM.novelaiText, payload, apiKey, clientResponse, { path: apiPath });
+
+function targetForImageUrl(url, label) {
+  return {
+    ...UPSTREAM.openaiImage,
+    label,
+    protocol: url.protocol,
+    hostname: url.hostname.replace(/^\[|\]$/g, ""),
+    port: url.port || undefined,
+    path: url.pathname,
+    headers: () => ({})
+  };
+}
+
+function imageDimensions(size) {
+  return size === "1024x1024" ? [1024, 1024] : size === "1024x1536" ? [1024, 1536] : [1536, 1024];
+}
+
+function automatic1111Payload({ model, prompt, negativePrompt, size, quality }) {
+  const [width, height] = imageDimensions(size);
+  const steps = quality === "low" ? 20 : quality === "high" ? 36 : 28;
+  const payload = { prompt, negative_prompt: negativePrompt, width, height, steps, cfg_scale: 7, batch_size: 1 };
+  // A1111, Forge, and their close API-compatible forks accept a per-request checkpoint override.
+  // An empty model leaves the UI's currently selected checkpoint alone.
+  if (model && model !== "your-checkpoint-name") payload.override_settings = { sd_model_checkpoint: model };
+  return payload;
+}
+
+function fooocusPayload({ model, prompt, negativePrompt, size, quality }) {
+  const aspectRatios = { "1024x1024": "1024*1024", "1024x1536": "896*1152", "1536x1024": "1152*896" };
+  const payload = {
+    prompt,
+    negative_prompt: negativePrompt,
+    performance_selection: quality === "low" ? "Speed" : "Quality",
+    aspect_ratios_selection: aspectRatios[size] || aspectRatios["1536x1024"],
+    image_number: 1,
+    require_base64: true,
+    async_process: false
+  };
+  if (model && model !== "your-fooocus-model") payload.base_model_name = model;
+  return payload;
+}
+
+function extractFooocusImage(response) {
+  const candidates = Array.isArray(response) ? response : Array.isArray(response?.job_result) ? response.job_result : [response];
+  const image = candidates.find(item => item && typeof item === "object" && (item.base64 || item.url));
+  if (!image) return null;
+  if (typeof image.base64 === "string" && image.base64) return { base64: image.base64 };
+  if (typeof image.url === "string" && image.url) return { url: image.url };
+  return null;
+}
+
+function imageDataUrlFromBuffer(buffer, contentType = "") {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) return "";
+  const signature = IMAGE_SIGNATURES.find(entry => entry.matches(buffer));
+  if (!signature) return "";
+  return "data:" + signature.contentType + ";base64," + buffer.toString("base64");
+}
+
+async function comfyUIImageRequest({ baseUrl, workflowText, prompt, negativePrompt, apiKey }, clientResponse) {
+  const workflow = imageProviders.parseWorkflow(workflowText, MAX_IMAGE_WORKFLOW_BYTES);
+  const replaced = imageProviders.replaceWorkflowPlaceholders(workflow, prompt, negativePrompt);
+  if (!replaced.promptCount) throw new Error("The ComfyUI workflow needs a {{prompt}} placeholder in its positive text node.");
+  const workflowJson = JSON.stringify(replaced.workflow);
+  const clientId = crypto.randomUUID();
+  const promptUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "prompt");
+  const queued = await upstreamRequest(targetForImageUrl(promptUrl, "ComfyUI prompt request"), { prompt: replaced.workflow, client_id: clientId }, apiKey, clientResponse);
+  let queuedResponse;
+  try { queuedResponse = JSON.parse(queued.body); } catch { queuedResponse = {}; }
+  if (queued.status < 200 || queued.status >= 300) throw new Error(providerError(queuedResponse, "ComfyUI rejected the workflow (HTTP " + queued.status + ")."));
+  const promptId = typeof queuedResponse.prompt_id === "string" ? queuedResponse.prompt_id : "";
+  if (!promptId) throw new Error(providerError(queuedResponse, "ComfyUI accepted the request without returning a prompt ID."));
+  const deadline = Date.now() + UPSTREAM_IMAGE_TIMEOUT_MS;
+  try {
+    while (Date.now() < deadline) {
+      if (clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) throw new Error("The client disconnected.");
+      const historyUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "history/" + encodeURIComponent(promptId));
+      const historyResult = await upstreamRequest(targetForImageUrl(historyUrl, "ComfyUI history request"), null, apiKey, clientResponse, { method: "GET", path: historyUrl.pathname + historyUrl.search });
+      if (historyResult.status < 200 || historyResult.status >= 300) throw new Error("ComfyUI history request failed (HTTP " + historyResult.status + ").");
+      let history;
+      try { history = JSON.parse(historyResult.body); } catch { history = {}; }
+      const record = history && history[promptId];
+      const outputs = record && record.outputs && typeof record.outputs === "object" ? record.outputs : {};
+      const image = Object.values(outputs).flatMap(output => Array.isArray(output?.images) ? output.images : []).find(item => item && typeof item.filename === "string" && item.filename);
+      if (image) {
+        const viewUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "view");
+        viewUrl.searchParams.set("filename", image.filename);
+        if (typeof image.subfolder === "string") viewUrl.searchParams.set("subfolder", image.subfolder);
+        if (typeof image.type === "string") viewUrl.searchParams.set("type", image.type);
+        const imageResult = await upstreamRequest(targetForImageUrl(viewUrl, "ComfyUI image request"), null, apiKey, clientResponse, { method: "GET", path: viewUrl.pathname + viewUrl.search });
+        if (imageResult.status < 200 || imageResult.status >= 300) throw new Error("ComfyUI image download failed (HTTP " + imageResult.status + ").");
+        const imageDataUrl = imageDataUrlFromBuffer(imageResult.bodyBuffer, imageResult.contentType);
+        if (!imageDataUrl) throw new Error("ComfyUI returned an output that was not a PNG, JPEG, or WebP image.");
+        return { imageDataUrl, promptId, workflowBytes: Buffer.byteLength(workflowJson) };
+      }
+      const statusValue = record && record.status ? record.status.status_str : "";
+      const status = Array.isArray(statusValue) ? String(statusValue[0] || "").toLowerCase() : String(statusValue || "").toLowerCase();
+      if (status === "error" || status === "failed") throw new Error("ComfyUI failed while executing the workflow.");
+      if (record && record.status && record.status.completed === true) throw new Error("ComfyUI completed the workflow without an image output.");
+      await new Promise(resolve => setTimeout(resolve, 600));
+    }
+  } catch (error) {
+    // The browser can cancel while ComfyUI is still queued. Best-effort interruption keeps a
+    // cancelled scene from consuming the local queue; failure here must not mask the original error.
+    if (clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) {
+      const interruptUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "interrupt");
+      void upstreamRequest(targetForImageUrl(interruptUrl, "ComfyUI interruption request"), { prompt_id: promptId }, apiKey, null).catch(() => {});
+    }
+    throw error;
+  }
+  throw new Error("ComfyUI did not finish before the image request timed out.");
+}
 
 function watchClientDisconnect(clientResponse, request) {
   if (!clientResponse) return () => {};
@@ -1498,14 +1611,19 @@ async function handleImage(req, res) {
   const quality = allowedQualities.has(input.quality) ? input.quality : "auto";
   const model = typeof input.model === "string" && input.model.trim()
     ? input.model.trim().slice(0, 120)
-    : provider === "novelai" ? "nai-diffusion-5-full" : provider === "stability" ? "stable-image-core" : DEFAULT_IMAGE_MODEL;
+    : provider === "novelai" ? "nai-diffusion-5-full" : provider === "stability" ? "stable-image-core" : ["automatic1111", "fooocus", "comfyui"].includes(provider) ? "" : DEFAULT_IMAGE_MODEL;
   const prompt = input.prompt.trim().slice(0, 12000);
   const negativePrompt = Object.prototype.hasOwnProperty.call(input, "negativePrompt")
     ? String(input.negativePrompt || "").trim().slice(0, 12000)
     : DEFAULT_IMAGE_NEGATIVE_PROMPT;
   const openAIPrompt = negativePrompt ? prompt + "\n\nAvoid or exclude: " + negativePrompt : prompt;
-  if (provider === "compatible") {
-    try { imageProviders.compatibleUrl(input.apiBaseUrl); } catch (error) { writeJson(res, 400, { error: error.message }); return; }
+  if (["compatible", "automatic1111", "fooocus", "comfyui"].includes(provider)) {
+    try {
+      imageProviders.localProviderUrl(provider, input.apiBaseUrl, provider === "compatible" ? "images/generations" : provider === "automatic1111" ? "sdapi/v1/txt2img" : provider === "fooocus" ? "v1/generation/text-to-image" : "prompt");
+    } catch (error) { writeJson(res, 400, { error: error.message }); return; }
+  }
+  if (provider === "comfyui") {
+    try { imageProviders.parseWorkflow(input.workflow, MAX_IMAGE_WORKFLOW_BYTES); } catch (error) { writeJson(res, 400, { error: error.message }); return; }
   }
 
   // Reference images: a style sheet and/or character portraits to condition on. Only OpenAI is
@@ -1571,7 +1689,7 @@ async function handleImage(req, res) {
           ...(!isNovelAIV5 ? { sm: false, sm_dyn: false } : {})
         }
       }
-    : provider === "stability" || provider === "compatible" ? null : {
+    : ["stability", "compatible", "automatic1111", "fooocus", "comfyui"].includes(provider) ? null : {
         model,
         prompt: openAIPrompt,
         size,
@@ -1595,6 +1713,16 @@ async function handleImage(req, res) {
     } else if (provider === "compatible") {
       const url = imageProviders.compatibleUrl(input.apiBaseUrl);
       upstream = await upstreamRequest({ ...UPSTREAM.openaiImage, label: "Compatible image request", protocol: url.protocol, hostname: url.hostname.replace(/^\[|\]$/g, ""), port: url.port || undefined, path: url.pathname, headers: () => ({}) }, { model, prompt: openAIPrompt, size, quality, response_format: "b64_json", n: 1 }, apiKey, res);
+    } else if (provider === "automatic1111") {
+      const url = imageProviders.localProviderUrl(provider, input.apiBaseUrl, "sdapi/v1/txt2img");
+      upstream = await upstreamRequest(targetForImageUrl(url, "AUTOMATIC1111 image request"), automatic1111Payload({ model, prompt, negativePrompt, size, quality }), apiKey, res);
+    } else if (provider === "fooocus") {
+      const url = imageProviders.localProviderUrl(provider, input.apiBaseUrl, "v1/generation/text-to-image");
+      upstream = await upstreamRequest(targetForImageUrl(url, "Fooocus image request"), fooocusPayload({ model, prompt, negativePrompt, size, quality }), apiKey, res);
+    } else if (provider === "comfyui") {
+      const result = await comfyUIImageRequest({ baseUrl: input.apiBaseUrl, workflowText: input.workflow, prompt, negativePrompt, apiKey }, res);
+      writeJson(res, 200, { imageDataUrl: result.imageDataUrl, revisedPrompt: "", provider, referenceCount: 0 });
+      return;
     } else if (references.length) {
       // The model cannot tell a style sheet from a character portrait by looking, and the images
       // arrive as an unlabelled ordered list, so the prompt has to say what each one is for.
@@ -1639,19 +1767,23 @@ async function handleImage(req, res) {
     }
     const image = provider === "novelai"
       ? Array.isArray(response.images) ? response.images[0] : null
-      : Array.isArray(response.data) ? response.data[0] : null;
+      : provider === "automatic1111"
+        ? Array.isArray(response.images) ? { b64_json: response.images[0] } : null
+        : provider === "fooocus"
+          ? extractFooocusImage(response)
+          : Array.isArray(response.data) ? response.data[0] : null;
     if (!image) {
       writeJson(res, 502, { error: "The image provider returned no image data." });
       return;
     }
-    const base64Image = provider === "novelai" ? image.image : image.b64_json;
+    const base64Image = provider === "novelai" ? image.image : provider === "fooocus" ? image.base64 : image.b64_json;
     if (typeof base64Image === "string" && base64Image) {
       // referenceCount lets the browser confirm the references actually went, rather than the
       // player having to guess from the picture whether they were honoured.
       writeJson(res, 200, { imageDataUrl: "data:image/png;base64," + base64Image, revisedPrompt: image.revised_prompt || "", provider, referenceCount: references.length });
       return;
     }
-    if (["openai", "compatible"].includes(provider) && typeof image.url === "string" && image.url) {
+    if (["openai", "compatible", "fooocus"].includes(provider) && typeof image.url === "string" && image.url) {
       writeJson(res, 200, { imageDataUrl: image.url, revisedPrompt: image.revised_prompt || "", provider, referenceCount: references.length });
       return;
     }
@@ -1886,7 +2018,7 @@ async function handleRequest(req, res) {
       ok: true,
       // Booleans only. Which providers are ready is useful to the UI; the keys themselves never leave.
       serverKeys: { openai: Boolean(SERVER_KEYS.openai), novelai: Boolean(SERVER_KEYS.novelai), ...Object.fromEntries(Object.keys(textProviders.PRESETS).map(name => [name, Boolean(SERVER_KEYS[name])])) },
-      serverImageKeys: { openai: Boolean(SERVER_IMAGE_KEYS.openai), novelai: Boolean(SERVER_IMAGE_KEYS.novelai), stability: Boolean(SERVER_IMAGE_KEYS.stability), compatible: Boolean(SERVER_IMAGE_KEYS.compatible) },
+      serverImageKeys: { openai: Boolean(SERVER_IMAGE_KEYS.openai), novelai: Boolean(SERVER_IMAGE_KEYS.novelai), stability: Boolean(SERVER_IMAGE_KEYS.stability), automatic1111: false, fooocus: false, comfyui: false, compatible: Boolean(SERVER_IMAGE_KEYS.compatible) },
       envFile: ENV_FILE_LOADED,
       envFilePresent: ENV_FILE_STATUS.exists,
       envFileReadable: ENV_FILE_STATUS.readable,
