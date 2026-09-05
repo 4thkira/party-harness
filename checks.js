@@ -290,6 +290,24 @@ console.log("\ntext-only workspace");
   check("hidden image mode cannot start a generation request", /!state\.showImageArea/.test(HTML));
 }
 
+console.log("\nsidebar navigation");
+{
+  check("third column exposes accessible Party, World, and Trace tabs",
+    ["data-sidebar-tab=\"party\"", "data-sidebar-tab=\"world\"", "data-sidebar-tab=\"trace\""].every(tab => HTML.includes(tab))
+      && /role="tablist"/.test(HTML) && /role="tabpanel"/.test(HTML));
+  check("sidebar panels scroll within the desktop rail",
+    /\.sidebar-panels \{ min-height: 0; flex: 1 1 auto; \}/.test(HTML)
+      && /\.sidebar-panel \{ min-height: 0; height: 100%; overflow-y: auto;/.test(HTML));
+  check("tab switching keeps selection and hidden panels in sync",
+    /function setSidebarTab\(tab, moveFocus = false\)/.test(HTML)
+      && /button\.setAttribute\("aria-selected", String\(selected\)\)/.test(HTML)
+      && /panel\.hidden = !selected/.test(HTML));
+  check("sidebar tabs support keyboard navigation",
+    /ArrowRight.*moveSidebarTab\(button, 1\)/.test(HTML)
+      && /ArrowLeft.*moveSidebarTab\(button, -1\)/.test(HTML)
+      && /event\.key === "Home"/.test(HTML) && /event\.key === "End"/.test(HTML));
+}
+
 console.log("\nprompt cache prefix");
 {
   const start = SERVER.indexOf("const context = {");

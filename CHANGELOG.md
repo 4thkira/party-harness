@@ -6,6 +6,11 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.2.0] — 2026-09-05
+
+- Split the right-hand workspace rail into Party, World, and Trace tabs so roster tools, runtime state, and diagnostics remain easy to find.
+- Added an internal desktop scroll area for long sidebar content, keyboard navigation for the tabs, and plain-language panel descriptions.
+
 ## [0.1.1] — 2026-09-05
 
 - Updated the beginner README tutorial to distinguish tested Releases downloads from the current `main` branch and explain the version numbering.

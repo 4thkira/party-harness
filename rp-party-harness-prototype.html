@@ -257,7 +257,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       position: relative;
       z-index: 4;
       min-height: 0;
-      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       padding: 11px;
       color: var(--ink);
       background: var(--paper-2);
@@ -267,6 +269,18 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 2px solid var(--line); }
     .sidebar-head h3 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
     .party-count { color: var(--rust); font-size: 11px; }
+    .sidebar-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 9px 0 8px; border-bottom: 1px solid #aa9b87; }
+    .sidebar-tab { min-width: 0; padding: 7px 4px; border: 1px solid #a3937d; color: var(--muted); background: transparent; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+    .sidebar-tab:hover { color: var(--rust); border-color: var(--rust); }
+    .sidebar-tab.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
+    .sidebar-tab:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+    .sidebar-panels { min-height: 0; flex: 1 1 auto; }
+    .sidebar-panel { min-height: 0; height: 100%; overflow-y: auto; overflow-x: hidden; padding-right: 4px; scrollbar-gutter: stable; }
+    .sidebar-panel[hidden] { display: none; }
+    .sidebar-panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 2px 0 8px; }
+    .sidebar-panel-heading strong { color: var(--rust); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+    .sidebar-panel-heading span { color: var(--muted); font-size: 10px; }
+    .sidebar-panel-note { margin: 0 0 8px; color: var(--muted); font-size: 10px; line-height: 1.45; }
     .party-list { display: grid; gap: 7px; padding: 9px 0; }
     .member {
       position: relative;
@@ -488,6 +502,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       .visual-column { min-height: 520px; }
       .narrative-column { min-height: 640px; }
       .sidebar { max-height: none; overflow: visible; }
+      .sidebar-panel { height: auto; overflow: visible; padding-right: 0; }
       .selected-panel { max-height: none; overflow: visible; }
       .member-bubble-stack { position: relative; right: auto; top: auto; width: auto; margin-bottom: 7px; }
     }
@@ -618,19 +633,28 @@ this program. If not, see https://www.gnu.org/licenses/.
 
       <aside class="sidebar">
         <div class="sidebar-head"><h3>Party</h3><span class="party-count" id="party-count">03 / 05</span></div>
-        <div class="party-list" id="party-list"></div>
-        <button class="add-member" id="add-member">+ ADD PARTY MEMBER</button>
-
-        <div class="selected-panel" id="selected-panel"></div>
-
-        <details class="runtime-panel" open>
-          <summary>World state</summary>
-          <div id="world-state-panel"></div>
-        </details>
-        <details class="runtime-panel">
-          <summary>Turn trace</summary>
-          <div id="turn-trace-panel"></div>
-        </details>
+        <div class="sidebar-tabs" role="tablist" aria-label="Party sidebar views">
+          <button class="sidebar-tab active" id="sidebar-tab-party" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-party" data-sidebar-tab="party" title="Party roster and selected character">PARTY</button>
+          <button class="sidebar-tab" id="sidebar-tab-world" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-world" data-sidebar-tab="world" tabindex="-1" title="Mechanical world state and memory proposals">WORLD</button>
+          <button class="sidebar-tab" id="sidebar-tab-trace" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-trace" data-sidebar-tab="trace" tabindex="-1" title="Recent provider turns and validation results">TRACE</button>
+        </div>
+        <div class="sidebar-panels">
+          <section class="sidebar-panel" id="sidebar-panel-party" data-sidebar-panel="party" role="tabpanel" aria-labelledby="sidebar-tab-party" aria-hidden="false">
+            <div class="party-list" id="party-list"></div>
+            <button class="add-member" id="add-member">+ ADD PARTY MEMBER</button>
+            <div class="selected-panel" id="selected-panel"></div>
+          </section>
+          <section class="sidebar-panel" id="sidebar-panel-world" data-sidebar-panel="world" role="tabpanel" aria-labelledby="sidebar-tab-world" aria-hidden="true" hidden>
+            <div class="sidebar-panel-heading"><strong>World state</strong><span>scene mechanics</span></div>
+            <p class="sidebar-panel-note">Track facts, clocks, inventory, relationships, and memory proposals. Changes are applied when their beat appears.</p>
+            <div id="world-state-panel"></div>
+          </section>
+          <section class="sidebar-panel" id="sidebar-panel-trace" data-sidebar-panel="trace" role="tabpanel" aria-labelledby="sidebar-tab-trace" aria-hidden="true" hidden>
+            <div class="sidebar-panel-heading"><strong>Turn trace</strong><span>latest six turns</span></div>
+            <p class="sidebar-panel-note">A compact diagnostic record of provider requests, response timing, beat counts, and rejected proposals.</p>
+            <div id="turn-trace-panel"></div>
+          </section>
+        </div>
 
       </aside>
     </main>
@@ -1104,6 +1128,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     let persistenceRevision = 0;
     let autosaveEnabled = true;
     let changeRevision = 0;
+    const SIDEBAR_TABS = ["party", "world", "trace"];
+    let activeSidebarTab = "party";
 
     const state = {
       party: structuredClone(DEFAULT_PARTY),
@@ -1620,6 +1646,30 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("regenerate-turn").disabled = turnInFlight || !hasTurn;
       $("undo-turn").disabled = turnInFlight || !hasTurn;
       $("cancel-turn").hidden = !turnInFlight;
+    }
+
+    function setSidebarTab(tab, moveFocus = false) {
+      const next = SIDEBAR_TABS.includes(tab) ? tab : SIDEBAR_TABS[0];
+      activeSidebarTab = next;
+      document.querySelectorAll("[data-sidebar-tab]").forEach(button => {
+        const selected = button.dataset.sidebarTab === next;
+        button.classList.toggle("active", selected);
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      });
+      document.querySelectorAll("[data-sidebar-panel]").forEach(panel => {
+        const selected = panel.dataset.sidebarPanel === next;
+        panel.hidden = !selected;
+        panel.setAttribute("aria-hidden", String(!selected));
+      });
+      if (moveFocus) document.querySelector(`[data-sidebar-tab="${next}"]`)?.focus();
+    }
+
+    function moveSidebarTab(button, direction) {
+      const index = SIDEBAR_TABS.indexOf(button.dataset.sidebarTab);
+      if (index < 0) return;
+      const next = SIDEBAR_TABS[(index + direction + SIDEBAR_TABS.length) % SIDEBAR_TABS.length];
+      setSidebarTab(next, true);
     }
 
     function renderAll() {
@@ -4388,6 +4438,15 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("cancel-turn").addEventListener("click", cancelTurn);
     $("regenerate-turn").addEventListener("click", regenerateLastTurn);
     $("undo-turn").addEventListener("click", undoLastTurn);
+    document.querySelectorAll("[data-sidebar-tab]").forEach(button => {
+      button.addEventListener("click", () => setSidebarTab(button.dataset.sidebarTab));
+      button.addEventListener("keydown", event => {
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); moveSidebarTab(button, 1); }
+        if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); moveSidebarTab(button, -1); }
+        if (event.key === "Home") { event.preventDefault(); setSidebarTab(SIDEBAR_TABS[0], true); }
+        if (event.key === "End") { event.preventDefault(); setSidebarTab(SIDEBAR_TABS.at(-1), true); }
+      });
+    });
     $("help-button").addEventListener("click", () => openBackdrop("help-backdrop", "close-help"));
     $("close-help").addEventListener("click", () => closeBackdrop("help-backdrop"));
     $("help-backdrop").addEventListener("click", event => { if (event.target.id === "help-backdrop") requestCloseModal("help-backdrop"); });

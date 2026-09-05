@@ -49,6 +49,8 @@ Keys typed in Settings disappear when you refresh. To avoid retyping them:
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
 | Sessions | Named saves, session import/export, and readable story exports. |
 
+The right-hand rail is split into **Party**, **World**, and **Trace** tabs so the roster, selected character tools, mechanical state, and diagnostics do not compete for the same vertical space. The active tab scrolls on desktop; on a narrow screen the rail becomes part of the normal page flow.
+
 Autosave and named saves live in this browser on this computer. Use the same browser, address, and port to return to them. Clearing site data can erase them. **Export session JSON** for a portable backup; **Export story (Markdown)** is a readable transcript, not a restorable session.
 
 Session exports exclude API keys and generated image data. Save generated art separately. Character sheets, uploaded portraits, and story text may be personal, so review your session files before sharing them.
