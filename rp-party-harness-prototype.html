@@ -259,7 +259,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       min-height: 0;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: visible;
       padding: 11px;
       color: var(--ink);
       background: var(--paper-2);
@@ -281,10 +281,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-panel-heading strong { color: var(--rust); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
     .sidebar-panel-heading span { color: var(--muted); font-size: 10px; }
     .sidebar-panel-note { margin: 0 0 8px; color: var(--muted); font-size: 10px; line-height: 1.45; }
-    /* The party view scrolls, so a bubble that floats outside its member card would be clipped by
-       the panel. Keep it in the card at every width; the text remains prominent and dismissible. */
-    .party-sidebar-panel .member-bubble-stack { position: relative; right: auto; top: auto; width: auto; margin-bottom: 7px; }
-    .party-sidebar-panel .member-bubble:after { display: none; }
+    .sidebar-bubble-layer { position: absolute; z-index: 30; inset: 0; overflow: visible; pointer-events: none; }
+    .sidebar-bubble-layer[hidden] { display: none; }
+    .sidebar-bubble-layer .member-bubble-stack { top: auto; right: auto; pointer-events: auto; }
     .party-list { display: grid; gap: 7px; padding: 9px 0; }
     .member {
       position: relative;
@@ -659,6 +658,7 @@ this program. If not, see https://www.gnu.org/licenses/.
             <div id="turn-trace-panel"></div>
           </section>
         </div>
+        <div class="sidebar-bubble-layer" id="sidebar-bubble-layer" aria-label="Contextual party speech bubbles" hidden></div>
 
       </aside>
     </main>
@@ -1666,6 +1666,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         panel.hidden = !selected;
         panel.setAttribute("aria-hidden", String(!selected));
       });
+      positionSidebarBubbles();
       if (moveFocus) document.querySelector(`[data-sidebar-tab="${next}"]`)?.focus();
     }
 
@@ -1835,8 +1836,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (visualColumn) visualColumn.setAttribute("aria-hidden", state.showImageArea ? "false" : "true");
     }
 
-    // Bubbles themselves are drawn by renderParty, attached to the speaker's portrait. Only the
-    // count line lives here.
+    // Speech bubbles are rendered into the rail's overlay layer so they can float outside the third
+    // column without being clipped by the Party panel's scroll container. Only the count line lives
+    // here.
     function renderBubbles() {
       $("bubble-status").textContent = state.bubbles.length ? `BUBBLES: ${state.bubbles.length} CONTEXTUAL INTERRUPTION${state.bubbles.length === 1 ? "" : "S"}` : "BUBBLES: NONE / PARTY IS SILENT";
     }
@@ -1859,6 +1861,46 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (follow) follow.focus();
     }
 
+    function renderPartyBubbles() {
+      const layer = $("sidebar-bubble-layer");
+      if (!layer) return;
+      layer.innerHTML = state.party.map(member => state.bubbles.map((bubble, bubbleIndex) => {
+        const belongs = bubble.characterId ? bubble.characterId === member.id : bubble.character === member.name;
+        if (!belongs) return "";
+        return '<div class="member-bubble-stack" data-bubble-anchor="' + escapeHtml(member.id) + '"><div class="member-bubble"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' speech bubble">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + escapeHtml(bubble.type || "reaction") + '</span><span class="member-bubble-text">' + escapeHtml(bubble.text) + '</span></div></div>';
+      }).join("")).join("");
+      layer.querySelectorAll("[data-dismiss-bubble]").forEach(button => button.addEventListener("click", event => {
+        event.stopPropagation();
+        const bubbleIndex = Number(button.dataset.dismissBubble);
+        if (!Number.isInteger(bubbleIndex) || bubbleIndex < 0 || bubbleIndex >= state.bubbles.length) return;
+        state.bubbles.splice(bubbleIndex, 1);
+        renderAll();
+      }));
+      positionSidebarBubbles();
+    }
+
+    function positionSidebarBubbles() {
+      const layer = $("sidebar-bubble-layer");
+      const panel = $("sidebar-panel-party");
+      if (!layer || !panel) return;
+      const visible = activeSidebarTab === "party" && !panel.hidden && state.bubbles.length > 0;
+      layer.hidden = !visible;
+      if (!visible) return;
+      const layerRect = layer.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const cards = Array.from(panel.querySelectorAll("[data-member-id]"));
+      layer.querySelectorAll("[data-bubble-anchor]").forEach(stack => {
+        const card = cards.find(candidate => candidate.dataset.memberId === stack.dataset.bubbleAnchor);
+        if (!card) { stack.hidden = true; return; }
+        const cardRect = card.getBoundingClientRect();
+        const inPanel = cardRect.bottom > panelRect.top && cardRect.top < panelRect.bottom && cardRect.right > panelRect.left && cardRect.left < panelRect.right;
+        stack.hidden = !inPanel;
+        if (!inPanel) return;
+        stack.style.top = Math.round(cardRect.top - layerRect.top) + "px";
+        stack.style.left = Math.round(cardRect.left - layerRect.left - stack.offsetWidth - 12) + "px";
+      });
+    }
+
     function renderParty() {
       // innerHTML replacement destroys focus, so a turn landing while someone is tabbed into the
       // sidebar used to dump them back at the top of the document. Remember where they were.
@@ -1868,11 +1910,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         : "";
       const playerIsFirst = state.playerMode !== "dm";
       $("party-list").innerHTML = state.party.map((member, index) => `
-        <div class="member ${index === state.selected ? "selected" : ""}" data-member="${index}">
-          ${state.bubbles.filter(bubble => bubble.characterId ? bubble.characterId === member.id : bubble.character === member.name).map(bubble => {
-            const bubbleIndex = state.bubbles.indexOf(bubble);
-            return '<div class="member-bubble-stack"><div class="member-bubble"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' speech bubble">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + escapeHtml(bubble.type) + '</span><span class="member-bubble-text">' + escapeHtml(bubble.text) + '</span></div></div>';
-          }).join("")}
+        <div class="member ${index === state.selected ? "selected" : ""}" data-member="${index}" data-member-id="${escapeHtml(member.id)}">
           <div class="member-main">
             <div class="portrait" style="background:${safeColor(member.color)}">${portraitMarkup(member)}</div>
             <div><h4 class="member-name">${escapeHtml(member.name)}${playerIsFirst && index === 0 ? '<span class="you-badge" title="In first-party-member mode the player controls the first listed character">YOU</span>' : ""}</h4><div class="member-role">${escapeHtml(member.role || "unassigned")}</div></div>
@@ -1903,14 +1941,6 @@ this program. If not, see https://www.gnu.org/licenses/.
         const restored = document.querySelector(kind === "edit" ? `[data-edit="${value}"]` : `[data-move="${value}"]`);
         if (restored && !restored.disabled) restored.focus();
       }
-      document.querySelectorAll("[data-dismiss-bubble]").forEach(button => button.addEventListener("click", event => {
-        event.stopPropagation();
-        const bubbleIndex = Number(button.dataset.dismissBubble);
-        if (Number.isInteger(bubbleIndex) && bubbleIndex >= 0 && bubbleIndex < state.bubbles.length) {
-          state.bubbles.splice(bubbleIndex, 1);
-          renderAll();
-        }
-      }));
       $("add-member").disabled = state.party.length >= 5;
       $("add-member").textContent = state.party.length >= 5 ? "PARTY LIMIT REACHED" : "+ ADD PARTY MEMBER";
       const selected = state.party[state.selected];
@@ -1920,6 +1950,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         $("toggle-selected-mute").addEventListener("click", () => { selected.muted = !selected.muted; state.bubbles = state.bubbles.filter(bubble => bubble.characterId !== selected.id); markDirty(); renderAll(); });
         $("toggle-selected-initiative").addEventListener("click", () => { selected.initiative = selected.initiative === false; markDirty(); renderAll(); });
       }
+      renderPartyBubbles();
     }
 
     function renderSuggestions() {
@@ -4451,6 +4482,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (event.key === "End") { event.preventDefault(); setSidebarTab(SIDEBAR_TABS.at(-1), true); }
       });
     });
+    $("sidebar-panel-party").addEventListener("scroll", positionSidebarBubbles, { passive: true });
+    window.addEventListener("resize", positionSidebarBubbles);
     $("help-button").addEventListener("click", () => openBackdrop("help-backdrop", "close-help"));
     $("close-help").addEventListener("click", () => closeBackdrop("help-backdrop"));
     $("help-backdrop").addEventListener("click", event => { if (event.target.id === "help-backdrop") requestCloseModal("help-backdrop"); });

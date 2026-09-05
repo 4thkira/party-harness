@@ -407,3 +407,28 @@ test("new provider settings travel with text requests and never reuse a foreign 
   await h.run('requestGeneratedImage()');
   assert.equal(h.context.imageBody.apiKey,'explicit-image-key');
 });
+
+test("speech bubbles render in the outside overlay and remain dismissible", () => {
+  const h = harness();
+  h.run(`
+    const layer = document.getElementById('sidebar-bubble-layer');
+    const panel = document.getElementById('sidebar-panel-party');
+    const member = state.party[0];
+    const card = {dataset:{memberId:member.id}, getBoundingClientRect:() => ({top:20,left:380,right:480,bottom:120})};
+    const bubble = {dataset:{bubbleAnchor:member.id}, style:{}, offsetWidth:80, hidden:false};
+    globalThis.testBubble = bubble;
+    layer.getBoundingClientRect = () => ({top:0,left:300});
+    panel.getBoundingClientRect = () => ({top:0,left:300,right:600,bottom:500});
+    panel.querySelectorAll = () => [card];
+    layer.querySelectorAll = selector => selector === '[data-dismiss-bubble]'
+      ? [{dataset:{dismissBubble:'0'}, addEventListener:(_, callback) => { globalThis.dismissBubble = callback; }}]
+      : [bubble];
+    state.bubbles = [{characterId:member.id,type:'warning',text:'Look out'}];
+    renderPartyBubbles();
+  `);
+  assert.equal(h.element("sidebar-bubble-layer").hidden, false);
+  assert.equal(h.run("testBubble.style.top"), "20px");
+  assert.equal(h.run("testBubble.style.left"), "-12px");
+  h.run("dismissBubble({stopPropagation(){}})");
+  assert.equal(h.run("state.bubbles.length"), 0);
+});

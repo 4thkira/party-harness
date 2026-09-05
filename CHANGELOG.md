@@ -6,6 +6,11 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.2.2] — 2026-09-05
+
+- Restored the original floating speech-bubble presentation beside the third-column party cards.
+- Anchored bubbles to their cards while the Party panel scrolls, so they can extend into the main workspace without being clipped.
+
 ## [0.2.1] — 2026-09-05
 
 - Kept contextual speech bubbles visible after the sidebar became scrollable by placing them inside their party cards instead of letting the new overflow boundary clip them.

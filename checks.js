@@ -306,9 +306,12 @@ console.log("\nsidebar navigation");
     /ArrowRight.*moveSidebarTab\(button, 1\)/.test(HTML)
       && /ArrowLeft.*moveSidebarTab\(button, -1\)/.test(HTML)
       && /event\.key === "Home"/.test(HTML) && /event\.key === "End"/.test(HTML));
-  check("contextual bubbles stay visible inside the scrollable party panel",
-    /party-sidebar-panel \.member-bubble-stack \{ position: relative; right: auto; top: auto; width: auto;/.test(HTML)
-      && /party-sidebar-panel \.member-bubble:after \{ display: none; \}/.test(HTML));
+  check("contextual bubbles float outside the scrollable party panel",
+    /id="sidebar-bubble-layer"/.test(HTML)
+      && /function renderPartyBubbles\(\)/.test(HTML)
+      && /function positionSidebarBubbles\(\)/.test(HTML)
+      && /sidebar-panel-party"\)\.addEventListener\("scroll", positionSidebarBubbles/.test(HTML),
+    "the party panel's overflow boundary must not clip speaker bubbles");
 }
 
 console.log("\nprompt cache prefix");
