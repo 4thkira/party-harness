@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+the-old-gate.json
+characters/*
+!characters/example.md
+sfx/
+RP-PARTY-HARNESS-SUMMARY.md
+HARNESS-REVIEW.md
