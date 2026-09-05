@@ -24,6 +24,7 @@ const HTML = fs.readFileSync(path.join(__dirname, "rp-party-harness-prototype.ht
 const SERVER = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
 const LAUNCHER = fs.readFileSync(path.join(__dirname, "start-party-harness.ps1"), "utf8");
 const RELEASE = fs.readFileSync(path.join(__dirname, "prepare-release.js"), "utf8");
+const README = fs.readFileSync(path.join(__dirname, "README.md"), "utf8");
 
 let failures = 0;
 let checks = 0;
@@ -264,6 +265,9 @@ console.log("\nimage provider safety");
 
 console.log("\nrelease packaging");
 {
+  check("README points new users to tested releases",
+    /GitHub Releases page/.test(README) && /party-harness-public\.zip/.test(README),
+    "the tutorial should explain where stable downloads and update notes live");
   check("release packaging includes version history",
     /'CHANGELOG\.md'/.test(RELEASE),
     "public downloads should carry their release notes");

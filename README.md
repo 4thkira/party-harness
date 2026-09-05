@@ -6,10 +6,16 @@ See [CHANGELOG.md](CHANGELOG.md) for versioned updates and release notes.
 
 This is a working prototype. It runs on your computer, but text generation can use a hosted provider or a model running on your computer. Hosted generation needs your own API access and may cost money. Images use a separate image provider, either hosted or a compatible server on your computer. You can explore the interface and edit characters without a key.
 
+## Download a release
+
+For the easiest setup, use the [GitHub Releases page](https://github.com/4thkira/party-harness/releases). Open the newest non-draft release, download `party-harness-public.zip` from **Assets**, and extract it. Releases are the tested snapshots intended for users. **Code → Download ZIP** downloads the current `main` branch instead, which may contain work that has not been released yet.
+
+Read [CHANGELOG.md](CHANGELOG.md) to see what changed between versions. Bug-fix releases increment the last number (`v0.1.1`), feature releases increment the middle number (`v0.2.0`), and breaking changes increment the first number (`v1.0.0`).
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
-2. Download this repository using **Code → Download ZIP**, then extract it to a folder. Keep the supplied files together.
+2. If you did not already download a release above, use **Code → Download ZIP**, then extract it to a folder. Keep the supplied files together.
 3. On Windows, double-click **Start Party Harness.cmd**. On macOS/Linux, open a terminal in the extracted folder and run `node server.js`. There is no `npm install` step.
 4. Keep that terminal open and visit **http://127.0.0.1:8787/** in your browser. Open the address, not the HTML file itself.
 5. Open **SETTINGS → Text generation connection**. Choose a text provider, enter its exact model ID, and enter its API key if needed (NovelAI uses a Persistent API token). For local models, see the connection table below. Leave the custom roleplay backend URL blank.
