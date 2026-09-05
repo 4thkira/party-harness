@@ -721,9 +721,11 @@ function prepareComfyWorkflow(workflowText, prompt, negativePrompt) {
     const rawWorkflow = String(workflowText || "").trim();
     const promptPlaceholders = (rawWorkflow.match(/\{\{prompt\}\}/gi) || []).length;
     const negativePlaceholders = (rawWorkflow.match(/\{\{negative_prompt\}\}/gi) || []).length;
+    const promptTokenBytes = Buffer.byteLength("{{prompt}}", "utf8");
+    const negativeTokenBytes = Buffer.byteLength("{{negative_prompt}}", "utf8");
     const estimatedExpandedBytes = Buffer.byteLength(rawWorkflow, "utf8")
-      + promptPlaceholders * Buffer.byteLength(prompt, "utf8")
-      + negativePlaceholders * Buffer.byteLength(negativePrompt, "utf8");
+      + promptPlaceholders * (Buffer.byteLength(prompt, "utf8") - promptTokenBytes)
+      + negativePlaceholders * (Buffer.byteLength(negativePrompt, "utf8") - negativeTokenBytes);
     if (estimatedExpandedBytes > MAX_IMAGE_WORKFLOW_BYTES) {
       throw new Error("The ComfyUI workflow expands beyond the 1 MiB limit after prompt placeholders are replaced.");
     }
@@ -785,7 +787,7 @@ async function comfyUIImageRequest({ baseUrl, workflowText, prompt, negativeProm
     // cancelled scene from consuming the local queue; failure here must not mask the original error.
     if ((clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) || /timed out|did not finish/i.test(error.message || "")) {
       const interruptUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "interrupt");
-      void upstreamRequest(targetForImageUrl(interruptUrl, "ComfyUI interruption request"), { prompt_id: promptId }, apiKey, null).catch(() => {});
+      void upstreamRequest(targetForImageUrl(interruptUrl, "ComfyUI interruption request", 5000), { prompt_id: promptId }, apiKey, null).catch(() => {});
     }
     throw error;
   }
