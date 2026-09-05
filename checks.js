@@ -306,6 +306,9 @@ console.log("\nsidebar navigation");
     /ArrowRight.*moveSidebarTab\(button, 1\)/.test(HTML)
       && /ArrowLeft.*moveSidebarTab\(button, -1\)/.test(HTML)
       && /event\.key === "Home"/.test(HTML) && /event\.key === "End"/.test(HTML));
+  check("contextual bubbles stay visible inside the scrollable party panel",
+    /party-sidebar-panel \.member-bubble-stack \{ position: relative; right: auto; top: auto; width: auto;/.test(HTML)
+      && /party-sidebar-panel \.member-bubble:after \{ display: none; \}/.test(HTML));
 }
 
 console.log("\nprompt cache prefix");

@@ -281,6 +281,10 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-panel-heading strong { color: var(--rust); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
     .sidebar-panel-heading span { color: var(--muted); font-size: 10px; }
     .sidebar-panel-note { margin: 0 0 8px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    /* The party view scrolls, so a bubble that floats outside its member card would be clipped by
+       the panel. Keep it in the card at every width; the text remains prominent and dismissible. */
+    .party-sidebar-panel .member-bubble-stack { position: relative; right: auto; top: auto; width: auto; margin-bottom: 7px; }
+    .party-sidebar-panel .member-bubble:after { display: none; }
     .party-list { display: grid; gap: 7px; padding: 9px 0; }
     .member {
       position: relative;
@@ -639,7 +643,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <button class="sidebar-tab" id="sidebar-tab-trace" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-trace" data-sidebar-tab="trace" tabindex="-1" title="Recent provider turns and validation results">TRACE</button>
         </div>
         <div class="sidebar-panels">
-          <section class="sidebar-panel" id="sidebar-panel-party" data-sidebar-panel="party" role="tabpanel" aria-labelledby="sidebar-tab-party" aria-hidden="false">
+          <section class="sidebar-panel party-sidebar-panel" id="sidebar-panel-party" data-sidebar-panel="party" role="tabpanel" aria-labelledby="sidebar-tab-party" aria-hidden="false">
             <div class="party-list" id="party-list"></div>
             <button class="add-member" id="add-member">+ ADD PARTY MEMBER</button>
             <div class="selected-panel" id="selected-panel"></div>

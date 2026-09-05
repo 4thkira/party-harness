@@ -6,6 +6,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.2.1] — 2026-09-05
+
+- Kept contextual speech bubbles visible after the sidebar became scrollable by placing them inside their party cards instead of letting the new overflow boundary clip them.
+
 ## [0.2.0] — 2026-09-05
 
 - Split the right-hand workspace rail into Party, World, and Trace tabs so roster tools, runtime state, and diagnostics remain easy to find.
