@@ -913,7 +913,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     const MAX_SESSION_STATS = 5;
 
     const DEFAULT_PARTY = [
-      { id: "mira", name: "Mira", role: "field analyst", pronouns: "she / her", feeling: "uneasy", personality: "Observant and incisive. Speaks plainly, dislikes needless risk, and notices patterns before people do.", strengths: "pattern-reading, composure", weaknesses: "overthinks, hates being wrong", stats: [72, 84, 45], color: "#5b625c" },
+      { id: "spierce", name: "Spierce", role: "field analyst", pronouns: "she / her", feeling: "uneasy", personality: "Observant and incisive. Speaks plainly, dislikes needless risk, and notices patterns before people do.", strengths: "pattern-reading, composure", weaknesses: "overthinks, hates being wrong", stats: [72, 84, 45], color: "#5b625c" },
       { id: "rowan", name: "Rowan", role: "pathfinder", pronouns: "he / him", feeling: "restless", personality: "Warm, impulsive, and curious. Treats danger as an invitation until it proves itself personal.", strengths: "mobility, improvisation", weaknesses: "reckless, distractible", stats: [81, 52, 68], color: "#66747a" },
       { id: "vey", name: "Vey", role: "ritualist", pronouns: "they / them", feeling: "watchful", personality: "Precise and dryly funny. Prefers asking one more question before committing to anything.", strengths: "memory, wards", weaknesses: "secretive, physically fragile", stats: [39, 91, 56], color: "#6e766e" }
     ];
@@ -1205,7 +1205,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         { kind: "body", text: "There are fresh boot prints in the mud. They lead through the gate. None lead back." }
       ],
       bubbles: [],
-      suggestions: ["Examine the fresh boot prints", "Ask Mira what she notices", "Go through the gate"]
+      suggestions: ["Examine the fresh boot prints", "Ask Spierce what she notices", "Go through the gate"]
     };
 
     const $ = (id) => document.getElementById(id);
@@ -4433,13 +4433,18 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("settings-response-length").addEventListener("change", event => { state.responseLength = event.target.value; renderAll(); });
     $("settings-image-provider").addEventListener("change", event => {
       state.imageProvider = event.target.value;
-      if (state.imageProvider === "novelai" && (!state.imageModel || state.imageModel === "gpt-image-2")) state.imageModel = "nai-diffusion-5-full";
-      if (state.imageProvider === "openai" && (!state.imageModel || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "gpt-image-2";
-      if (state.imageProvider === "stability" && (!state.imageModel || state.imageModel === "gpt-image-2" || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "stable-image-core";
-      if (state.imageProvider === "automatic1111" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-checkpoint-name";
-      if (state.imageProvider === "fooocus" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-fooocus-model";
-      if (state.imageProvider === "comfyui" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name", "your-fooocus-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "";
-      if (state.imageProvider === "compatible" && (!state.imageModel || ["gpt-image-2", "stable-image-core", "your-image-model", "your-checkpoint-name", "your-fooocus-model"].includes(state.imageModel) || state.imageModel.startsWith("nai-diffusion-"))) state.imageModel = "your-image-model";
+      // Connection fields belong to the selected provider. Clearing them on a switch prevents a
+      // key, remote endpoint, or Comfy workflow from being sent to a different service by accident.
+      state.imageApiKey = "";
+      state.imageApiBaseUrl = "";
+      state.imageWorkflow = "";
+      state.imageModel = state.imageProvider === "novelai" ? "nai-diffusion-5-full"
+        : state.imageProvider === "openai" ? "gpt-image-2"
+          : state.imageProvider === "stability" ? "stable-image-core"
+            : state.imageProvider === "automatic1111" ? "your-checkpoint-name"
+              : state.imageProvider === "fooocus" ? "your-fooocus-model"
+                : state.imageProvider === "comfyui" ? ""
+                  : "your-image-model";
       renderAll();
     });
     $("settings-image-api-base").addEventListener("input", event => { state.imageApiBaseUrl = event.target.value.slice(0, 2000); renderPromptPreview(); });

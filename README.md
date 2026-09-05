@@ -51,7 +51,7 @@ Your selected provider receives the context needed for generation, including rel
 
 Edit sheets directly in the party sidebar, or place Markdown (`.md`) profiles in `characters/`. Use **REFRESH FILES**, choose a profile, and optionally **PROCESS WITH LLM** to suggest sheet fields. Review those fields before saving. Processing a profile is a provider request.
 
-`characters/example.md` shows a simple format. You can also write ordinary prose. The public package uses a generic sample roster; replace it with your own characters.
+`characters/example.md` shows a simple format. You can also write ordinary prose. The supplied roster is an example; replace it with your own characters when you are ready.
 
 ## Troubleshooting
 
@@ -113,7 +113,7 @@ The custom image connection expects an OpenAI-style `POST /images/generations` r
 
 The API base URL is different from the custom roleplay backend URL. For local/compatible models, fill the **Provider API base URL**, usually ending in /v1. Leave **Custom roleplay backend URL** blank. Hosted presets have fixed official URLs. HTTP is allowed only on loopback (localhost, 127.0.0.1, or ::1); use HTTPS and Custom OpenAI-compatible for a server elsewhere.
 
-New hosted presets start with an empty model field so you can enter a currently available model from your account. Switching providers clears the browser text key, model, base URL, output-mode override, and custom roleplay backend; enter the new connection's details. OpenAI and NovelAI retain their existing default model suggestions. Local UI presets use their usual loopback ports as placeholders. Session files retain model/compatibility settings, but imported external files cannot set a provider base URL or ComfyUI workflow. Re-enter those values after importing.
+New hosted presets start with an empty model field so you can enter a currently available model from your account. Switching text providers clears the browser text key, model, base URL, output-mode override, and custom roleplay backend; switching image providers also clears the image key, image base URL, ComfyUI workflow, and model so connection details cannot cross services. Enter the new connection's details. OpenAI and NovelAI retain their existing default model suggestions. Local UI presets use their usual loopback ports as placeholders. Session files retain model/compatibility settings, but imported external files cannot set a provider base URL or ComfyUI workflow. Re-enter those values after importing.
 
 **Structured output compatibility:** local presets default to JSON schema; hosted chat presets default to JSON mode. Use JSON schema where your model supports it. If a server rejects response_format, choose Prompt only. Prompt only still asks for the required JSON structure but cannot enforce it during generation. The harness parses and normalizes replies and reports unusable or truncated output rather than fabricating a scene. There is no automatic retry that silently switches modes and spends more credits.
 

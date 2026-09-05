@@ -247,6 +247,20 @@ console.log("\nreference images");
     Math.ceil(clientThreshold * 3 / 4) < perImage);
 }
 
+console.log("\nimage provider safety");
+{
+  check("switching image providers clears connection-specific fields",
+    /settings-image-provider"\)\.addEventListener\("change"[\s\S]{0,1200}?state\.imageApiKey = ""[\s\S]{0,400}?state\.imageApiBaseUrl = ""[\s\S]{0,400}?state\.imageWorkflow = ""/.test(HTML),
+    "an image key or endpoint could otherwise be sent to the newly selected provider");
+  check("CSP allows loopback image URLs",
+    /"img-src 'self' data: https: http:\/\/localhost:\* http:\/\/127\.0\.0\.1:\* http:\/\/\[::1\]:\*"/.test(SERVER),
+    "local providers may return an HTTP image URL when base64 output is unavailable");
+  check("ComfyUI workflow expansion stays bounded",
+    /estimatedExpandedBytes > MAX_IMAGE_WORKFLOW_BYTES/.test(SERVER)
+      && /Buffer\.byteLength\(workflowJson, "utf8"\) > MAX_IMAGE_WORKFLOW_BYTES/.test(SERVER),
+    "the pre-replacement workflow cap is not enough when a prompt appears repeatedly");
+}
+
 console.log("\ntext-only workspace");
 {
   check("image area is enabled by default", /showImageArea: true/.test(HTML));

@@ -657,10 +657,11 @@ const novelAIImageRequest = (payload, apiKey, clientResponse) => upstreamRequest
 const novelAITextRequest = (payload, apiKey, apiPath = "/oa/v1/chat/completions", clientResponse) =>
   upstreamRequest(UPSTREAM.novelaiText, payload, apiKey, clientResponse, { path: apiPath });
 
-function targetForImageUrl(url, label) {
+function targetForImageUrl(url, label, timeout = UPSTREAM_IMAGE_TIMEOUT_MS) {
   return {
     ...UPSTREAM.openaiImage,
     label,
+    timeout: Math.max(1, Math.min(UPSTREAM_IMAGE_TIMEOUT_MS, timeout)),
     protocol: url.protocol,
     hostname: url.hostname.replace(/^\[|\]$/g, ""),
     port: url.port || undefined,
@@ -714,25 +715,47 @@ function imageDataUrlFromBuffer(buffer, contentType = "") {
   return "data:" + signature.contentType + ";base64," + buffer.toString("base64");
 }
 
+function prepareComfyWorkflow(workflowText, prompt, negativePrompt) {
+  try {
+    const workflow = imageProviders.parseWorkflow(workflowText, MAX_IMAGE_WORKFLOW_BYTES);
+    const rawWorkflow = String(workflowText || "").trim();
+    const promptPlaceholders = (rawWorkflow.match(/\{\{prompt\}\}/gi) || []).length;
+    const negativePlaceholders = (rawWorkflow.match(/\{\{negative_prompt\}\}/gi) || []).length;
+    const estimatedExpandedBytes = Buffer.byteLength(rawWorkflow, "utf8")
+      + promptPlaceholders * Buffer.byteLength(prompt, "utf8")
+      + negativePlaceholders * Buffer.byteLength(negativePrompt, "utf8");
+    if (estimatedExpandedBytes > MAX_IMAGE_WORKFLOW_BYTES) {
+      throw new Error("The ComfyUI workflow expands beyond the 1 MiB limit after prompt placeholders are replaced.");
+    }
+    const replaced = imageProviders.replaceWorkflowPlaceholders(workflow, prompt, negativePrompt);
+    if (!replaced.promptCount) throw new Error("The ComfyUI workflow needs a {{prompt}} placeholder in its positive text node.");
+    const workflowJson = JSON.stringify(replaced.workflow);
+    if (Buffer.byteLength(workflowJson, "utf8") > MAX_IMAGE_WORKFLOW_BYTES) {
+      throw new Error("The ComfyUI workflow expands beyond the 1 MiB limit after prompt placeholders are replaced.");
+    }
+    return { workflow: replaced.workflow, workflowJson };
+  } catch (error) {
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 async function comfyUIImageRequest({ baseUrl, workflowText, prompt, negativePrompt, apiKey }, clientResponse) {
-  const workflow = imageProviders.parseWorkflow(workflowText, MAX_IMAGE_WORKFLOW_BYTES);
-  const replaced = imageProviders.replaceWorkflowPlaceholders(workflow, prompt, negativePrompt);
-  if (!replaced.promptCount) throw new Error("The ComfyUI workflow needs a {{prompt}} placeholder in its positive text node.");
-  const workflowJson = JSON.stringify(replaced.workflow);
+  const prepared = prepareComfyWorkflow(workflowText, prompt, negativePrompt);
   const clientId = crypto.randomUUID();
+  const deadline = Date.now() + UPSTREAM_IMAGE_TIMEOUT_MS;
   const promptUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "prompt");
-  const queued = await upstreamRequest(targetForImageUrl(promptUrl, "ComfyUI prompt request"), { prompt: replaced.workflow, client_id: clientId }, apiKey, clientResponse);
+  const queued = await upstreamRequest(targetForImageUrl(promptUrl, "ComfyUI prompt request", deadline - Date.now()), { prompt: prepared.workflow, client_id: clientId }, apiKey, clientResponse);
   let queuedResponse;
   try { queuedResponse = JSON.parse(queued.body); } catch { queuedResponse = {}; }
   if (queued.status < 200 || queued.status >= 300) throw new Error(providerError(queuedResponse, "ComfyUI rejected the workflow (HTTP " + queued.status + ")."));
   const promptId = typeof queuedResponse.prompt_id === "string" ? queuedResponse.prompt_id : "";
   if (!promptId) throw new Error(providerError(queuedResponse, "ComfyUI accepted the request without returning a prompt ID."));
-  const deadline = Date.now() + UPSTREAM_IMAGE_TIMEOUT_MS;
   try {
     while (Date.now() < deadline) {
       if (clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) throw new Error("The client disconnected.");
       const historyUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "history/" + encodeURIComponent(promptId));
-      const historyResult = await upstreamRequest(targetForImageUrl(historyUrl, "ComfyUI history request"), null, apiKey, clientResponse, { method: "GET", path: historyUrl.pathname + historyUrl.search });
+      const historyResult = await upstreamRequest(targetForImageUrl(historyUrl, "ComfyUI history request", deadline - Date.now()), null, apiKey, clientResponse, { method: "GET", path: historyUrl.pathname + historyUrl.search });
       if (historyResult.status < 200 || historyResult.status >= 300) throw new Error("ComfyUI history request failed (HTTP " + historyResult.status + ").");
       let history;
       try { history = JSON.parse(historyResult.body); } catch { history = {}; }
@@ -744,28 +767,28 @@ async function comfyUIImageRequest({ baseUrl, workflowText, prompt, negativeProm
         viewUrl.searchParams.set("filename", image.filename);
         if (typeof image.subfolder === "string") viewUrl.searchParams.set("subfolder", image.subfolder);
         if (typeof image.type === "string") viewUrl.searchParams.set("type", image.type);
-        const imageResult = await upstreamRequest(targetForImageUrl(viewUrl, "ComfyUI image request"), null, apiKey, clientResponse, { method: "GET", path: viewUrl.pathname + viewUrl.search });
+        const imageResult = await upstreamRequest(targetForImageUrl(viewUrl, "ComfyUI image request", deadline - Date.now()), null, apiKey, clientResponse, { method: "GET", path: viewUrl.pathname + viewUrl.search });
         if (imageResult.status < 200 || imageResult.status >= 300) throw new Error("ComfyUI image download failed (HTTP " + imageResult.status + ").");
         const imageDataUrl = imageDataUrlFromBuffer(imageResult.bodyBuffer, imageResult.contentType);
         if (!imageDataUrl) throw new Error("ComfyUI returned an output that was not a PNG, JPEG, or WebP image.");
-        return { imageDataUrl, promptId, workflowBytes: Buffer.byteLength(workflowJson) };
+        return { imageDataUrl, promptId, workflowBytes: Buffer.byteLength(prepared.workflowJson) };
       }
       const statusValue = record && record.status ? record.status.status_str : "";
       const status = Array.isArray(statusValue) ? String(statusValue[0] || "").toLowerCase() : String(statusValue || "").toLowerCase();
       if (status === "error" || status === "failed") throw new Error("ComfyUI failed while executing the workflow.");
       if (record && record.status && record.status.completed === true) throw new Error("ComfyUI completed the workflow without an image output.");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await new Promise(resolve => setTimeout(resolve, Math.min(600, Math.max(1, deadline - Date.now()))));
     }
+    throw new Error("ComfyUI did not finish before the image request timed out.");
   } catch (error) {
     // The browser can cancel while ComfyUI is still queued. Best-effort interruption keeps a
     // cancelled scene from consuming the local queue; failure here must not mask the original error.
-    if (clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) {
+    if ((clientResponse && (clientResponse.destroyed || clientResponse.writableEnded)) || /timed out|did not finish/i.test(error.message || "")) {
       const interruptUrl = imageProviders.localProviderUrl("comfyui", baseUrl, "interrupt");
       void upstreamRequest(targetForImageUrl(interruptUrl, "ComfyUI interruption request"), { prompt_id: promptId }, apiKey, null).catch(() => {});
     }
     throw error;
   }
-  throw new Error("ComfyUI did not finish before the image request timed out.");
 }
 
 function watchClientDisconnect(clientResponse, request) {
@@ -1623,7 +1646,7 @@ async function handleImage(req, res) {
     } catch (error) { writeJson(res, 400, { error: error.message }); return; }
   }
   if (provider === "comfyui") {
-    try { imageProviders.parseWorkflow(input.workflow, MAX_IMAGE_WORKFLOW_BYTES); } catch (error) { writeJson(res, 400, { error: error.message }); return; }
+    try { prepareComfyWorkflow(input.workflow, prompt, negativePrompt); } catch (error) { writeJson(res, error.statusCode || 400, { error: error.message }); return; }
   }
 
   // Reference images: a style sheet and/or character portraits to condition on. Only OpenAI is
@@ -1988,7 +2011,7 @@ const CONTENT_SECURITY_POLICY = [
   "media-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'unsafe-inline'",
-  "img-src 'self' data: https:",
+  "img-src 'self' data: https: http://localhost:* http://127.0.0.1:* http://[::1]:*",
   "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
   "form-action 'none'",
   "frame-ancestors 'none'",

@@ -154,5 +154,11 @@ test('real local HTTP adapter covers turns, summaries, profiles, and scenarios w
   assert.equal(captured[6].body.require_base64,true);
   assert.equal(captured[7].url,'/prompt');
   assert.equal(captured[7].body.prompt['6'].inputs.text,'A local test image');
+  const expandedWorkflow = JSON.stringify({ '6': { inputs: { text: '{{prompt}}'.repeat(256) } } });
+  const expandedResponse = await fetch(`http://127.0.0.1:${port}/api/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'comfyui',apiBaseUrl:`http://127.0.0.1:${fixture.address().port}`,prompt:'x'.repeat(12000),workflow:expandedWorkflow})});
+  const expandedResult = await expandedResponse.json();
+  assert.equal(expandedResponse.status,400,JSON.stringify(expandedResult));
+  assert.match(expandedResult.error,/expands beyond the 1 MiB limit/i);
+  assert.equal(captured.length,10);
 });
 

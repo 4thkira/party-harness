@@ -25,8 +25,7 @@ const contents = files.map(file => {
   if (!fs.lstatSync(source).isFile() || !fs.realpathSync(source).startsWith(fs.realpathSync(__dirname) + path.sep)) {
     throw new Error('Release source must be a regular workspace file: ' + file);
   }
-  let data = fs.readFileSync(source, 'utf8');
-  if (file === 'rp-party-harness-prototype.html') data = data.replace(/Spierce/g, 'Mira').replace(/spierce/g, 'mira');
+  const data = fs.readFileSync(source, 'utf8');
   return [file, data];
 });
 fs.mkdirSync(output, { recursive: true });
