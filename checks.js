@@ -23,6 +23,7 @@ const path = require("path");
 const HTML = fs.readFileSync(path.join(__dirname, "rp-party-harness-prototype.html"), "utf8");
 const SERVER = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
 const LAUNCHER = fs.readFileSync(path.join(__dirname, "start-party-harness.ps1"), "utf8");
+const RELEASE = fs.readFileSync(path.join(__dirname, "prepare-release.js"), "utf8");
 
 let failures = 0;
 let checks = 0;
@@ -259,6 +260,13 @@ console.log("\nimage provider safety");
     /estimatedExpandedBytes > MAX_IMAGE_WORKFLOW_BYTES/.test(SERVER)
       && /Buffer\.byteLength\(workflowJson, "utf8"\) > MAX_IMAGE_WORKFLOW_BYTES/.test(SERVER),
     "the pre-replacement workflow cap is not enough when a prompt appears repeatedly");
+}
+
+console.log("\nrelease packaging");
+{
+  check("release packaging preserves the supplied roster",
+    !/data\.replace\(\/Spierce\/g/.test(RELEASE),
+    "the release script should not rewrite character names globally");
 }
 
 console.log("\ntext-only workspace");
