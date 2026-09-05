@@ -34,8 +34,21 @@ Manually check Help with keyboard navigation and Escape, Settings, a new session
 
 ## Build a public download
 
-Run `node prepare-release.js`. It creates a fresh timestamped folder under `dist/` using an explicit file allowlist. It includes source, beginner docs, tests, launchers, a placeholder configuration, and one generic profile. It excludes `.env`, personal characters/saves, review notes, and local audio. The working copy is left intact; the public copy replaces the personal sample name with a generic one.
+Run `node prepare-release.js`. It creates a fresh timestamped folder under `dist/` using an explicit file allowlist. It includes source, beginner docs, version history, tests, launchers, a placeholder configuration, and one sample profile. It excludes `.env`, personal characters/saves, review notes, and local audio. The working copy is left intact.
 
 Upload the contents of that generated folder to your GitHub repository, or zip that folder for a release. Check that `LICENSE` is included before publishing. The builder does not publish anything. `.gitignore` helps protect a working checkout, but cannot remove files already committed to Git history; the clean folder is the intended starting point for this project.
+
+## Versioned GitHub releases
+
+Use semantic version tags such as `v0.1.0` for public downloads. Add the user-facing changes to `CHANGELOG.md`, run both checks above, build a fresh public folder, and zip that folder. Commit the source and changelog, then create an annotated tag and push it with the commit:
+
+```sh
+git add .
+git commit -m "Prepare v0.2.0 release"
+git tag -a v0.2.0 -m "Party Harness v0.2.0"
+git push origin main --follow-tags
+```
+
+On GitHub, open **Releases → Draft a new release**, choose the tag, paste the matching changelog section into the notes, and attach the ZIP from `dist/`. Keep the tag, changelog heading, and download name on the same version. Patch releases (`v0.1.1`) suit fixes; minor releases (`v0.2.0`) suit new features; major releases (`v1.0.0`) suit breaking changes.
 
 Only add assets you have permission to distribute. Code licensing does not grant rights to provider services or characters, images, and audio supplied by other people.

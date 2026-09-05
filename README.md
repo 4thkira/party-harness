@@ -2,6 +2,8 @@
 
 A local browser app for roleplaying with a customizable party of AI characters. Write an action, follow the scene, and let characters react in their own voices. Edit their sheets, correct the story, track relationships and inventory, and optionally generate scene art.
 
+See [CHANGELOG.md](CHANGELOG.md) for versioned updates and release notes.
+
 This is a working prototype. It runs on your computer, but text generation can use a hosted provider or a model running on your computer. Hosted generation needs your own API access and may cost money. Images use a separate image provider, either hosted or a compatible server on your computer. You can explore the interface and edit characters without a key.
 
 ## Start here

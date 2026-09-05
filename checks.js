@@ -264,6 +264,9 @@ console.log("\nimage provider safety");
 
 console.log("\nrelease packaging");
 {
+  check("release packaging includes version history",
+    /'CHANGELOG\.md'/.test(RELEASE),
+    "public downloads should carry their release notes");
   check("release packaging preserves the supplied roster",
     !/data\.replace\(\/Spierce\/g/.test(RELEASE),
     "the release script should not rewrite character names globally");

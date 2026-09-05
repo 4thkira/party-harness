@@ -11,7 +11,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 const fs = require('node:fs');
 const path = require('node:path');
 const files = [
-  'README.md', 'DEVELOPING.md', '.gitignore', '.env.example',
+  'README.md', 'CHANGELOG.md', 'DEVELOPING.md', '.gitignore', '.env.example',
   'rp-party-harness-prototype.html', 'server.js', 'harness-storage.js', 'text-providers.js',
   'Start Party Harness.cmd', 'start-party-harness.ps1',
   'checks.js', 'regression-checks.js', 'provider-checks.js', 'image-providers.js', 'browser-test-server.js',
