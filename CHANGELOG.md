@@ -6,6 +6,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.1.1] — 2026-09-05
+
+- Updated the beginner README tutorial to distinguish tested Releases downloads from the current `main` branch and explain the version numbering.
+
 ## [0.1.0] — 2026-09-05
 
 First public release of Party Harness.
