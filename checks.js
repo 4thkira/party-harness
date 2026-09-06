@@ -196,7 +196,13 @@ console.log("\nNovelAI scaffolding");
       && /stripNovelAIReasoning\(generatedText\)/.test(SERVER));
   check("NovelAI sampling leaves headroom for structured prose",
     /temperature: 0\.78/.test(SERVER) && /top_p: 0\.95/.test(SERVER)
-      && /max_tokens: novelAITokens/.test(SERVER));
+      && /NOVELAI_MAX_OUTPUT_TOKENS\s*=\s*2048/.test(SERVER)
+      && /clampNovelAITokens\(maxTokens\)/.test(SERVER));
+  check("NovelAI keeps oversized contexts and empty choices understandable",
+    /function compactNovelAIContext\(source\)/.test(SERVER)
+      && /NOVELAI_CONTEXT_CHAR_LIMIT/.test(SERVER)
+      && /finish_reason=/.test(SERVER)
+      && /matched_stop=/.test(SERVER));
 }
 
 console.log("\nrequest size budget");

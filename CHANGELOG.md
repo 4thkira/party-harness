@@ -6,6 +6,12 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.3.1] — 2026-09-06
+
+- Made NovelAI turns fit the provider's documented output allowance instead of requesting an oversized JSON response that could come back as HTTP 200 with an empty `text` field.
+- Trimmed only the NovelAI request copy of oversized attached profiles and scene context; saved sessions and exports keep their full text.
+- Expanded empty NovelAI response errors with `finish_reason`, `matched_stop`, and token-count details so provider-side stops are diagnosable.
+
 ## [0.3.0] — 2026-09-05
 
 - Improved NovelAI text scaffolding with an explicit JSON contract, conservative sampling, reasoning-wrapper cleanup, and a playable plain-prose fallback when the model ignores the JSON shell.

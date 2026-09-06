@@ -460,3 +460,29 @@ test("NovelAI wrappers are stripped and prose fallback stays playable", () => {
   assert.equal(vm.runInContext("parseNovelAITurn('The model ignored the JSON shell but wrote a usable scene.').narration", context), "The model ignored the JSON shell but wrote a usable scene.");
   assert.throws(() => vm.runInContext("parseNovelAITurn('{broken')", context));
 });
+
+test("NovelAI empty choices include the provider's stop diagnostics", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const start = source.indexOf("function extractChatText(");
+  const end = source.indexOf("function extractNovelAIText(", start);
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(start, end), context);
+  assert.throws(
+    () => vm.runInContext("extractChatText({choices:[{index:0,text:'',token_ids:[1,2],finish_reason:'stop',matched_stop:'<|end|>'}]})", context),
+    /finish_reason=stop, matched_stop=\"<\|end\|>\", token_ids=2/
+  );
+});
+
+test("NovelAI request compaction preserves the saved source and caps output", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const start = source.indexOf("function clampNovelAITokens(");
+  const end = source.indexOf("const CHARACTER_PROFILE_INSTRUCTIONS", start);
+  const context = vm.createContext({});
+  vm.runInContext("const NOVELAI_MAX_OUTPUT_TOKENS=2048; const NOVELAI_CONTEXT_CHAR_LIMIT=90000; const NOVELAI_JSON_GUIDANCE='guide';\n" + source.slice(start, end), context);
+  const profile = "profile ".repeat(30000);
+  const input = { party: [{ name: "A", characterFileContent: profile }], sessionPrompt: "session ".repeat(5000) };
+  const payload = vm.runInContext("buildNovelAIRequest({instructions:'rules', input:" + JSON.stringify(input) + ", settings:{model:'glm-4-6'}, maxTokens:3700, temperature:0.7})", context);
+  assert.equal(payload.max_tokens, 2048);
+  assert.ok(JSON.stringify(payload).length < 150000);
+  assert.equal(input.party[0].characterFileContent.length, profile.length);
+});

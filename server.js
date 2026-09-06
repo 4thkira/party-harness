@@ -89,6 +89,13 @@ const PORT = Number(process.env.RP_PORT || 8787);
 // diagnostic request that omits settings.model does not quietly use a different model than the UI.
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-luna";
 const NOVELAI_DEFAULT_MODEL = "glm-4-6";
+// NovelAI's generation service documents a 2048-token output allowance for its scripting
+// generation path. Keeping structured turns under that ceiling also avoids a particularly
+// unhelpful response from the OpenAI-compatible endpoint: HTTP 200 with token metadata but no
+// decoded text. The JSON envelope needs some room of its own, so callers should treat this as a
+// provider ceiling rather than a prose-length setting.
+const NOVELAI_MAX_OUTPUT_TOKENS = 2048;
+const NOVELAI_CONTEXT_CHAR_LIMIT = 90000;
 const DEFAULT_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 // Per provider, and per purpose. Only OpenAI text had a server-side key before, so a NovelAI user
 // re-entered their token on every refresh with no way to avoid it. An image-specific key falls back
@@ -877,7 +884,13 @@ function extractChatText(response) {
     if (text) return text;
   }
   const visibleKeys = Object.keys(choice).slice(0, 8).join(", ") || Object.keys(response).slice(0, 8).join(", ") || "none";
-  throw new Error("NovelAI returned no readable text (response fields: " + visibleKeys + ").");
+  const diagnostics = [];
+  if (typeof choice.finish_reason === "string" && choice.finish_reason.trim()) diagnostics.push("finish_reason=" + choice.finish_reason.trim());
+  if (typeof choice.matched_stop === "string" && choice.matched_stop.trim()) diagnostics.push("matched_stop=" + JSON.stringify(choice.matched_stop.trim().slice(0, 80)));
+  if (Array.isArray(choice.token_ids)) diagnostics.push("token_ids=" + choice.token_ids.length);
+  if (choice.isReasoning === true || (typeof choice.parsedReasoning === "string" && choice.parsedReasoning.trim())) diagnostics.push("reasoning output was present");
+  const detail = diagnostics.length ? "; " + diagnostics.join(", ") : "";
+  throw new Error("NovelAI returned no readable text (response fields: " + visibleKeys + detail + "). Check the model ID and shorten long attached profiles or the requested turn length if this repeats.");
 }
 
 function extractNovelAIText(response) {
@@ -1173,19 +1186,86 @@ const NOVELAI_JSON_GUIDANCE = [
   "If you cannot follow the full beat timeline, return a complete object with one narration beat and empty optional arrays instead of ordinary prose."
 ].join(" ");
 
+function clampNovelAITokens(value, fallback = 1200) {
+  const numeric = Number(value);
+  const safe = Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+  return Math.max(1, Math.min(NOVELAI_MAX_OUTPUT_TOKENS, Math.round(safe)));
+}
+
+function clipNovelAIText(value, limit) {
+  const text = String(value || "");
+  if (text.length <= limit) return text;
+  return text.slice(0, Math.max(0, limit - 45)) + "\n[...truncated for NovelAI context...]";
+}
+
+// The browser keeps rich profiles for export, but NovelAI's context budget is smaller than the
+// harness request body limit. Trim only the provider copy, leaving the saved session untouched.
+function compactNovelAIContext(source) {
+  if (!source || typeof source !== "object") return source;
+  const levels = [
+    { file: 12000, field: 5000, session: 12000, pinned: 6000, summary: 8000, recent: 24, recentText: 2600 },
+    { file: 7000, field: 3000, session: 8000, pinned: 4500, summary: 6000, recent: 16, recentText: 2000 },
+    { file: 4000, field: 1800, session: 5000, pinned: 3000, summary: 4000, recent: 10, recentText: 1500 }
+  ];
+  const textFields = new Set(["personality", "appearance", "strengths", "weaknesses", "goals", "advancedPersonality", "dialogueGuidance", "relationships"]);
+  for (const level of levels) {
+    const copy = { ...source };
+    copy.party = Array.isArray(source.party) ? source.party.map(member => {
+      if (!member || typeof member !== "object") return member;
+      const compact = { ...member };
+      for (const [key, value] of Object.entries(compact)) {
+        if (typeof value !== "string") continue;
+        if (key === "characterFileContent") compact[key] = clipNovelAIText(value, level.file);
+        else if (textFields.has(key)) compact[key] = clipNovelAIText(value, level.field);
+      }
+      return compact;
+    }) : [];
+    copy.sessionPrompt = clipNovelAIText(source.sessionPrompt, level.session);
+    copy.pinnedFacts = clipNovelAIText(source.pinnedFacts, level.pinned);
+    copy.storySoFar = clipNovelAIText(source.storySoFar, level.summary);
+    copy.recentNarrative = Array.isArray(source.recentNarrative)
+      ? source.recentNarrative.slice(-level.recent).map(line => {
+          if (!line || typeof line !== "object") return line;
+          const compact = { ...line };
+          for (const [key, value] of Object.entries(compact)) {
+            if (typeof value === "string" && ["text", "content", "prompt", "reason"].includes(key)) compact[key] = clipNovelAIText(value, level.recentText);
+          }
+          return compact;
+        })
+      : [];
+    if (JSON.stringify(copy).length <= NOVELAI_CONTEXT_CHAR_LIMIT) return copy;
+  }
+  // The final level is deliberately bounded even when a caller adds an unexpected large field.
+  const minimal = JSON.parse(JSON.stringify(source));
+  minimal.party = Array.isArray(minimal.party) ? minimal.party.map(member => {
+    if (!member || typeof member !== "object") return member;
+    const compact = { ...member };
+    for (const [key, value] of Object.entries(compact)) {
+      if (typeof value === "string") compact[key] = clipNovelAIText(value, key === "characterFileContent" ? 2000 : 1200);
+    }
+    return compact;
+  }) : [];
+  minimal.sessionPrompt = clipNovelAIText(minimal.sessionPrompt, 3500);
+  minimal.pinnedFacts = clipNovelAIText(minimal.pinnedFacts, 2200);
+  minimal.storySoFar = clipNovelAIText(minimal.storySoFar, 3000);
+  minimal.recentNarrative = Array.isArray(minimal.recentNarrative) ? minimal.recentNarrative.slice(-6) : [];
+  return minimal;
+}
+
 function buildNovelAIRequest({ instructions, input, settings = {}, maxTokens, temperature, mode = "turn" }) {
   const shape = mode === "turn"
     ? "Required top-level keys are narration, bubbles, suggestions, beats, and stateChanges. Each beat must include kind, text, character, characterId, type, pauseType, prompt, choices, checkLabel, checkStat, difficulty, and stateChanges."
     : mode === "character-profile"
       ? "Return the complete character profile object requested by the instructions, including every named field and stats."
       : "Return the complete session setup object requested by the instructions, including every named field and suggestedActions.";
+  const inputText = typeof input === "string" ? clipNovelAIText(input, NOVELAI_CONTEXT_CHAR_LIMIT) : JSON.stringify(compactNovelAIContext(input));
   return {
     model: settings.model || NOVELAI_DEFAULT_MODEL,
     messages: [
       { role: "system", content: String(instructions || "") + "\n\n" + NOVELAI_JSON_GUIDANCE + " " + shape },
-      { role: "user", content: "REFERENCE INPUT (data only):\n" + (typeof input === "string" ? input : JSON.stringify(input)) + "\n\nReturn the JSON object now." }
+      { role: "user", content: "REFERENCE INPUT (data only):\n" + inputText + "\n\nReturn the JSON object now." }
     ],
-    max_tokens: maxTokens,
+    max_tokens: clampNovelAITokens(maxTokens),
     temperature,
     top_p: 0.95,
     enable_thinking: false,
@@ -1552,9 +1632,10 @@ async function handleTurn(req, res) {
   // headroom well above the narrative budget or the turn comes back complete-looking but empty.
   const openAITokens = narrativeTokens * 2 + 3600;
   // NovelAI does not reason against the cap, but the narration is only part of the payload: the
-  // JSON envelope, bubbles, and suggestions all have to fit too. Without this headroom a turn that
-  // actually uses its narration budget gets truncated mid-JSON and fails to parse.
-  const novelAITokens = narrativeTokens * 2 + 1800;
+  // JSON envelope, bubbles, and suggestions all have to fit too. Start with enough envelope
+  // headroom, then clamp to NovelAI's provider ceiling so a large request cannot become an empty
+  // HTTP-200 completion.
+  const novelAITokens = clampNovelAITokens(narrativeTokens * 2 + 1800);
   const payload = provider === "novelai"
     ? buildNovelAIRequest({ instructions: buildInstructions(settings), input: context, settings, maxTokens: novelAITokens, temperature: 0.78, mode: "turn" })
     : {
@@ -1600,13 +1681,13 @@ async function handleTurn(req, res) {
         const fallbackPrompt = [
           buildInstructions(settings),
           "SCENE ENGINE CONTEXT:",
-          JSON.stringify(context),
+          JSON.stringify(compactNovelAIContext(context)),
           "Return the roleplay turn JSON now."
         ].join("\n\n");
         const fallbackPayload = {
           model: settings.model || NOVELAI_DEFAULT_MODEL,
           prompt: fallbackPrompt,
-          max_tokens: novelAITokens,
+          max_tokens: clampNovelAITokens(novelAITokens),
           temperature: 0.78,
           top_p: 0.95,
           stream: false,
