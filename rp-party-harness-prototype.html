@@ -1878,7 +1878,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     // Asides are rendered into the rail's overlay layer so they can float outside the third column
     // without being clipped by the Party panel's scroll container. Only the count line lives here.
     function renderBubbles() {
-      $("bubble-status").textContent = state.bubbles.length ? `BUBBLES: ${state.bubbles.length} EXTRA ASIDE${state.bubbles.length === 1 ? "" : "S"}` : "BUBBLES: NONE / PARTY IS SILENT";
+      $("bubble-status").textContent = state.bubbles.length ? `BUBBLES: ${state.bubbles.length} EXTRA ASIDE${state.bubbles.length === 1 ? "" : "S"}` : "BUBBLES: NONE / NO EXTRA ASIDES";
     }
 
     // Moves a member and keeps the selection pointing at the same person rather than the same slot.

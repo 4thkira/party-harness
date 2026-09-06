@@ -6,6 +6,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.4.1] — 2026-09-06
+
+- Clarified the empty bubble status so ordinary transcript dialogue is not described as a silent party.
+
 ## [0.4.0] — 2026-09-06
 
 - Made party bubbles independent additive asides instead of duplicate transcript dialogue.
