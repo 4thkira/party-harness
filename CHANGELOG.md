@@ -6,6 +6,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.3.2] — 2026-09-06
+
+- Applied the NovelAI output and context safeguards to character-profile and session-setup fallback requests as well as live turns.
+
 ## [0.3.1] — 2026-09-06
 
 - Made NovelAI turns fit the provider's documented output allowance instead of requesting an oversized JSON response that could come back as HTTP 200 with an empty `text` field.

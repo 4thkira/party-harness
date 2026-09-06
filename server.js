@@ -1375,8 +1375,8 @@ async function handleCharacterProfile(req, res) {
       } catch (chatError) {
         const fallback = await novelAITextRequest({
           model: settings.model || NOVELAI_DEFAULT_MODEL,
-          prompt: CHARACTER_PROFILE_INSTRUCTIONS + "\n\n" + NOVELAI_JSON_GUIDANCE + "\n\n" + material + "\nReturn the profile JSON now.",
-          max_tokens: 2600,
+          prompt: CHARACTER_PROFILE_INSTRUCTIONS + "\n\n" + NOVELAI_JSON_GUIDANCE + "\n\n" + clipNovelAIText(material, NOVELAI_CONTEXT_CHAR_LIMIT) + "\nReturn the profile JSON now.",
+          max_tokens: clampNovelAITokens(2600),
           temperature: 0.25,
           stream: false,
           enable_thinking: false
@@ -1524,8 +1524,8 @@ async function handleSessionSetup(req, res) {
       } catch (chatError) {
         const fallback = await novelAITextRequest({
           model: settings.model || NOVELAI_DEFAULT_MODEL,
-          prompt: SESSION_SETUP_INSTRUCTIONS + "\n\n" + NOVELAI_JSON_GUIDANCE + "\n\nINPUT DATA:\n" + material + "\nReturn the session JSON now.",
-          max_tokens: 2600,
+          prompt: SESSION_SETUP_INSTRUCTIONS + "\n\n" + NOVELAI_JSON_GUIDANCE + "\n\nINPUT DATA:\n" + clipNovelAIText(material, NOVELAI_CONTEXT_CHAR_LIMIT) + "\nReturn the session JSON now.",
+          max_tokens: clampNovelAITokens(2600),
           temperature: 0.8,
           stream: false,
           enable_thinking: false
