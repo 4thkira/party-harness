@@ -4,6 +4,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
+## [0.6.0] — 2026-09-06
+
+- Documented that Party Harness is not an online service and has no hosted version, account, sign-in, or telemetry, so a session stays as private as the person running it wants — including for explicit material. The same section is equally clear that the privacy boundary is the text provider: a model running on your computer keeps everything local, while a hosted provider receives your prompts and applies its own policies.
+- Added a "How checks work" section to the README covering the roll-over convention, the target formula, worked examples, and why the harness owns the roll rather than the model. The convention had never been written down anywhere.
 - Switched stat checks to roll-over, so a high roll always reads as a good roll. The odds are unchanged — a stat of 50 at difficulty 50 still succeeds half the time — but the threshold is now a floor the player passes rather than a ceiling they stay under.
 - Stated the check threshold explicitly everywhere it appears: the transcript, the dice overlay, the runtime panel, and the result sent back to the engine all read "rolled 80, needed 60 or over" instead of an "against 60" comparison that could be read either way. The engine had been receiving that ambiguous phrasing next to the word FAILURE and could narrate the opposite of the resolved outcome.
 - Told the engine the check convention and that a CHECK RESULT is already resolved by the harness and must be narrated as written rather than recomputed from the numbers. The convention was previously undocumented anywhere in the project.
@@ -89,7 +93,8 @@ First public release of Party Harness.
 - Optional page-turn sound, accessible control hints, local `.env` configuration, and beginner-focused setup documentation.
 - GPL-3.0-only licensing and a clean public-release builder that excludes keys, personal profiles, saves, and audio.
 
-[Unreleased]: https://github.com/4thkira/party-harness/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/4thkira/party-harness/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/4thkira/party-harness/releases/tag/v0.6.0
 [0.5.0]: https://github.com/4thkira/party-harness/releases/tag/v0.5.0
 [0.4.2]: https://github.com/4thkira/party-harness/releases/tag/v0.4.2
 [0.4.1]: https://github.com/4thkira/party-harness/releases/tag/v0.4.1

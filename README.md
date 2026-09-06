@@ -47,7 +47,7 @@ Keys typed in Settings disappear when you refresh. To avoid retyping them:
 | Unseen DM | You direct the scene without being a character the party can perceive. |
 | Send turn | Sends your action and story context to the text provider. Enter sends; Shift+Enter adds a newline. |
 | Continue | Reveals the next part (or “beat”) of a generated response. Choices and checks can interrupt it. |
-| Stat check | Rolled by the harness on your computer, not by the provider. Rolling sends the result back for the story to continue, so a turn that ends in a check costs a second provider request. The roll is fixed when the check appears, so undoing and rolling it again gives the same number. If the scene asks for a stat this session does not define, the harness rolls the first stat and says so in the transcript. |
+| Stat check | Rolled by the harness on your computer, not by the provider. Roll-over on a 1-100 die: a high roll is a good roll. Rolling sends the result back for the story to continue, so a turn that ends in a check costs a second provider request. The roll is fixed when the check appears, so undoing and rolling it again gives the same number. See [How checks work](#how-checks-work). |
 | Undo / regenerate | Undo restores the previous exchange; regenerate retries its action with a new provider request. |
 | World state | Editable inventory, conditions, relationships, objectives, progress counters (“clocks”), and facts (“flags”). |
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
@@ -85,6 +85,39 @@ That is deliberate. Roleplay gets personal — a quiet character study, a long-r
 - **A hosted provider** is a service you have an account with, bound by its terms. Providers differ enormously in what they permit; some are built with adult fiction in mind, others restrict it and may act on your account. Check the terms of the provider you choose rather than assuming, and remember the same applies to hosted image generation.
 
 Neither choice is wrong. Hosted models are usually stronger and easier to start with; a local model trades some capability for the guarantee that your story never leaves the room. Pick per session — the provider is a setting, not a commitment.
+
+## How checks work
+
+When a scene reaches something that could genuinely go either way, the engine ends its turn with a **check**: a named stat and a difficulty from 0 to 100. It does not decide the outcome. Your computer rolls, and the result is sent back for the story to continue from.
+
+Checks are **roll-over on a 1-100 die**. A high roll is always a good roll.
+
+The target comes from the acting character's stat and the difficulty the scene asked for:
+
+```
+success chance = character's stat − difficulty + 50      (clamped to 5–95)
+target         = 101 − success chance
+success        = roll ≥ target
+```
+
+The clamp is why nothing is ever a certainty: even a hopeless attempt keeps a 5% chance, and even an easy one can still fail 5% of the time. Difficulty 50 is an even chance for an average stat of 50; a higher difficulty means a higher target.
+
+| Character stat | Difficulty | Needs | Succeeds |
+| --- | --- | --- | --- |
+| 50 | 50 | 51 or over | 50% |
+| 80 | 40 | 11 or over | 90% |
+| 30 | 70 | 91 or over | 10% |
+
+Every surface states the threshold the same way — the dice overlay, the transcript, the World tab, and the text sent back to the engine all read `rolled 80, needed 60 or over`, so a result never has to be inferred from a bare comparison.
+
+A few things follow from the harness owning the roll rather than the model:
+
+- **The result is fixed when the check appears,** not when you press ROLL. Undoing back to a check and rolling it again gives the same number, so a check cannot be quietly rerolled into a better outcome.
+- **The engine is told the outcome is already resolved** and must narrate it as written. It cannot recompute the result or talk you out of a failure.
+- **The three stats are per-session,** defined by your scenario rather than fixed attributes. A generated session invents its own, and each carries a description of when it applies.
+- **If a scene asks for a stat this session does not define,** the harness rolls the first stat instead and says so in the transcript and to the engine, rather than silently substituting one.
+
+A turn that ends in a check costs a second provider request, since the result has to go back for the scene to continue.
 
 ## Bring your own characters
 
