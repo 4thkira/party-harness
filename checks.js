@@ -58,7 +58,7 @@ function promptLines(source) {
     .filter(line => line.startsWith('"'));
 }
 
-console.log("Party Harness invariant checks\n");
+console.log("Party Harness source-invariant checks\n");
 
 console.log("system prompt");
 {
@@ -92,6 +92,15 @@ console.log("\nmemory model");
   // The server cap is a safety net. If it drops below the client's window it silently becomes the
   // real window and reopens the same forgetting gap from the other side.
   check("server cap stays above the verbatim window (" + cap + " > " + contextLines + ")", cap > contextLines);
+  check("turn prompt treats the rolling summary as lossy",
+    /storySoFar is a lossy continuity summary/.test(SERVER)
+      && /If it conflicts with pinnedFacts, current worldState, reviewed memories, or recentNarrative/.test(SERVER),
+    "the generated turn can treat compressed memory as stronger evidence than current or verbatim context");
+  check("summarizer preserves ambiguity and repairs stale compression",
+    /Treat the previous summary as lossy working memory/.test(SERVER)
+      && /mixed feelings, uncertainty, and directional relationship differences/.test(SERVER)
+      && /Do not turn one reaction into a lasting personality trait/.test(SERVER),
+    "the summarizer can flatten a qualified reaction or relationship into permanent canon");
 }
 
 console.log("\nkey readiness");
@@ -119,6 +128,19 @@ console.log("\npersistence");
     "the fold drops lines without archiving them, which is unrecoverable data loss");
   check("the archive is written into session snapshots", /archive: state\.archive,/.test(HTML));
   check("the archive is restored from them", /state\.archive = Array\.isArray\(snapshot\.archive\)/.test(HTML));
+  // The active transcript is capped by SUMMARY_KEEP; the archive is not, and renderAll() fires on
+  // every beat reveal. Rebuilding the archive on each of those was the one redraw whose cost grew
+  // with session length, so it has its own container and only re-renders when its key changes.
+  check("the archive renders into its own container, not the live transcript",
+    /function renderArchive\(container\)/.test(HTML)
+      && /if \(key === archiveRenderKey\) return;/.test(HTML)
+      && /bodyPane\.innerHTML = summary \+ body;/.test(HTML),
+    "the archive is back in the per-redraw path, so a long session re-formats every folded line on every reveal");
+  check("the archive render key covers content and presentation",
+    /function archiveSignature\(\)/.test(HTML)
+      && /state\.archiveOpen \? "open" : "closed"/.test(HTML)
+      && /state\.textFormatting,/.test(HTML),
+    "a cached archive can now survive a change that alters its markup");
   // Every path that replaces the workspace has to ask first, or a session's play disappears.
   const guarded = ["Loading a saved session", "Creating a new session", "Importing a session file"];
   const missing = guarded.filter(label => !HTML.includes('confirmDiscardSession("' + label + '")'));
@@ -168,6 +190,9 @@ console.log("\nerror reporting and narrow editor layout");
   check("character editor stacks before upload controls can overlap",
     /\.modal\.edit-mode \.character-overview \{ grid-template-columns: 1fr; \}/.test(HTML));
   check("native portrait file control can shrink", /input\[type="file"\].*flex: 1 1 120px; width: 0;/.test(HTML));
+  check("mid-width header compacts before its controls collide",
+    /@media \(min-width: 561px\) and \(max-width: 720px\)[\s\S]*?#connection-label \{ display: none; \}/.test(HTML)
+      && /@media \(min-width: 561px\) and \(max-width: 720px\)[\s\S]*?\.top-button \{ padding: 7px 8px; font-size: 10px; \}/.test(HTML));
 }
 
 console.log("\nbubble limits");
@@ -315,6 +340,24 @@ console.log("\ntext-only workspace");
   check("hidden image mode cannot start a generation request", /!state\.showImageArea/.test(HTML));
 }
 
+console.log("\nadjustable desktop columns");
+{
+  check("both desktop dividers are present and accessible",
+    (HTML.match(/class="column-resizer"/g) || []).length === 2
+      && (HTML.match(/role="separator"/g) || []).length === 2
+      && /aria-orientation="vertical"/.test(HTML));
+  check("column proportions persist through session settings",
+    /columnRatios: state\.columnRatios/.test(HTML)
+      && /state\.columnRatios = normalizeColumnRatios\(settings\.columnRatios\)/.test(HTML));
+  check("divider input supports drag, keyboard, and reset",
+    /pointerdown.*beginColumnResize/.test(HTML)
+      && /keydown.*nudgeColumnResize/.test(HTML)
+      && /dblclick.*resetColumnLayout/.test(HTML));
+  check("responsive and text-only layouts hide desktop dividers",
+    /\.workspace\.text-only \.column-resizer \{ display: none; \}/.test(HTML)
+      && /@media \(max-width: 1100px\)[\s\S]*?\.column-resizer \{ display: none; \}/.test(HTML));
+}
+
 console.log("\nstory text formatting");
 {
   check("story text has a safe Markdown renderer",
@@ -406,8 +449,22 @@ console.log("\nstructured roleplay runtime");
     /function processBeatQueue\(asides = null\)/.test(HTML) && /state\.pendingPause = \{ \.\.\.beat/.test(HTML)
       && /data-pause-continue/.test(HTML));
   check("checks resolve locally before their result returns to the model",
-    /function resolvePendingCheck\(\)/.test(HTML) && /Math\.floor\(Math\.random\(\) \* 100\) \+ 1/.test(HTML)
+    /function resolvePendingCheck\(\)/.test(HTML) && /const roll = seededRoll\(seed\);/.test(HTML)
       && /CHECK RESULT/.test(HTML));
+  // The roll used to come from Math.random() at the moment the player clicked, so undoing back to a
+  // check and rolling it again silently produced a different number -- the one place in the harness
+  // where undo did not actually return you to where you were.
+  check("a check rolls from a seed fixed when it became pending",
+    /const seed = pause\.checkSeed \|\| newCheckSeed\(\);/.test(HTML)
+      && /const checkSeed = pauseType === "check" \? \(beat\.checkSeed \|\| newCheckSeed\(\)\) : 0;/.test(HTML)
+      && !/Math\.random\(\)/.test(HTML),
+    "the roll is unseeded again, so undo/regenerate rerolls a check the player already saw resolved");
+  // Falling back to the first stat is unavoidable for a check the session cannot map, but doing it
+  // without saying so put a roll in the transcript under a stat the model never named.
+  check("an unmappable check stat is disclosed rather than silently substituted",
+    /checkStatRequested: checkStat \? "" : requestedStat,/.test(SERVER)
+      && /which this session does not define, so /.test(HTML)
+      && /substitutedStat: substituted \? requested : ""/.test(HTML));
   check("state proposals pass through a bounded reducer",
     /function applyStateChanges\(result\)/.test(HTML) && /boundedInteger\(member\.stats\[index\] \+ delta, 0, 100\)/.test(HTML));
   check("undo checkpoints include prose and mechanical state",
@@ -504,5 +561,16 @@ console.log("\nsyntax");
   })());
 }
 
-console.log("\n" + (failures ? failures + " of " + checks + " checks FAILED" : "all " + checks + " checks passed"));
+// Worth being plain about what a passing run here does and does not mean. Everything above is a
+// static assertion: it reads the source files and checks that a relationship is still written down.
+// That catches the failure mode this file exists for -- a coupling between two files quietly going
+// out of step -- but a rename can break a check that is still true, and a genuinely broken behavior
+// can still satisfy one. Runtime behavior is covered by regression-checks.js, which executes the
+// actual browser script. Reporting one combined total made this suite look like more than it is,
+// so the two are counted separately and named for what they are.
+console.log("\n" + (failures
+  ? failures + " of " + checks + " source-invariant checks FAILED"
+  : "all " + checks + " source-invariant checks passed"));
+console.log("These assert relationships between files, not runtime behavior.");
+console.log("For behavioral coverage: node --test regression-checks.js provider-checks.js");
 process.exit(failures ? 1 : 0);

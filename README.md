@@ -43,12 +43,14 @@ Keys typed in Settings disappear when you refresh. To avoid retyping them:
 | Unseen DM | You direct the scene without being a character the party can perceive. |
 | Send turn | Sends your action and story context to the text provider. Enter sends; Shift+Enter adds a newline. |
 | Continue | Reveals the next part (or “beat”) of a generated response. Choices and checks can interrupt it. |
+| Stat check | Rolled by the harness on your computer, not by the provider. Rolling sends the result back for the story to continue, so a turn that ends in a check costs a second provider request. The roll is fixed when the check appears, so undoing and rolling it again gives the same number. If the scene asks for a stat this session does not define, the harness rolls the first stat and says so in the transcript. |
 | Undo / regenerate | Undo restores the previous exchange; regenerate retries its action with a new provider request. |
 | World state | Editable inventory, conditions, relationships, objectives, progress counters (“clocks”), and facts (“flags”). |
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
 | Sessions | Named saves, session import/export, and readable story exports. |
 | Story text formatting | Markdown mode safely renders emphasis, headings, lists, and inline code; Plain text keeps the original markers visible. |
+| Column dividers | On desktop, drag the narrow dividers between Story, Image, and Party to choose how much room each gets. Arrow keys nudge a focused divider; double-click resets both. The proportions travel with saves and exports. |
 
 The right-hand rail is split into **Party**, **World**, and **Trace** tabs so the roster, selected character tools, mechanical state, and diagnostics do not compete for the same vertical space. The active tab scrolls on desktop; on a narrow screen the rail becomes part of the normal page flow.
 
@@ -63,6 +65,8 @@ Your selected provider receives the context needed for generation, including rel
 Edit sheets directly in the party sidebar, or place Markdown (`.md`) profiles in `characters/`. Use **REFRESH FILES**, choose a profile, and optionally **PROCESS WITH LLM** to suggest sheet fields. Review those fields before saving. Processing a profile is a provider request.
 
 `characters/example.md` shows a simple format. You can also write ordinary prose. The supplied roster is an example; replace it with your own characters when you are ready.
+
+**About profiles you did not write.** An attached profile is sent to the model as part of the prompt. The harness tells the model to treat it as character reference material and never as instructions, but that instruction is the only thing separating the two: a profile downloaded from elsewhere can contain text written to talk past it and steer the scene, change how characters behave, or try to draw out other context in the session. For profiles you wrote, this does not matter. For a character card from somewhere else, read it before attaching it, the same way you would read a script before running it. The risk is to your story and your session, not to your computer or your key: profiles are never executed, and keys are never placed in the prompt.
 
 ## Troubleshooting
 

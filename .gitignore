@@ -6,7 +6,12 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
-the-old-gate.json
+# Session exports and story saves. These were listed one filename at a time, which meant the next
+# session you started was neither tracked nor ignored, and one `git add .` away from publishing a
+# personal transcript. Ignore every JSON at the repository root instead; the release builder uses
+# its own allowlist, so nothing here affects a public download. Force-add with `git add -f` if a
+# root JSON ever genuinely belongs in the repository.
+/*.json
 characters/*
 !characters/example.md
 sfx/

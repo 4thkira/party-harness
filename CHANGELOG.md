@@ -4,7 +4,15 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
-Add the next user-visible changes here before creating the next version tag.
+- Added draggable desktop dividers between Story, Image, and Party. Column priorities persist with workspace saves and exports, support arrow-key adjustment, reset on double-click, and yield to stacked or text-only layouts.
+- Made rolling summaries explicitly fallible working memory. Pinned canon, corrected world state, reviewed memories, and recent verbatim events now outrank compressed summaries; the summarizer preserves uncertainty and avoids hardening isolated reactions into lasting traits.
+- Rebalanced the default desktop columns, allowed two-line scene titles, compacted scene metadata, and repaired the crowded 561–720 px header range.
+- Stat checks now disclose a substituted stat instead of silently rolling the first one. When a scene asks for a stat the session does not define, the transcript, the world-state record, and the text sent back to the model all name what was requested and what was rolled instead.
+- Made a check roll reproducible. The roll is fixed when the check appears rather than when you press ROLL, so undoing back to a check and rolling it again gives the same number instead of quietly rerolling.
+- Stopped re-rendering the folded archive on every redraw. A long session with "Earlier scenes" expanded no longer re-formats every archived line each time a beat is revealed or a feeling changes.
+- Made a custom system prompt actually take precedence. Instructions are now sent as three labelled blocks — response contract, session settings, and author direction — with the author's prompt ranked above the harness's default storytelling guidance rather than silently appended to it.
+- Documented that a stat check spends a second provider request, and that a character profile you did not write is prompt text a stranger controls.
+- Widened the save-file ignore rule so new session exports cannot be committed by accident, and reported the two test suites separately so a static-invariant total is not mistaken for behavioral coverage.
 
 ## [0.4.2] — 2026-09-06
 

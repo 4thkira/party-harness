@@ -28,9 +28,11 @@ node checks.js
 node --test regression-checks.js provider-checks.js
 ```
 
+The two suites prove different things and their totals are not comparable. `checks.js` is static: it reads the source files and asserts that a relationship between them is still written down. It catches the failure this project keeps hitting — two files that have to agree quietly drifting apart — but a rename can break a check that is still true, and broken behavior can still satisfy one. `regression-checks.js` runs the actual browser script against minimal DOM stubs and deferred provider replies, so it is the suite that establishes behavior. New behavior belongs there; add a source-invariant check only for a coupling that would otherwise fail silently.
+
 For browser testing without provider requests, run `node browser-test-server.js` and visit `http://127.0.0.1:18977/`. This is a deterministic test fixture, not an offline story generator. Its `/storage-checks` page runs storage checks on that separate test origin. Do not change it to your everyday save origin.
 
-Manually check Help with keyboard navigation and Escape, Settings including the Story text formatting selector, the Party / World / Trace sidebar tabs, a long party that needs scrolling, a contextual speech bubble floating beside its party card, a new session, cancellation, a paused response, world edits, memory review, draft restoration, and save/export/import. Check a narrow window as well as desktop. When using NovelAI, also check a normal JSON response and a plain-prose response so the compatibility fallback remains readable. Fake-provider tests cannot establish real model quality, account access, image generation, or billing behavior.
+Manually check Help with keyboard navigation and Escape, Settings including the Story text formatting selector, the Party / World / Trace sidebar tabs, both desktop column dividers by drag and keyboard, a long party that needs scrolling, a contextual speech bubble floating beside its party card, a new session, cancellation, a paused response, world edits, memory review, draft restoration, and save/export/import. Check that saved column proportions return, reset on double-click, and disappear in text-only and narrow layouts. When using NovelAI, also check a normal JSON response and a plain-prose response so the compatibility fallback remains readable. Fake-provider tests cannot establish real model quality, account access, image generation, or billing behavior.
 
 ## Build a public download
 

@@ -337,7 +337,9 @@ test("an outgoing inline editor cannot overwrite an incoming session's draft", (
   h.element("line-editor-input").value = "outgoing draft";
   h.run("state.narrative = [{id:'new-line',kind:'body',text:'new prose'}]; state.narrativeEdit = {lineId:'new-line',text:'incoming draft'}; actualRenderNarrative();");
   assert.equal(h.run("state.narrativeEdit.text"), "incoming draft");
-  assert.match(h.element("narrative").innerHTML, /incoming draft/);
+  // The live transcript renders into #narrative-body; #narrative also holds the folded archive,
+  // which is rebuilt on its own schedule.
+  assert.match(h.element("narrative-body").innerHTML, /incoming draft/);
 });
 
 
@@ -524,4 +526,129 @@ test("NovelAI request compaction preserves the saved source and caps output", ()
   assert.equal(payload.max_tokens, 2048);
   assert.ok(JSON.stringify(payload).length < 150000);
   assert.equal(input.party[0].characterFileContent.length, profile.length);
+});
+
+test("an unmappable check stat is rolled as a substitution and disclosed, not hidden", () => {
+  const h = harness();
+  h.run(`
+    state.statDefinitions = [
+      {id:'grit',label:'GRT',name:'Grit',description:'force'},
+      {id:'wits',label:'WIT',name:'Wits',description:'thought'},
+      {id:'luck',label:'LCK',name:'Luck',description:'chance'}
+    ];
+    state.party = [{id:'ash',name:'Ash',stats:[60,50,50],feeling:'',muted:false,initiative:true}];
+    state.selected = 0;
+    state.narrative = [];
+    // What the server hands over when the model asked for a stat this session does not define.
+    state.pendingPause = {pauseType:'check',characterId:'ash',checkStat:'',checkStatRequested:'strength',
+      checkLabel:'Force the door',difficulty:50,choices:[],checkSeed:12345};
+    resolvePendingCheck();
+  `);
+  // resolvePendingCheck appends the check line, then hands the result straight to the next turn,
+  // which appends the action as a choice line -- so select by kind rather than by position.
+  const line = h.run("state.narrative.find(entry => entry.kind === 'check')");
+  assert.ok(line, "no check line was recorded");
+  // Rolled against the first stat, and says so, naming what was actually requested.
+  assert.equal(line.stat, "GRT");
+  assert.match(line.text, /The scene asked for "strength", which this session does not define, so GRT was rolled instead./);
+  assert.equal(h.run("state.worldState.recentChecks.at(-1).substitutedStat"), "strength");
+  // The model is told too, so it stops asking for a stat that does not exist.
+  const sent = h.run("state.narrative.filter(entry => entry.kind === 'choice').at(-1).text");
+  assert.match(sent, /The requested check stat "strength" is not defined in this session; Grit was used/);
+});
+
+test("a resolved check keeps its stat when the session defines it", () => {
+  const h = harness();
+  h.run(`
+    state.statDefinitions = [
+      {id:'grit',label:'GRT',name:'Grit',description:'force'},
+      {id:'wits',label:'WIT',name:'Wits',description:'thought'},
+      {id:'luck',label:'LCK',name:'Luck',description:'chance'}
+    ];
+    state.party = [{id:'ash',name:'Ash',stats:[60,50,50],feeling:'',muted:false,initiative:true}];
+    state.narrative = [];
+    state.pendingPause = {pauseType:'check',characterId:'ash',checkStat:'wits',checkStatRequested:'',
+      checkLabel:'Read the room',difficulty:50,choices:[],checkSeed:12345};
+    resolvePendingCheck();
+  `);
+  const line = h.run("state.narrative.find(entry => entry.kind === 'check')");
+  assert.ok(line, "no check line was recorded");
+  assert.equal(line.stat, "WIT");
+  assert.doesNotMatch(line.text, /does not define/);
+  assert.equal(h.run("state.worldState.recentChecks.at(-1).substitutedStat"), "");
+});
+
+test("a check rolls the same number after an undo instead of quietly rerolling", () => {
+  const h = harness();
+  h.run(`
+    state.statDefinitions = [
+      {id:'grit',label:'GRT',name:'Grit',description:'force'},
+      {id:'wits',label:'WIT',name:'Wits',description:'thought'},
+      {id:'luck',label:'LCK',name:'Luck',description:'chance'}
+    ];
+    state.party = [{id:'ash',name:'Ash',stats:[60,50,50],feeling:'',muted:false,initiative:true}];
+    state.narrative = []; state.turnCheckpoints = [];
+    state.beatQueue = [{kind:'check',text:'',prompt:'Force the door',checkStat:'grit',difficulty:50,characterId:'ash'}];
+    processBeatQueue();
+  `);
+  // The seed is drawn when the check becomes pending, not when the player clicks ROLL.
+  const seed = h.run("state.pendingPause.checkSeed");
+  assert.ok(seed > 0, "a pending check was left without a seed");
+
+  h.run("globalThis.checkpoint = captureTurnCheckpoint('force the door'); resolvePendingCheck();");
+  const first = h.run("state.worldState.recentChecks.at(-1)");
+
+  // Undo back to the pause and roll it again.
+  h.run("turnInFlight = false; restoreTurnCheckpoint(checkpoint);");
+  assert.equal(h.run("state.pendingPause.checkSeed"), seed, "the seed did not survive the checkpoint");
+  h.run("resolvePendingCheck();");
+  const second = h.run("state.worldState.recentChecks.at(-1)");
+  assert.equal(second.roll, first.roll);
+  assert.equal(second.success, first.success);
+
+  // Sanity: a different seed is a different roll, so the above is reproducibility, not a constant.
+  const rolls = new Set(h.run("[1,2,3,4,5,6,7,8].map(seededRoll)"));
+  assert.ok(rolls.size > 4, "seededRoll is not varying across seeds");
+  assert.ok([...rolls].every(value => value >= 1 && value <= 100));
+});
+
+test("the folded archive re-renders only when what it displays changes", () => {
+  const h = harness();
+  const archive = h.element("narrative-archive");
+  let writes = 0;
+  let html = "";
+  Object.defineProperty(archive, "innerHTML", { get: () => html, set: value => { writes += 1; html = value; } });
+
+  h.run("state.archive = Array.from({length: 200}, (_, i) => ({kind:'body', text:'folded ' + i})); state.archiveOpen = true; actualRenderNarrative();");
+  assert.equal(writes, 1);
+  assert.match(html, /folded 199/);
+
+  // renderAll() fires on every beat reveal and settings change. None of these touch the archive.
+  h.run("state.storySummary = 'a summary'; actualRenderNarrative(); actualRenderNarrative(); actualRenderNarrative();");
+  assert.equal(writes, 1, "the archive re-rendered for a change that does not affect it");
+
+  // Collapsing it does.
+  h.run("state.archiveOpen = false; actualRenderNarrative();");
+  assert.equal(writes, 2);
+  assert.doesNotMatch(html, /folded 199/);
+
+  // So does folding more prose into it, and so does a formatting change.
+  h.run("state.archiveOpen = true; state.archive.push({kind:'body', text:'folded 200'}); actualRenderNarrative();");
+  assert.equal(writes, 3);
+  assert.match(html, /folded 200/);
+  h.run("state.textFormatting = 'plain'; actualRenderNarrative();");
+  assert.equal(writes, 4);
+});
+
+test("column proportions reject broken saved values and retain valid priorities", () => {
+  const h = harness();
+  const fallback = h.run("normalizeColumnRatios(null)");
+  assert.equal(fallback.length, 3);
+  assert.ok(Math.abs(fallback.reduce((sum, value) => sum + value, 0) - 1) < 0.000001);
+  assert.deepEqual(h.run("normalizeColumnRatios([0, 1, 1])"), fallback);
+  assert.deepEqual(h.run("normalizeColumnRatios([0.02, 0.49, 0.49])"), fallback);
+  const custom = h.run("normalizeColumnRatios([3, 5, 2])");
+  assert.ok(Math.abs(custom[0] - .3) < 0.000001);
+  assert.ok(Math.abs(custom[1] - .5) < 0.000001);
+  assert.ok(Math.abs(custom[2] - .2) < 0.000001);
 });

@@ -94,8 +94,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       min-height: 0;
       min-width: 0;
       display: grid;
-      grid-template-columns: minmax(280px, .95fr) minmax(420px, 1.55fr) minmax(285px, .8fr);
-      gap: 9px;
+      grid-template-columns: minmax(310px, var(--narrative-share, 1fr)) 9px minmax(400px, var(--visual-share, 1.25fr)) 9px minmax(290px, var(--sidebar-share, .9fr));
+      gap: 4px;
       padding: 9px;
       height: calc(100vh - 54px);
     }
@@ -106,14 +106,28 @@ this program. If not, see https://www.gnu.org/licenses/.
     .workspace.text-only .visual-column { display: none; }
     .workspace.text-only .narrative-column { grid-column: 1; grid-row: 1; }
     .workspace.text-only .sidebar { grid-column: 2; grid-row: 1; }
+    .workspace.text-only .column-resizer { display: none; }
+    .column-resizer {
+      position: relative; z-index: 6; min-width: 9px; padding: 0; border: 0; background: transparent;
+      cursor: col-resize; touch-action: none;
+    }
+    .column-resizer::before {
+      content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 3px;
+      background: color-mix(in srgb, var(--orange) 48%, transparent);
+    }
+    .column-resizer:hover::before, .column-resizer:focus-visible::before, .column-resizer.dragging::before {
+      background: var(--orange); box-shadow: 0 0 0 1px #10110f;
+    }
+    .column-resizer:focus-visible { outline: 1px solid var(--paper); outline-offset: 1px; }
+    body.resizing-columns { cursor: col-resize; user-select: none; }
     .scene-header {
-      display: flex; align-items: end; justify-content: space-between; gap: 12px; min-width: 0;
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0;
       color: var(--paper); padding: 2px 4px;
     }
     .eyebrow { margin: 0 0 5px; color: var(--orange); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
     .scene-header > div:first-child { min-width: 0; }
-    .scene-header h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-size: clamp(24px, 3vw, 38px); font-weight: 400; }
-    .scene-meta { flex: 0 1 210px; min-width: 0; overflow: hidden; text-align: right; color: #aaa092; font-size: 11px; line-height: 1.8; }
+    .scene-header h2 { margin: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--serif); font-size: clamp(24px, 3vw, 38px); line-height: 1.05; font-weight: 400; }
+    .scene-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; min-width: 0; overflow: hidden; text-align: left; color: #aaa092; font-size: 10px; line-height: 1.45; }
     .scene-meta > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .narrative-pane {
@@ -499,6 +513,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     @media (max-width: 1100px) {
       .workspace { grid-template-columns: minmax(0, 1fr) 310px; grid-template-rows: minmax(430px, 1fr) auto; height: auto; min-height: calc(100vh - 54px); }
+      .column-resizer { display: none; }
       .visual-column { grid-column: 1 / -1; grid-row: 1; min-height: 500px; }
       .narrative-column { grid-column: 1; grid-row: 2; min-height: 550px; }
       .sidebar { grid-column: 2; grid-row: 2; }
@@ -559,6 +574,13 @@ this program. If not, see https://www.gnu.org/licenses/.
       .settings-footer { align-items: end; flex-direction: column; }
     }
     @media (min-width: 561px) and (max-width: 720px) {
+      .topbar { padding: 0 10px; gap: 8px; }
+      .brand { flex: 1 1 auto; gap: 8px; min-width: 0; }
+      .brand > div { min-width: 0; }
+      .brand h1 { font-size: 13px; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .brand small, #connection-label { display: none; }
+      .top-actions { flex: 0 0 auto; gap: 6px; min-width: 0; }
+      .top-button { padding: 7px 8px; font-size: 10px; }
       /* The character sheet is a modal inside the viewport, not a desktop page. At this width the
          two-column overview leaves the portrait upload control too little room and the native file
          picker can paint over the identity fields. Stack the overview before it reaches that point. */
@@ -582,7 +604,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       </div>
     </header>
 
-    <main class="workspace">
+    <main class="workspace" id="workspace">
       <section class="narrative-column">
         <div class="scene-header">
           <div><p class="eyebrow">CURRENT SCENE / TURN <span id="turn-number">03</span></p><h2 id="scene-title">The Old Gate</h2></div>
@@ -627,6 +649,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         </details>
       </section>
 
+      <button class="column-resizer" id="resize-narrative-visual" type="button" role="separator" aria-orientation="vertical" aria-label="Resize story and image columns" title="Drag to resize story and image columns. Use arrow keys for small adjustments; double-click to reset."></button>
+
       <section class="visual-column">
         <div class="visual-topline"><span>GENERATED IMAGE</span><div class="visual-actions"><span id="image-status">IMAGE SLOT / NOT GENERATED</span><span id="bubble-status">BUBBLES: CONTEXT-DEPENDENT</span><button class="generate-image-button" type="button" id="generate-image">GENERATE IMAGE</button></div></div>
         <article class="scene-card">
@@ -639,6 +663,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           </div>
         </article>
       </section>
+
+      <button class="column-resizer" id="resize-visual-sidebar" type="button" role="separator" aria-orientation="vertical" aria-label="Resize image and party columns" title="Drag to resize image and party columns. Use arrow keys for small adjustments; double-click to reset."></button>
 
       <aside class="sidebar">
         <div class="sidebar-head"><h3>Party</h3><span class="party-count" id="party-count">03 / 05</span></div>
@@ -1047,6 +1073,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     ].join("\n");
     const SESSION_STORAGE_KEY = "party-harness-sessions-v1";
     const CURRENT_STATE_STORAGE_KEY = "party-harness-current-state-v1";
+    const DEFAULT_COLUMN_RATIOS = [1 / 3.15, 1.25 / 3.15, .9 / 3.15];
     // Mirrors BUBBLE_MODES in server.js so both ends enforce the same cap.
     const BUBBLE_LIMITS = { quiet: 1, normal: 2, talkative: 3 };
     // Memory model: the last NARRATIVE_CONTEXT_LINES lines go to the model verbatim, and once more
@@ -1167,6 +1194,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       generatedImagePrompt: "",
       imageStatus: "",
       showImageArea: true,
+      columnRatios: DEFAULT_COLUMN_RATIOS.slice(),
       storySummary: "",
       summaryStatus: "",
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -1248,6 +1276,77 @@ this program. If not, see https://www.gnu.org/licenses/.
     };
 
     const $ = (id) => document.getElementById(id);
+
+    function normalizeColumnRatios(value) {
+      if (!Array.isArray(value) || value.length !== 3) return DEFAULT_COLUMN_RATIOS.slice();
+      const ratios = value.map(Number);
+      if (ratios.some(number => !Number.isFinite(number) || number <= 0)) return DEFAULT_COLUMN_RATIOS.slice();
+      const total = ratios.reduce((sum, number) => sum + number, 0);
+      const normalized = ratios.map(number => number / total);
+      return normalized.some(number => number < .12 || number > .7) ? DEFAULT_COLUMN_RATIOS.slice() : normalized;
+    }
+
+    function applyColumnLayout() {
+      state.columnRatios = normalizeColumnRatios(state.columnRatios);
+      const workspace = $("workspace");
+      if (!workspace?.style) return;
+      workspace.style.setProperty("--narrative-share", state.columnRatios[0] + "fr");
+      workspace.style.setProperty("--visual-share", state.columnRatios[1] + "fr");
+      workspace.style.setProperty("--sidebar-share", state.columnRatios[2] + "fr");
+      $("resize-narrative-visual").setAttribute("aria-valuenow", Math.round(state.columnRatios[0] * 100));
+      $("resize-visual-sidebar").setAttribute("aria-valuenow", Math.round((state.columnRatios[0] + state.columnRatios[1]) * 100));
+    }
+
+    function resizeColumnsFromWidths(index, widths, delta) {
+      const minimums = [310, 400, 290];
+      const left = index, right = index + 1;
+      const pairWidth = widths[left] + widths[right];
+      widths[left] = Math.max(minimums[left], Math.min(pairWidth - minimums[right], widths[left] + delta));
+      widths[right] = pairWidth - widths[left];
+      const total = widths.reduce((sum, width) => sum + width, 0);
+      state.columnRatios = widths.map(width => width / total);
+      applyColumnLayout();
+      positionSidebarBubbles();
+    }
+
+    function beginColumnResize(event, index) {
+      if (window.innerWidth <= 1100 || !state.showImageArea) return;
+      event.preventDefault();
+      const columns = [document.querySelector(".narrative-column"), document.querySelector(".visual-column"), document.querySelector(".sidebar")];
+      const widths = columns.map(column => column.getBoundingClientRect().width);
+      const startX = event.clientX;
+      const handle = event.currentTarget;
+      handle.classList.add("dragging");
+      document.body.classList.add("resizing-columns");
+      handle.setPointerCapture?.(event.pointerId);
+      const move = moveEvent => resizeColumnsFromWidths(index, widths.slice(), moveEvent.clientX - startX);
+      const finish = () => {
+        handle.classList.remove("dragging");
+        document.body.classList.remove("resizing-columns");
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        scheduleCurrentStatePersistence();
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    }
+
+    function nudgeColumnResize(event, index) {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key) || window.innerWidth <= 1100 || !state.showImageArea) return;
+      event.preventDefault();
+      const columns = [document.querySelector(".narrative-column"), document.querySelector(".visual-column"), document.querySelector(".sidebar")];
+      resizeColumnsFromWidths(index, columns.map(column => column.getBoundingClientRect().width), event.key === "ArrowLeft" ? -24 : 24);
+      scheduleCurrentStatePersistence();
+    }
+
+    function resetColumnLayout() {
+      state.columnRatios = DEFAULT_COLUMN_RATIOS.slice();
+      applyColumnLayout();
+      positionSidebarBubbles();
+      scheduleCurrentStatePersistence();
+    }
 
     // Every request gets a deadline. Without one a stalled connection leaves the calling control
     // disabled forever, and the abort is reported as a readable timeout rather than "Failed to fetch".
@@ -1717,6 +1816,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     function renderAll() {
       applyPalette();
+      applyColumnLayout();
       $("turn-number").textContent = String(state.turn).padStart(2, "0");
       $("scene-title").textContent = state.sceneTitle;
       $("scene-location").textContent = state.location;
@@ -1744,12 +1844,15 @@ this program. If not, see https://www.gnu.org/licenses/.
     // Which line, if any, is currently open in the inline editor. An index into state.narrative.
     let editingNarrativeLine = null;
 
+    // Archived lines are covered too, and share the same id space. Inline editing never reaches
+    // them, but renderArchive identifies its cached contents by first and last id, and a session
+    // imported from an older save arrives with no ids at all.
     function ensureNarrativeIds() {
       const usedIds = new Set();
-      state.narrative.forEach(line => {
+      [state.archive, state.narrative].forEach(lines => lines.forEach(line => {
         if (!line.id || usedIds.has(line.id)) line.id = "line-" + crypto.randomUUID();
         usedIds.add(line.id);
-      });
+      }));
     }
 
     function narrativeLineMarkup(line) {
@@ -1760,6 +1863,44 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (line.kind === "check") return `<p class="narrative-line ${line.success ? "" : "muted"}"><strong>${escapeHtml(line.character || "Party")} / ${escapeHtml(line.stat || "Check")}</strong><br>${formatStoryText(line.text)}</p>`;
       if (line.kind === "error") return `<p class="narrative-line error"><strong>Harness error</strong><br>${formatStoryText(line.text)}</p>`;
       return `<p class="narrative-line">${formatStoryText(line.text)}</p>`;
+    }
+
+    // The active transcript is bounded by SUMMARY_KEEP, so rebuilding it on every redraw costs a
+    // fixed amount no matter how long the session runs. The archive is not bounded -- it grows by
+    // one fold's worth of lines forever -- and renderAll() fires on every beat reveal, feeling
+    // update, and settings change. Rebuilding and re-formatting hundreds of folded lines to show a
+    // changed feeling was the one redraw in here that scaled with session length, so the archive
+    // gets its own container and is rebuilt only when what it displays actually changes.
+    //
+    // Archived lines are immutable once folded and the archive only ever grows by concat or is
+    // replaced wholesale by an undo, so length plus the first and last line ids identify its
+    // contents. archiveOpen and textFormatting are in the key because both change the markup.
+    let archiveRenderKey = null;
+
+    function archiveSignature() {
+      const first = state.archive[0];
+      const last = state.archive[state.archive.length - 1];
+      return [
+        state.archive.length,
+        state.archiveOpen ? "open" : "closed",
+        state.textFormatting,
+        (first && first.id) || "",
+        (last && last.id) || ""
+      ].join("|");
+    }
+
+    function renderArchive(container) {
+      const key = archiveSignature();
+      if (key === archiveRenderKey) return;
+      archiveRenderKey = key;
+      if (!state.archive.length) { container.innerHTML = ""; return; }
+      let markup = `<button class="archive-toggle" type="button" id="toggle-archive" aria-expanded="${state.archiveOpen}">${state.archiveOpen ? "▼" : "▶"} Earlier scenes — ${state.archive.length} folded line${state.archive.length === 1 ? "" : "s"}, summarized for the engine but kept in full here</button>`;
+      if (state.archiveOpen) {
+        markup += `<div class="archive-block"><p class="archive-note">These lines are no longer sent to the model; the summary below stands in for them.</p>${state.archive.map(narrativeLineMarkup).join("")}</div>`;
+      }
+      container.innerHTML = markup;
+      const toggle = $("toggle-archive");
+      if (toggle) toggle.addEventListener("click", () => { state.archiveOpen = !state.archiveOpen; renderNarrative(); });
     }
 
     function renderNarrative() {
@@ -1777,14 +1918,14 @@ this program. If not, see https://www.gnu.org/licenses/.
       const pinnedToBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 48;
 
       // Folded prose, kept for reading rather than deleted. Collapsed by default so a long session
-      // does not open onto hundreds of lines, and never sent back to the model.
-      let archive = "";
-      if (state.archive.length) {
-        archive = `<button class="archive-toggle" type="button" id="toggle-archive" aria-expanded="${state.archiveOpen}">${state.archiveOpen ? "▼" : "▶"} Earlier scenes — ${state.archive.length} folded line${state.archive.length === 1 ? "" : "s"}, summarized for the engine but kept in full here</button>`;
-        if (state.archiveOpen) {
-          archive += `<div class="archive-block"><p class="archive-note">These lines are no longer sent to the model; the summary below stands in for them.</p>${state.archive.map(narrativeLineMarkup).join("")}</div>`;
-        }
+      // does not open onto hundreds of lines, and never sent back to the model. Rebuilt on its own
+      // schedule; see renderArchive.
+      if (!$("narrative-archive") || !$("narrative-body")) {
+        pane.innerHTML = '<div id="narrative-archive"></div><div id="narrative-body"></div>';
+        archiveRenderKey = null;
       }
+      renderArchive($("narrative-archive"));
+      const bodyPane = $("narrative-body");
 
       const summary = state.storySummary
         ? `<p class="narrative-line summary"><strong>Story so far / what the engine still remembers</strong><br>${escapeHtml(state.storySummary)}</p>`
@@ -1807,11 +1948,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         return `<div class="line-shell">${narrativeLineMarkup(line)}<button class="line-edit" type="button" data-line-edit="${index}" title="Edit this line" aria-label="Edit this line">✎</button></div>`;
       }).join("");
 
-      pane.innerHTML = archive + summary + body;
+      bodyPane.innerHTML = summary + body;
 
-      const toggle = $("toggle-archive");
-      if (toggle) toggle.addEventListener("click", () => { state.archiveOpen = !state.archiveOpen; renderNarrative(); });
-      pane.querySelectorAll("[data-line-edit]").forEach(button => button.addEventListener("click", () => {
+      bodyPane.querySelectorAll("[data-line-edit]").forEach(button => button.addEventListener("click", () => {
         editingNarrativeLine = Number(button.dataset.lineEdit);
         const line = state.narrative[editingNarrativeLine];
         state.narrativeEdit = { lineId: line.id, text: line.text };
@@ -1819,7 +1958,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         const input = $("line-editor-input");
         if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
       }));
-      pane.querySelectorAll("[data-line-save]").forEach(button => button.addEventListener("click", () => {
+      bodyPane.querySelectorAll("[data-line-save]").forEach(button => button.addEventListener("click", () => {
         const index = Number(button.dataset.lineSave);
         const input = $("line-editor-input");
         const line = state.narrative[index];
@@ -1832,7 +1971,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         state.narrativeEdit = null;
         renderAll();
       }));
-      pane.querySelectorAll("[data-line-cancel]").forEach(button => button.addEventListener("click", () => {
+      bodyPane.querySelectorAll("[data-line-cancel]").forEach(button => button.addEventListener("click", () => {
         editingNarrativeLine = null;
         state.narrativeEdit = null;
         renderNarrative();
@@ -2659,13 +2798,21 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (kind === "dialogue" && (!member || member.muted || !text)) return null;
       if (["narration", "system"].includes(kind) && !text) return null;
       if (["pause", "check"].includes(kind) && !prompt) return null;
+      // The server already refuses a stat this session does not define and reports what was asked
+      // for instead. Keep both: the resolved id is what gets rolled, the requested name is what the
+      // roll has to disclose when they differ.
+      const resolvedStat = statIndexById(beat.checkStat) >= 0 ? statDefinition(beat.checkStat).id : "";
+      const requestedStat = String(beat.checkStatRequested || (resolvedStat ? "" : beat.checkStat || "")).trim().slice(0, 80);
       return {
         id: String(beat.id || "beat-" + index).slice(0, 80), kind, text,
         character: member ? member.name : "", characterId: member ? member.id : "",
         type: String(beat.type || (kind === "dialogue" ? "dialogue" : kind)).slice(0, 80),
         pauseType: kind === "check" ? "check" : (["continue", "player_action", "choice", "check"].includes(beat.pauseType) ? beat.pauseType : "continue"),
         prompt, choices: (Array.isArray(beat.choices) ? beat.choices : []).map(value => String(value).trim().slice(0, 300)).filter(Boolean).slice(0, 5),
-        checkLabel: String(beat.checkLabel || prompt).slice(0, 200), checkStat: statIndexById(beat.checkStat) >= 0 ? statDefinition(beat.checkStat).id : "",
+        checkLabel: String(beat.checkLabel || prompt).slice(0, 200),
+        checkStat: resolvedStat, checkStatRequested: resolvedStat ? "" : requestedStat,
+        // Preserved so a restored beat queue keeps the roll it was already going to make.
+        checkSeed: boundedInteger(beat.checkSeed, 0, 4294967295, 0),
         difficulty: boundedInteger(beat.difficulty, 0, 100, 50),
         stateChanges: boundedChanges(beat.stateChanges)
       };
@@ -2713,7 +2860,12 @@ this program. If not, see https://www.gnu.org/licenses/.
           const line = { kind: "label", text: beat.text };
           state.narrative.push(line); appended.push(line);
         } else {
-          state.pendingPause = { ...beat, pauseType: beat.kind === "check" ? "check" : beat.pauseType };
+          const pauseType = beat.kind === "check" ? "check" : beat.pauseType;
+          // The seed is fixed when the check becomes pending, not when the player clicks ROLL. It
+          // rides in pendingPause, which the turn checkpoint clones, so undoing back to a check and
+          // rolling it again reproduces the same number instead of quietly rerolling the dice.
+          const checkSeed = pauseType === "check" ? (beat.checkSeed || newCheckSeed()) : 0;
+          state.pendingPause = { ...beat, pauseType, checkSeed };
           state.narrative.push({ kind: "pause", text: beat.prompt, pauseType: state.pendingPause.pauseType });
           if (state.pendingPause.pauseType !== "continue") state.beatQueue = [];
         }
@@ -2726,26 +2878,54 @@ this program. If not, see https://www.gnu.org/licenses/.
       return appended;
     }
 
+    // A check seed is drawn once, when the check becomes pending. seededRoll is mulberry32's step
+    // function: same seed, same 1-100 roll, on this machine or any other.
+    function newCheckSeed() {
+      // The low bit is reserved so a stored 0 can still mean "no seed yet" for an older save.
+      return (crypto.getRandomValues(new Uint32Array(1))[0] | 1) >>> 0;
+    }
+    function seededRoll(seed) {
+      let value = ((Number(seed) >>> 0) || 1) >>> 0;
+      value = (value + 0x6d2b79f5) >>> 0;
+      let mixed = value;
+      mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+      mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+      return ((((mixed ^ (mixed >>> 14)) >>> 0) % 100) + 1);
+    }
+
     function resolvePendingCheck() {
       const pause = state.pendingPause;
       if (!pause || pause.pauseType !== "check" || turnInFlight) return;
       const member = findPartyMember({ characterId: pause.characterId }) || state.party[state.selected] || state.party[0];
       const index = statIndexById(pause.checkStat);
+      // Falling back to the first stat is the only thing the harness can do with a check it cannot
+      // map -- but doing it silently put a roll in the transcript under a stat the model never named,
+      // and the player had no way to see the substitution. Roll it, then say so, in the transcript
+      // and in what goes back to the model.
       const resolvedIndex = index < 0 ? 0 : index;
-      const stat = normalizeStatDefinitions(state.statDefinitions)[resolvedIndex];
+      const definitions = normalizeStatDefinitions(state.statDefinitions);
+      const stat = definitions[resolvedIndex];
+      const substituted = index < 0;
+      const requested = String(pause.checkStatRequested || "").trim();
+      const substitutionNote = substituted
+        ? " The scene asked for " + (requested ? '"' + requested + '"' : "a stat") + ", which this session does not define, so " + stat.label + " was rolled instead."
+        : "";
       const score = member ? boundedInteger(member.stats[resolvedIndex], 0, 100, 50) : 50;
       const target = boundedInteger(score - pause.difficulty + 50, 5, 95, 50);
-      const roll = Math.floor(Math.random() * 100) + 1;
+      const seed = pause.checkSeed || newCheckSeed();
+      const roll = seededRoll(seed);
       const success = roll <= target;
       const label = pause.checkLabel || pause.prompt || stat.name + " check";
-      state.worldState.recentChecks.push({ label, characterId: member ? member.id : "", stat: stat.id, roll, target, success, turn: state.turn });
+      state.worldState.recentChecks.push({ label, characterId: member ? member.id : "", stat: stat.id, roll, target, success, turn: state.turn, substitutedStat: substituted ? requested : "" });
       state.worldState.recentChecks = state.worldState.recentChecks.slice(-20);
       state.pendingPause = null;
       state.beatQueue = [];
-      state.narrative.push({ kind: "check", text: label + ": " + (success ? "SUCCESS" : "FAILURE") + " — rolled " + roll + " against " + target + ".", character: member ? member.name : "", characterId: member ? member.id : "", stat: stat.label, roll, target, success });
+      state.narrative.push({ kind: "check", text: label + ": " + (success ? "SUCCESS" : "FAILURE") + " — rolled " + roll + " against " + target + "." + substitutionNote, character: member ? member.name : "", characterId: member ? member.id : "", stat: stat.label, roll, target, success });
       markDirty();
       renderAll();
-      handleTurn("CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "success" : "failure") + " (rolled " + roll + " against " + target + "). Continue from this resolved result.", { checkResult: true });
+      handleTurn("CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "success" : "failure") + " (rolled " + roll + " against " + target + ")."
+        + (substituted ? " The requested check stat " + (requested ? '"' + requested + '"' : "") + " is not defined in this session; " + stat.name + " was used. Use only stat ids from scenario.statDefinitions." : "")
+        + " Continue from this resolved result.", { checkResult: true });
     }
 
     // Rolling memory. Once enough transcript has piled up, everything except the most recent
@@ -3751,6 +3931,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           imageSize: state.imageSize,
           imageQuality: state.imageQuality,
           showImageArea: state.showImageArea,
+          columnRatios: state.columnRatios,
           artDirection: state.artDirection,
           styleReference: state.styleReference,
           styleReferenceName: state.styleReferenceName,
@@ -4004,6 +4185,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.imageSize = ["1536x1024", "1024x1024", "1024x1536"].includes(settings.imageSize) ? settings.imageSize : "1536x1024";
       state.imageQuality = ["auto", "low", "medium", "high"].includes(settings.imageQuality) ? settings.imageQuality : "auto";
       state.showImageArea = settings.showImageArea !== false;
+      state.columnRatios = normalizeColumnRatios(settings.columnRatios);
       state.artDirection = String(settings.artDirection || "").slice(0, 12000);
       // Held to the same rule as a portrait: a data image only, and bounded. An imported style sheet
       // is uploaded to the image provider on the next generate, so it is not merely displayed.
@@ -4526,6 +4708,12 @@ this program. If not, see https://www.gnu.org/licenses/.
     });
     $("sidebar-panel-party").addEventListener("scroll", positionSidebarBubbles, { passive: true });
     window.addEventListener("resize", positionSidebarBubbles);
+    [["resize-narrative-visual", 0], ["resize-visual-sidebar", 1]].forEach(([id, index]) => {
+      const handle = $(id);
+      handle.addEventListener("pointerdown", event => beginColumnResize(event, index));
+      handle.addEventListener("keydown", event => nudgeColumnResize(event, index));
+      handle.addEventListener("dblclick", resetColumnLayout);
+    });
     $("help-button").addEventListener("click", () => openBackdrop("help-backdrop", "close-help"));
     $("close-help").addEventListener("click", () => closeBackdrop("help-backdrop"));
     $("help-backdrop").addEventListener("click", event => { if (event.target.id === "help-backdrop") requestCloseModal("help-backdrop"); });
