@@ -4,6 +4,10 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
+No changes recorded yet.
+
+## [0.5.0] — 2026-09-06
+
 - Added draggable desktop dividers between Story, Image, and Party. Column priorities persist with workspace saves and exports, support arrow-key adjustment, reset on double-click, and yield to stacked or text-only layouts.
 - Made rolling summaries explicitly fallible working memory. Pinned canon, corrected world state, reviewed memories, and recent verbatim events now outrank compressed summaries; the summarizer preserves uncertainty and avoids hardening isolated reactions into lasting traits.
 - Rebalanced the default desktop columns, allowed two-line scene titles, compacted scene metadata, and repaired the crowded 561–720 px header range.
@@ -71,3 +75,17 @@ First public release of Party Harness.
 - Image connections for OpenAI Images, NovelAI, Stability AI, AUTOMATIC1111/Forge, Fooocus, ComfyUI API-format workflows, and custom OpenAI-compatible image servers.
 - Optional page-turn sound, accessible control hints, local `.env` configuration, and beginner-focused setup documentation.
 - GPL-3.0-only licensing and a clean public-release builder that excludes keys, personal profiles, saves, and audio.
+
+[Unreleased]: https://github.com/4thkira/party-harness/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/4thkira/party-harness/releases/tag/v0.5.0
+[0.4.2]: https://github.com/4thkira/party-harness/releases/tag/v0.4.2
+[0.4.1]: https://github.com/4thkira/party-harness/releases/tag/v0.4.1
+[0.4.0]: https://github.com/4thkira/party-harness/releases/tag/v0.4.0
+[0.3.2]: https://github.com/4thkira/party-harness/releases/tag/v0.3.2
+[0.3.1]: https://github.com/4thkira/party-harness/releases/tag/v0.3.1
+[0.3.0]: https://github.com/4thkira/party-harness/releases/tag/v0.3.0
+[0.2.2]: https://github.com/4thkira/party-harness/releases/tag/v0.2.2
+[0.2.1]: https://github.com/4thkira/party-harness/releases/tag/v0.2.1
+[0.2.0]: https://github.com/4thkira/party-harness/releases/tag/v0.2.0
+[0.1.1]: https://github.com/4thkira/party-harness/releases/tag/v0.1.1
+[0.1.0]: https://github.com/4thkira/party-harness/releases/tag/v0.1.0

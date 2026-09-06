@@ -53,4 +53,6 @@ git push origin main --follow-tags
 
 On GitHub, open **Releases → Draft a new release**, choose the tag, paste the matching changelog section into the notes, and attach the ZIP from `dist/`. Keep the tag, changelog heading, and download name on the same version. Patch releases (`v0.1.1`) suit fixes; minor releases (`v0.2.0`) suit new features; major releases (`v1.0.0`) suit breaking changes.
 
+Each version is a permanent historical snapshot. Create a new tag and GitHub release rather than editing, retagging, deleting, or replacing an older one. Move the finished bullets from `Unreleased` into a dated version heading, keep an empty `Unreleased` section above it, add the version link at the bottom of the changelog, and use those same bullets as the release notes. Attach a newly built `party-harness-public.zip` to that version even though older releases use the same asset name; GitHub keeps each asset under its own tag.
+
 Only add assets you have permission to distribute. Code licensing does not grant rights to provider services or characters, images, and audio supplied by other people.

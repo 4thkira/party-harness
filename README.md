@@ -12,6 +12,8 @@ For the easiest setup, use the [GitHub Releases page](https://github.com/4thkira
 
 Read [CHANGELOG.md](CHANGELOG.md) to see what changed between versions. Bug-fix releases increment the last number (`v0.1.1`), feature releases increment the middle number (`v0.2.0`), and breaking changes increment the first number (`v1.0.0`).
 
+Every release remains available as its own dated snapshot. The GitHub Releases page keeps each version's notes and download; the changelog is the complete chronological index and links each version to its release. `Unreleased` describes changes on `main` that have not been packaged yet.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
