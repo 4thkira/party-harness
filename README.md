@@ -2,6 +2,8 @@
 
 A local browser app for roleplaying with a customizable party of AI characters. Write an action, follow the scene, and let characters react in their own voices. Edit their sheets, correct the story, track relationships and inventory, and optionally generate scene art.
 
+It is not an online service and never asks you to sign in. You run it yourself, so your story stays as private as you want it — see [Local by design](#local-by-design).
+
 See [CHANGELOG.md](CHANGELOG.md) for versioned updates and release notes.
 
 This is a working prototype. It runs on your computer, but text generation can use a hosted provider or a model running on your computer. Hosted generation needs your own API access and may cost money. Images use a separate image provider, either hosted or a compatible server on your computer. You can explore the interface and edit characters without a key.
@@ -69,7 +71,20 @@ Autosave and named saves live in this browser on this computer. Use the same bro
 
 Session exports exclude API keys and generated image data. Save generated art separately. Character sheets, uploaded portraits, and story text may be personal, so review your session files before sharing them.
 
-Your selected provider receives the context needed for generation, including relevant character profiles and story information. Reference images are sent when used for image generation. The included server is intended for local use; GitHub hosts the source download, not a working backend. Do not deploy it as a public service without redesigning access control.
+Your selected provider receives the context needed for generation, including relevant character profiles and story information. Reference images are sent when used for image generation. What that means for your privacy, and how to avoid it entirely, is covered in [Local by design](#local-by-design). The included server is intended for local use; do not deploy it as a public service without redesigning access control.
+
+## Local by design
+
+Party Harness is not an online service. There is no hosted version, no account to create, no sign-in, no telemetry, and no server of ours that your story passes through. GitHub hosts the source, not a working backend. You download it, run it on your own computer, and open it in your own browser. Your saves live in that browser and in files you control, and nothing is uploaded, moderated, ranked, or retained by this project.
+
+That is deliberate. Roleplay gets personal — a quiet character study, a long-running campaign, something explicit, something you would simply rather not explain to a content reviewer. Running the harness yourself means nobody is looking over your shoulder, and the project has no opinion about what your scenes contain.
+
+**Where your privacy actually ends is your text provider.** The harness is local, but generation is not automatically local. If you point it at a hosted provider, that provider receives your prompts — character sheets, story context, and the scene you are writing — and applies its own policies, moderation, and retention to them. That is a real distinction and worth planning around:
+
+- **A model running on your computer** (Ollama, LM Studio, or any OpenAI-compatible local server) keeps everything on your machine. Nothing leaves it, so there is no provider policy to satisfy and no third party with a copy. This is the only configuration that is private end to end.
+- **A hosted provider** is a service you have an account with, bound by its terms. Providers differ enormously in what they permit; some are built with adult fiction in mind, others restrict it and may act on your account. Check the terms of the provider you choose rather than assuming, and remember the same applies to hosted image generation.
+
+Neither choice is wrong. Hosted models are usually stronger and easier to start with; a local model trades some capability for the guarantee that your story never leaves the room. Pick per session — the provider is a setting, not a commitment.
 
 ## Bring your own characters
 
