@@ -4,7 +4,13 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
-No changes recorded yet.
+- Added local looping music and ambient layers, each with its own track and volume control. Files stay in the user's `music/` and `ambience/` folders and are served only through the local harness.
+- Reserved a separate middle-column row for those audio controls, so a tall scene preview cannot cover them at short or narrow viewport sizes.
+- Added portrait expression sets. Multiple uploaded expressions travel with a character sheet, and the selected expression becomes that character's portrait throughout the interface.
+- Added a Party Banter control for short, spontaneous character exchanges that do not advance the turn or apply mechanical state changes.
+- Added an animated local roll presentation for stat checks, with reduced-motion support.
+- Added user-authored CSS interface skins loaded from the local `skins/` folder.
+- Added scene bookmarks and a History tab containing bookmarked excerpts and a chronological record of relationship changes. Relationship history participates in turn undo.
 
 ## [0.5.0] — 2026-09-06
 

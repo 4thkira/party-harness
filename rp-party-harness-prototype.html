@@ -13,6 +13,7 @@ this program. If not, see https://www.gnu.org/licenses/.
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Party Harness // Prototype</title>
+  <link id="custom-skin" rel="stylesheet" disabled>
   <style>
     :root {
       --ink: #1f201d;
@@ -101,7 +102,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
     .narrative-column, .visual-column { min-width: 0; min-height: 0; display: grid; gap: 8px; }
     .narrative-column { grid-template-rows: auto minmax(0, 1fr) auto auto auto; overflow: hidden; }
-    .visual-column { position: relative; z-index: 1; grid-template-rows: auto minmax(0, 1fr); }
+    .visual-column { position: relative; z-index: 1; grid-template-rows: auto auto auto; align-content: start; overflow: hidden; }
     .workspace.text-only { grid-template-columns: minmax(0, 1fr) minmax(285px, .8fr); }
     .workspace.text-only .visual-column { display: none; }
     .workspace.text-only .narrative-column { grid-column: 1; grid-row: 1; }
@@ -144,7 +145,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       position: relative;
       overflow: hidden;
       display: grid;
-      place-items: center;
+      place-items: stretch;
+      width: 100%;
+      aspect-ratio: 1.2 / 1;
       border: 2px solid var(--line);
       background: #191715;
       box-shadow: var(--shadow);
@@ -153,8 +156,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       position: relative;
       overflow: hidden;
       border: 2px solid var(--line);
-      width: min(100%, calc((100vh - 84px) * 1.2));
-      aspect-ratio: 1.2 / 1;
+      width: 100%;
+      height: 100%;
       background: linear-gradient(160deg, #efb760 0%, #b84d32 48%, #30221f 100%);
     }
     .visual:before, .visual:after { content: ""; position: absolute; display: block; }
@@ -286,7 +289,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 2px solid var(--line); }
     .sidebar-head h3 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
     .party-count { color: var(--rust); font-size: 11px; }
-    .sidebar-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 9px 0 8px; border-bottom: 1px solid #aa9b87; }
+    .sidebar-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 9px 0 8px; border-bottom: 1px solid #aa9b87; }
     .sidebar-tab { min-width: 0; padding: 7px 4px; border: 1px solid #a3937d; color: var(--muted); background: transparent; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
     .sidebar-tab:hover { color: var(--rust); border-color: var(--rust); }
     .sidebar-tab.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
@@ -432,6 +435,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .portrait-editor { display: grid; grid-template-columns: 88px 1fr; gap: 12px; align-items: start; padding: 10px; border: 1px solid #a3937d; background: rgba(255,255,255,.16); }
     .portrait-preview { width: 88px; height: 88px; display: grid; place-items: center; overflow: hidden; color: var(--paper); background: var(--rust); border: 2px solid var(--line); font-size: 22px; font-weight: 700; }
     .portrait-preview img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .expression-editor { display: grid; gap: 7px; margin-top: 7px; padding-top: 7px; border-top: 1px dashed #a3937d; }
+    .expression-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .expression-chip { padding: 4px 6px; border: 1px solid #a3937d; background: rgba(255,255,255,.18); font-size: 9px; }
     .portrait-fields { display: grid; gap: 7px; min-width: 0; }
     .portrait-fields .field, .portrait-fields input, .portrait-upload-row { min-width: 0; }
     .portrait-upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
@@ -485,6 +491,18 @@ this program. If not, see https://www.gnu.org/licenses/.
     .session-generator .scenario-textarea { min-height: 86px; }
     .generation-status { min-height: 16px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
     .generation-status.error { color: #8f382f; }
+    .media-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; border: 1px solid #514d47; background: #171815; color: var(--paper); }
+    .media-channel { display: grid; grid-template-columns: auto minmax(0,1fr) 64px; gap: 5px; align-items: center; }
+    .media-channel button, .media-channel select { min-width: 0; height: 27px; border: 1px solid #6f6c64; color: var(--paper); background: #20211e; font-size: 9px; }
+    .media-channel input { width: 64px; accent-color: var(--orange); }
+    .history-entry { margin-bottom: 8px; padding: 8px; border: 1px dashed #a3937d; background: rgba(255,255,255,.16); font-size: 10px; line-height: 1.45; }
+    .history-entry strong { font-family: var(--serif); font-size: 14px; font-weight: 400; }
+    .dice-overlay { position: fixed; z-index: 12000; inset: 0; display: grid; place-items: center; pointer-events: none; background: rgba(10,10,9,.32); opacity: 0; transition: opacity .15s; }
+    .dice-overlay.show { opacity: 1; }
+    .dice-card { min-width: 240px; padding: 20px; border: 2px solid var(--paper); color: var(--paper); background: #171815; box-shadow: 8px 8px 0 #000; text-align: center; }
+    .dice-value { display: grid; place-items: center; width: 86px; height: 86px; margin: 10px auto; border: 3px solid var(--orange); font: 42px/1 var(--serif); transform: rotate(-3deg); }
+    .dice-overlay.rolling .dice-value { animation: dice-jolt .12s steps(2,end) infinite; }
+    @keyframes dice-jolt { 50% { transform: rotate(4deg) scale(1.06); } }
     .system-prompt { min-height: 150px !important; resize: vertical; font: 12px/1.45 var(--mono); }
     .system-prompt-footer { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
     .reset-prompt { flex: 0 0 auto; padding: 7px 9px; border: 1px solid #8e806e; color: var(--muted); background: transparent; font-size: 10px; letter-spacing: .06em; }
@@ -569,6 +587,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       .portrait-preview { width: 70px; height: 70px; }
       .modal.view-mode .portrait-preview { width: 100px; height: 100px; }
       .settings-grid { grid-template-columns: 1fr; }
+      .media-shelf { grid-template-columns: 1fr; }
       .settings-group.compact-settings-row, .settings-group.wide-settings-row { grid-template-columns: 1fr; }
       .settings-modal { padding: 14px; }
       .settings-footer { align-items: end; flex-direction: column; }
@@ -620,6 +639,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           <span id="turn-status" aria-live="polite"></span>
           <div class="turn-actions">
             <button class="turn-action" type="button" id="cancel-turn" hidden>CANCEL TURN</button>
+            <button class="turn-action" type="button" id="bookmark-scene">☆ BOOKMARK</button>
+            <button class="turn-action" type="button" id="party-banter">PARTY BANTER</button>
             <button class="turn-action" type="button" id="regenerate-turn" title="Discard the last turn and generate a new one from the same action">↻ REGENERATE</button>
             <button class="turn-action" type="button" id="undo-turn" title="Remove the last turn and put the action back in the box">↩ UNDO TURN</button>
           </div>
@@ -662,6 +683,10 @@ this program. If not, see https://www.gnu.org/licenses/.
             <span class="turn-stamp">GENERATE IMAGE TO FILL THIS SLOT</span>
           </div>
         </article>
+        <div class="media-shelf" aria-label="Local soundtrack and ambience">
+          <div class="media-channel"><button type="button" id="music-toggle">▶ MUSIC</button><select id="music-track" aria-label="Music track"><option value="">No local music</option></select><input id="music-volume" type="range" min="0" max="100" value="55" aria-label="Music volume"></div>
+          <div class="media-channel"><button type="button" id="ambience-toggle">▶ AMBIENCE</button><select id="ambience-track" aria-label="Ambient sound"><option value="">No local ambience</option></select><input id="ambience-volume" type="range" min="0" max="100" value="35" aria-label="Ambience volume"></div>
+        </div>
       </section>
 
       <button class="column-resizer" id="resize-visual-sidebar" type="button" role="separator" aria-orientation="vertical" aria-label="Resize image and party columns" title="Drag to resize image and party columns. Use arrow keys for small adjustments; double-click to reset."></button>
@@ -671,6 +696,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <div class="sidebar-tabs" role="tablist" aria-label="Party sidebar views">
           <button class="sidebar-tab active" id="sidebar-tab-party" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-party" data-sidebar-tab="party" title="Party roster and selected character">PARTY</button>
           <button class="sidebar-tab" id="sidebar-tab-world" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-world" data-sidebar-tab="world" tabindex="-1" title="Mechanical world state and memory proposals">WORLD</button>
+          <button class="sidebar-tab" id="sidebar-tab-history" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-history" data-sidebar-tab="history" tabindex="-1" title="Scene bookmarks and relationship history">HISTORY</button>
           <button class="sidebar-tab" id="sidebar-tab-trace" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-trace" data-sidebar-tab="trace" tabindex="-1" title="Recent provider turns and validation results">TRACE</button>
         </div>
         <div class="sidebar-panels">
@@ -688,6 +714,11 @@ this program. If not, see https://www.gnu.org/licenses/.
             <div class="sidebar-panel-heading"><strong>Turn trace</strong><span>latest six turns</span></div>
             <p class="sidebar-panel-note">A compact diagnostic record of provider requests, response timing, beat counts, and rejected proposals.</p>
             <div id="turn-trace-panel"></div>
+          </section>
+          <section class="sidebar-panel" id="sidebar-panel-history" data-sidebar-panel="history" role="tabpanel" aria-labelledby="sidebar-tab-history" aria-hidden="true" hidden>
+            <div class="sidebar-panel-heading"><strong>Story history</strong><span>bookmarks + bonds</span></div>
+            <p class="sidebar-panel-note">Keep favorite scene moments and see how directional relationships changed over time.</p>
+            <div id="history-panel"></div>
           </section>
         </div>
         <div class="sidebar-bubble-layer" id="sidebar-bubble-layer" aria-label="Party asides and thoughts" hidden></div>
@@ -790,6 +821,7 @@ this program. If not, see https://www.gnu.org/licenses/.
             <div class="field"><label for="character-portrait-url">Portrait URL <span class="hint">(https only — upload below for a local image)</span></label><input id="character-portrait-url" type="url" placeholder="https://…"></div>
             <div class="portrait-upload-row"><label class="upload-label" for="character-portrait-upload">Upload image</label><input id="character-portrait-upload" type="file" accept="image/*"><button class="clear-portrait" type="button" id="clear-portrait">USE INITIALS</button></div>
             <p class="field-note">URL or upload is optional. Uploads are kept in this browser session as image data.</p>
+            <div class="expression-editor"><div class="field"><label for="character-active-expression">Active expression</label><select id="character-active-expression"><option value="">Base portrait</option></select></div><div class="portrait-upload-row"><label class="upload-label" for="character-expression-upload">Add expressions</label><input id="character-expression-upload" type="file" accept="image/*" multiple><button class="clear-portrait" type="button" id="clear-expressions">CLEAR SET</button></div><div class="expression-list" id="expression-list"></div><p class="field-note">The filename becomes the expression name. Select one here to change the portrait shown throughout the harness.</p></div>
             <div class="reference-block">
               <label class="check-field"><input id="character-use-reference" type="checkbox"><span>Use as reference in generated scene art</span></label>
               <div class="reference-row">
@@ -857,6 +889,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="settings-accent">Custom accent</label><input id="settings-accent" type="color" value="#5b625c"></div>
           <div class="field"><label for="settings-font">Narrative / heading font</label><select id="settings-font"><option value="classic">Classic serif</option><option value="typewriter">Typewriter</option><option value="humanist">Humanist sans</option></select></div>
           <div class="field"><label for="settings-text-formatting">Story text formatting</label><select id="settings-text-formatting" data-help="Markdown mode renders safe emphasis, headings, lists, and inline code in generated story text. Plain mode shows the same text without styling." aria-description="Markdown mode renders safe emphasis, headings, lists, and inline code in generated story text. Plain mode shows the same text without styling."><option value="markdown">Markdown — readable formatting</option><option value="plain">Plain text — no styling markers</option></select></div>
+          <div class="field"><label for="settings-skin">Local interface skin</label><select id="settings-skin"><option value="">Built-in appearance</option></select></div><button type="button" class="settings-test" id="refresh-local-library">REFRESH MUSIC / AMBIENCE / SKINS</button>
           <p class="settings-note">Formatting only changes how story text is displayed. The original text stays in the session and exports.</p>
         </section>
         <section class="settings-group">
@@ -932,6 +965,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       <div class="settings-footer"><span id="settings-status">Changes apply immediately in this prototype.</span><button class="save-button" type="button" id="done-settings">DONE</button></div>
     </form>
   </div>
+
+  <div class="dice-overlay" id="dice-overlay" role="status" aria-live="assertive"><div class="dice-card"><div id="dice-label">CHECK</div><div class="dice-value" id="dice-value">?</div><strong id="dice-outcome"></strong></div></div>
 
   <div class="modal-backdrop" id="world-editor-backdrop" role="dialog" aria-modal="true" aria-labelledby="world-editor-title">
     <form class="settings-modal" id="world-editor-form">
@@ -1167,7 +1202,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     let persistenceRevision = 0;
     let autosaveEnabled = true;
     let changeRevision = 0;
-    const SIDEBAR_TABS = ["party", "world", "trace"];
+    const SIDEBAR_TABS = ["party", "world", "history", "trace"];
     let activeSidebarTab = "party";
 
     const state = {
@@ -1195,6 +1230,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       imageStatus: "",
       showImageArea: true,
       columnRatios: DEFAULT_COLUMN_RATIOS.slice(),
+      musicTrack: "", ambienceTrack: "", musicVolume: 55, ambienceVolume: 35, interfaceSkin: "",
+      sceneBookmarks: [], relationshipTimeline: [],
       storySummary: "",
       summaryStatus: "",
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
@@ -1290,9 +1327,29 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.columnRatios = normalizeColumnRatios(state.columnRatios);
       const workspace = $("workspace");
       if (!workspace?.style) return;
-      workspace.style.setProperty("--narrative-share", state.columnRatios[0] + "fr");
-      workspace.style.setProperty("--visual-share", state.columnRatios[1] + "fr");
-      workspace.style.setProperty("--sidebar-share", state.columnRatios[2] + "fr");
+      // Fractional tracks can stop at their min-content widths and leave the remaining grid
+      // width unassigned. Resolve priorities to explicit widths so extreme column splits still
+      // consume the full desktop grid instead of leaving a black strip beside the sidebar.
+      const available = workspace.clientWidth - 52; // padding, handles, and grid gaps
+      if (available > 0) {
+        const minimums = [310, 400, 290];
+        const widths = state.columnRatios.map(ratio => ratio * available);
+        // Preserve the requested proportions when they fit. Only redistribute space when an
+        // imported/old ratio would put a track below its usable minimum.
+        let deficit = 0;
+        widths.forEach((width, index) => { if (width < minimums[index]) { deficit += minimums[index] - width; widths[index] = minimums[index]; } });
+        if (deficit) {
+          const flexibleTotal = widths.reduce((sum, width, index) => sum + (width > minimums[index] ? width - minimums[index] : 0), 0);
+          widths.forEach((width, index) => { if (width > minimums[index] && flexibleTotal) widths[index] -= deficit * ((width - minimums[index]) / flexibleTotal); });
+        }
+        workspace.style.setProperty("--narrative-share", widths[0] + "px");
+        workspace.style.setProperty("--visual-share", widths[1] + "px");
+        workspace.style.setProperty("--sidebar-share", widths[2] + "px");
+      } else {
+        workspace.style.setProperty("--narrative-share", state.columnRatios[0] + "fr");
+        workspace.style.setProperty("--visual-share", state.columnRatios[1] + "fr");
+        workspace.style.setProperty("--sidebar-share", state.columnRatios[2] + "fr");
+      }
       $("resize-narrative-visual").setAttribute("aria-valuenow", Math.round(state.columnRatios[0] * 100));
       $("resize-visual-sidebar").setAttribute("aria-valuenow", Math.round((state.columnRatios[0] + state.columnRatios[1]) * 100));
     }
@@ -1523,7 +1580,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     // error with nothing explaining why. Refusing it here is the honest version of what already
     // happened, and it keeps the policy from having to widen for it.
     const safePortraitSource = member => {
-      const source = member.portraitUrl || member.portraitData || "";
+      const expressions = Array.isArray(member.expressions) ? member.expressions : [];
+      const active = expressions.find(expression => expression.label === member.activeExpression);
+      const source = (active && active.image) || member.portraitUrl || member.portraitData || "";
       return /^(https:\/\/|data:image\/)/i.test(source) ? source : "";
     };
     const portraitMarkup = member => {
@@ -1607,6 +1666,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       setControlValue("settings-palette", state.palette);
       setControlValue("settings-accent", state.customAccent || PALETTES[state.palette].rust);
       setControlValue("settings-font", state.font);
+      setControlValue("settings-skin", state.interfaceSkin);
       setControlValue("settings-text-formatting", state.textFormatting);
       setControlValue("settings-bubble-mode", state.mode);
       setControlValue("settings-grounding", state.grounding);
@@ -1787,6 +1847,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("regenerate-turn").disabled = turnInFlight || !hasTurn;
       $("undo-turn").disabled = turnInFlight || !hasTurn;
       $("cancel-turn").hidden = !turnInFlight;
+      $("party-banter").disabled = turnInFlight;
     }
 
     function setSidebarTab(tab, moveFocus = false) {
@@ -1832,6 +1893,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       renderPause();
       renderWorldState();
       renderTurnTrace();
+      renderHistory();
+      renderMediaControls();
       renderMemoryStatus();
       renderContextSize();
       renderStyleReference();
@@ -1839,6 +1902,73 @@ this program. If not, see https://www.gnu.org/licenses/.
       renderDirtyMarker();
       renderPromptPreview();
       scheduleCurrentStatePersistence();
+    }
+
+    let localLibrary = { music: [], ambience: [], skins: [] };
+    let musicAudio = null, ambienceAudio = null;
+    const libraryName = value => String(value || "").slice(0, 240);
+    function renderMediaControls() {
+      [["music", "musicTrack"], ["ambience", "ambienceTrack"]].forEach(([kind, key]) => {
+        const select = $(kind + "-track");
+        const files = localLibrary[kind] || [];
+        if (files.length && state[key] && !files.includes(state[key])) state[key] = "";
+        select.innerHTML = '<option value="">No local ' + (kind === "music" ? "music" : "ambience") + '</option>' + files.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name.replace(/\.[^.]+$/, "")) + '</option>').join("");
+        select.value = state[key];
+        $(kind + "-volume").value = state[kind + "Volume"];
+        const audio = kind === "music" ? musicAudio : ambienceAudio;
+        $(kind + "-toggle").textContent = audio && !audio.paused ? "❚❚ " + kind.toUpperCase() : "▶ " + kind.toUpperCase();
+      });
+      const skin = $("settings-skin");
+      skin.innerHTML = '<option value="">Built-in interface</option>' + localLibrary.skins.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name.replace(/\.css$/i, "")) + '</option>').join("");
+      skin.value = state.interfaceSkin;
+      const link = $("custom-skin");
+      link.disabled = !state.interfaceSkin;
+      link.href = state.interfaceSkin ? "/local/skins/" + encodeURIComponent(state.interfaceSkin) : "";
+    }
+    async function refreshLocalLibrary() {
+      try {
+        const response = await fetchWithTimeout("/api/local-library", { cache: "no-store" }, TIMEOUTS.files, "local media library");
+        const result = await readApiJson(response, "local media library");
+        localLibrary = { music: (result.music || []).map(libraryName), ambience: (result.ambience || []).map(libraryName), skins: (result.skins || []).map(libraryName) };
+        renderMediaControls();
+      } catch { localLibrary = { music: [], ambience: [], skins: [] }; renderMediaControls(); }
+    }
+    function localAudio(kind) {
+      const prop = kind === "music" ? "musicTrack" : "ambienceTrack";
+      let audio = kind === "music" ? musicAudio : ambienceAudio;
+      if (typeof Audio !== "function") return null;
+      if (!audio) {
+        audio = new Audio(); audio.loop = true;
+        if (kind === "music") musicAudio = audio; else ambienceAudio = audio;
+      }
+      const wanted = state[prop] ? "/local/" + kind + "/" + encodeURIComponent(state[prop]) : "";
+      if (wanted && !audio.src.endsWith(wanted)) audio.src = wanted;
+      audio.volume = boundedInteger(state[kind + "Volume"], 0, 100, 50) / 100;
+      return audio;
+    }
+    async function toggleLocalAudio(kind) {
+      const audio = localAudio(kind);
+      if (!audio || !state[kind + "Track"]) return;
+      if (audio.paused) { try { await audio.play(); } catch {} } else audio.pause();
+      renderMediaControls();
+    }
+    function renderHistory() {
+      const panel = $("history-panel");
+      const bookmarks = state.sceneBookmarks.slice().reverse().map(item => '<div class="history-entry"><strong>☆ ' + escapeHtml(item.title) + '</strong><small>TURN ' + item.turn + ' · ' + escapeHtml(item.location) + '</small><p>' + escapeHtml(item.excerpt) + '</p><button type="button" data-remove-bookmark="' + escapeHtml(item.id) + '">REMOVE</button></div>').join("");
+      const relations = state.relationshipTimeline.slice().reverse().map(item => '<div class="history-entry"><strong>' + escapeHtml(characterNameById(item.sourceId)) + ' → ' + escapeHtml(characterNameById(item.targetId)) + '</strong><small>TURN ' + item.turn + ' · ' + escapeHtml(item.dimension) + ' ' + (item.delta > 0 ? "+" : "") + item.delta + '</small><p>' + escapeHtml(item.reason || "Relationship changed.") + '</p></div>').join("");
+      panel.innerHTML = '<h3>Scene bookmarks</h3>' + (bookmarks || '<p class="field-note">Bookmark a scene from the turn controls.</p>') + '<h3>Relationship timeline</h3>' + (relations || '<p class="field-note">Relationship changes will collect here as the story develops.</p>');
+    }
+    function bookmarkScene() {
+      const excerpt = state.narrative.filter(line => ["body", "speech", "thought", "check"].includes(line.kind)).slice(-3).map(line => line.text).join(" ").slice(0, 500);
+      state.sceneBookmarks.push({ id: "bookmark-" + crypto.randomUUID(), turn: state.turn, title: state.sceneTitle, location: state.location, excerpt: excerpt || "The party paused here." });
+      state.sceneBookmarks = state.sceneBookmarks.slice(-100); markDirty(); setSidebarTab("history"); renderAll();
+    }
+    function showDiceResult(label, roll, target, success) {
+      const overlay = $("dice-overlay");
+      $("dice-label").textContent = label; $("dice-value").textContent = "?"; $("dice-outcome").textContent = "TARGET " + target;
+      overlay.classList.add("show", "rolling");
+      const finish = () => { $("dice-value").textContent = roll; $("dice-outcome").textContent = success ? "SUCCESS" : "FAILURE"; overlay.classList.remove("rolling"); setTimeout(() => overlay.classList.remove("show"), 1300); };
+      if (typeof window.matchMedia !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) finish(); else setTimeout(finish, 480);
     }
 
     // Which line, if any, is currently open in the inline editor. An index into state.narrative.
@@ -2424,9 +2554,10 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     // Split out of requestLiveTurn so the context-size readout measures the request that would
     // actually be sent, rather than a second approximation of it that can drift.
-    function buildTurnRequest(action, endpoint = "") {
+    function buildTurnRequest(action, endpoint = "", options = {}) {
       return {
         action: action.trim(),
+        interactionMode: options.banter ? "banter" : "turn",
         scene: { title: state.sceneTitle, location: state.location, turn: state.turn },
         scenario: {
           sessionName: state.sessionName,
@@ -2462,13 +2593,13 @@ this program. If not, see https://www.gnu.org/licenses/.
       };
     }
 
-    async function requestLiveTurn(action, signal) {
+    async function requestLiveTurn(action, signal, options = {}) {
       const endpoint = getCustomEndpoint();
       // Fail here rather than spending a round trip to be told the same thing, and name the fix.
       if (!endpoint && !hasUsableTextKey()) {
         throw new Error("No API key is set. Open SETTINGS and enter a key for the selected text provider, or set one in a .env file beside server.js so it persists.");
       }
-      const requestBody = JSON.stringify(buildTurnRequest(action, endpoint));
+      const requestBody = JSON.stringify(buildTurnRequest(action, endpoint, options));
       const response = await fetchWithTimeout(endpoint || "/api/turn", {
         signal,
         method: "POST",
@@ -2503,7 +2634,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     // fetch an arbitrary URL on the player's behalf to forward it, and only locally held image data
     // can be uploaded without that.
     function memberReferenceImage(member) {
-      const candidate = member.referenceImage || member.portraitData || "";
+      const activeExpression = (Array.isArray(member.expressions) ? member.expressions : []).find(item => item.label === member.activeExpression);
+      const candidate = member.referenceImage || (activeExpression && activeExpression.image) || member.portraitData || "";
       return /^data:image\//i.test(candidate) ? candidate : "";
     }
 
@@ -2698,6 +2830,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         }
         relation[dimension] = boundedInteger(relation[dimension] + delta, -100, 100);
         relation.lastReason = String(change.reason || "").slice(0, 300);
+        state.relationshipTimeline.push({ id: "relation-" + crypto.randomUUID(), turn: state.turn, sourceId: source.id, targetId: target.id, dimension, delta, reason: relation.lastReason });
+        state.relationshipTimeline = state.relationshipTimeline.slice(-200);
         applied.push(source.name + " → " + target.name + " " + dimension + " " + (delta > 0 ? "+" : "") + delta);
       });
       (Array.isArray(changes.inventoryChanges) ? changes.inventoryChanges : []).slice(0, 12).forEach((change, index) => {
@@ -2916,6 +3050,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       const roll = seededRoll(seed);
       const success = roll <= target;
       const label = pause.checkLabel || pause.prompt || stat.name + " check";
+      showDiceResult(label, roll, target, success);
       state.worldState.recentChecks.push({ label, characterId: member ? member.id : "", stat: stat.id, roll, target, success, turn: state.turn, substitutedStat: substituted ? requested : "" });
       state.worldState.recentChecks = state.worldState.recentChecks.slice(-20);
       state.pendingPause = null;
@@ -3023,6 +3158,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         partyState: state.party.map(member => ({ id: member.id, feeling: member.feeling, stats: member.stats.slice(0, MAX_SESSION_STATS) })),
         worldState: structuredClone(state.worldState),
         memoryCandidates: structuredClone(state.memoryCandidates),
+        relationshipTimeline: structuredClone(state.relationshipTimeline),
         pendingPause: state.pendingPause ? structuredClone(state.pendingPause) : null,
         beatQueue: structuredClone(state.beatQueue),
         bubbles: structuredClone(state.bubbles),
@@ -3049,6 +3185,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       });
       state.worldState = normalizeWorldState(checkpoint.worldState);
       state.memoryCandidates = Array.isArray(checkpoint.memoryCandidates) ? structuredClone(checkpoint.memoryCandidates).slice(-50) : [];
+      state.relationshipTimeline = Array.isArray(checkpoint.relationshipTimeline) ? structuredClone(checkpoint.relationshipTimeline).slice(-200) : state.relationshipTimeline;
       state.pendingPause = checkpoint.pendingPause ? structuredClone(checkpoint.pendingPause) : null;
       state.beatQueue = Array.isArray(checkpoint.beatQueue) ? structuredClone(checkpoint.beatQueue).slice(0, 20) : [];
       state.bubbles = Array.isArray(checkpoint.bubbles) ? structuredClone(checkpoint.bubbles) : [];
@@ -3191,9 +3328,37 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
     }
 
+    async function handleBanter() {
+      if (turnInFlight) return;
+      const epoch = sessionEpoch, startedAt = performance.now();
+      turnInFlight = true; $("send-button").disabled = true;
+      const request = { controller: new AbortController(), action: "Party banter" };
+      activeTurnRequest = request; startTurnStatus("LISTENING FOR BANTER…"); renderTurnControls();
+      try {
+        const packet = await requestLiveTurn("Let the available party members exchange a brief, in-character bit of spontaneous banter about the present situation.", request.controller.signal, { banter: true });
+        if (epoch !== sessionEpoch || activeTurnRequest !== request) return;
+        const result = packet.result && typeof packet.result === "object" ? packet.result : {};
+        const dialogue = (Array.isArray(result.beats) ? result.beats : []).map(normalizedBeat).filter(beat => beat && beat.kind === "dialogue" && findPartyMember({ characterId: beat.characterId }) && !findPartyMember({ characterId: beat.characterId }).muted).slice(0, 8);
+        if (!dialogue.length) throw new Error("The engine returned no usable party dialogue.");
+        state.narrative.push({ kind: "label", text: "Party banter" });
+        dialogue.forEach(beat => { const member = findPartyMember({ characterId: beat.characterId }); state.narrative.push({ kind: "speech", character: member.name, characterId: member.id, text: beat.text }); });
+        state.turnTraces.push({ turn: state.turn, action: "Party banter", status: "success", durationMs: Math.round(performance.now() - startedAt), requestBytes: packet.requestBytes, beatCount: dialogue.length, applied: [], rejected: [] });
+        state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES); markDirty();
+      } catch (error) {
+        if (epoch === sessionEpoch && activeTurnRequest === request) stopTurnStatus("BANTER FAILED: " + error.message);
+      } finally {
+        if (activeTurnRequest !== request) return;
+        activeTurnRequest = null; turnInFlight = false; $("send-button").disabled = false;
+        if (epoch === sessionEpoch && !$("turn-status").textContent.startsWith("BANTER FAILED")) stopTurnStatus("");
+        renderAll();
+      }
+    }
+
     let editingIndex = null;
     let modalMode = "edit";
     let pendingPortraitData = "";
+    let pendingExpressions = [];
+    let pendingActiveExpression = "";
     // Held alongside pendingPortraitData so an unsaved reference upload behaves like every other
     // unsaved field in the editor: discarded on cancel, committed on save.
     let pendingReferenceImage = "";
@@ -3563,8 +3728,12 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
     }
     function renderPortraitPreview() {
-      const previewMember = { name: $("character-name").value.trim() || "??", portraitUrl: $("character-portrait-url").value.trim(), portraitData: pendingPortraitData };
+      const previewMember = { name: $("character-name").value.trim() || "??", portraitUrl: $("character-portrait-url").value.trim(), portraitData: pendingPortraitData, expressions: pendingExpressions, activeExpression: pendingActiveExpression };
       $("portrait-preview").innerHTML = portraitMarkup(previewMember);
+      $("character-active-expression").innerHTML = '<option value="">Base portrait</option>' + pendingExpressions.map(item => '<option value="' + escapeHtml(item.label) + '">' + escapeHtml(item.label) + '</option>').join("");
+      if (!pendingExpressions.some(item => item.label === pendingActiveExpression)) pendingActiveExpression = "";
+      $("character-active-expression").value = pendingActiveExpression;
+      $("expression-list").innerHTML = pendingExpressions.map(item => '<button class="expression-chip" type="button" data-expression="' + escapeHtml(item.label) + '">' + escapeHtml(item.label) + '</button>').join("");
       renderCharacterReference();
     }
 
@@ -3575,7 +3744,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (!note) return;
       const included = $("character-use-reference").checked;
       const own = /^data:image\//i.test(pendingReferenceImage);
-      const portrait = /^data:image\//i.test(pendingPortraitData);
+      const portrait = /^data:image\//i.test((pendingExpressions.find(item => item.label === pendingActiveExpression) || {}).image || pendingPortraitData);
       if (thumb) {
         thumb.innerHTML = own
           ? '<img src="' + escapeHtml(pendingReferenceImage) + '" alt="Character reference preview">'
@@ -3613,6 +3782,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       const savedStats = saved ? saved.stats : [50, 50, 50];
       if (parseStats($("character-stats").value).join() !== savedStats.join()) return true;
       if (pendingPortraitData !== String((saved && saved.portraitData) || "")) return true;
+      if (JSON.stringify(pendingExpressions) !== JSON.stringify((saved && saved.expressions) || [])) return true;
+      if (pendingActiveExpression !== String((saved && saved.activeExpression) || "")) return true;
       if (pendingReferenceImage !== String((saved && saved.referenceImage) || "")) return true;
       if ($("character-use-reference").checked !== Boolean(saved && saved.useAsImageReference)) return true;
       if (pendingCharacterFileContent !== String((saved && saved.characterFileContent) || "")) return true;
@@ -3648,6 +3819,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (control.type !== "file") control.readOnly = !editing;
       });
       $("clear-portrait").disabled = !editing;
+      $("clear-expressions").disabled = !editing;
       $("clear-character-reference").disabled = !editing || !/^data:image\//i.test(pendingReferenceImage);
     }
 
@@ -3721,8 +3893,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       portraitRequestToken += 1;
       characterFileLoading = false;
       editingIndex = index;
-      const member = index === null ? { id: "", name: "", role: "", pronouns: "", feeling: "neutral", personality: "", strengths: "", weaknesses: "", stats: activeStatDefinitionsForEditor().map(() => 50), color: "#5b625c", portraitUrl: "", portraitData: "", goals: "", advancedPersonality: "", dialogueGuidance: "", relationships: "" } : state.party[index];
+      const member = index === null ? { id: "", name: "", role: "", pronouns: "", feeling: "neutral", personality: "", strengths: "", weaknesses: "", stats: activeStatDefinitionsForEditor().map(() => 50), color: "#5b625c", portraitUrl: "", portraitData: "", expressions: [], activeExpression: "", goals: "", advancedPersonality: "", dialogueGuidance: "", relationships: "" } : state.party[index];
       pendingPortraitData = member.portraitData || "";
+      pendingExpressions = structuredClone(Array.isArray(member.expressions) ? member.expressions : []);
+      pendingActiveExpression = member.activeExpression || "";
       pendingReferenceImage = member.referenceImage || "";
       pendingCharacterFileName = member.characterFile || "";
       pendingCharacterFileContent = member.characterFileContent || "";
@@ -3800,6 +3974,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           $("character-color").value = imported.color;
           $("character-portrait-url").value = imported.portraitUrl || "";
           pendingPortraitData = imported.portraitData || "";
+          pendingExpressions = structuredClone(imported.expressions || []);
+          pendingActiveExpression = imported.activeExpression || "";
           pendingReferenceImage = imported.referenceImage || "";
           $("character-use-reference").checked = Boolean(imported.useAsImageReference);
           // Same treatment an upload gets, so importing a character does not smuggle a
@@ -3932,6 +4108,9 @@ this program. If not, see https://www.gnu.org/licenses/.
           imageQuality: state.imageQuality,
           showImageArea: state.showImageArea,
           columnRatios: state.columnRatios,
+          musicTrack: state.musicTrack, ambienceTrack: state.ambienceTrack,
+          musicVolume: state.musicVolume, ambienceVolume: state.ambienceVolume,
+          interfaceSkin: state.interfaceSkin,
           artDirection: state.artDirection,
           styleReference: state.styleReference,
           styleReferenceName: state.styleReferenceName,
@@ -3959,6 +4138,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         worldState: state.worldState,
         memoryCandidates: state.memoryCandidates,
         turnTraces: state.turnTraces,
+        sceneBookmarks: state.sceneBookmarks,
+        relationshipTimeline: state.relationshipTimeline,
         actionDraft: $("response-input").value,
         narrativeEdit: state.narrativeEdit,
         worldEditUndo: state.worldEditUndo,
@@ -4060,6 +4241,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       normalized.useAsImageReference = source.useAsImageReference === true;
       normalized.muted = source.muted === true;
       normalized.initiative = source.initiative !== false;
+      normalized.expressions = (Array.isArray(source.expressions) ? source.expressions : []).slice(0, 12).map(item => ({ label: String(item && item.label || "").trim().slice(0, 60), image: String(item && item.image || "") })).filter(item => item.label && item.image.length <= PORTRAIT_MAX_CHARS && /^data:image\//i.test(item.image));
+      normalized.activeExpression = normalized.expressions.some(item => item.label === source.activeExpression) ? source.activeExpression : "";
       return normalized;
     }
 
@@ -4156,6 +4339,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         scope: ["scene", "party", "character", "relationship", "world"].includes(entry && entry.scope) ? entry.scope : "scene",
         subjectId: String(entry && entry.subjectId || "").slice(0, 64), text: String(entry && entry.text || "").slice(0, 600), reason: String(entry && entry.reason || "").slice(0, 300)
       })).filter(entry => entry.text);
+      state.sceneBookmarks = (Array.isArray(snapshot.sceneBookmarks) ? snapshot.sceneBookmarks : []).slice(-100).map(item => ({ id: String(item && item.id || "bookmark-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), title: String(item && item.title || "Bookmarked scene").slice(0, 200), location: String(item && item.location || "").slice(0, 300), excerpt: String(item && item.excerpt || "").slice(0, 500) }));
+      state.relationshipTimeline = (Array.isArray(snapshot.relationshipTimeline) ? snapshot.relationshipTimeline : []).slice(-200).map(item => ({ id: String(item && item.id || "relation-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), sourceId: String(item && item.sourceId || "").slice(0, 64), targetId: String(item && item.targetId || "").slice(0, 64), dimension: RELATIONSHIP_DIMENSIONS.includes(item && item.dimension) ? item.dimension : "trust", delta: boundedInteger(item && item.delta, -20, 20), reason: String(item && item.reason || "").slice(0, 300) })).filter(item => item.sourceId && item.targetId && item.delta);
       const importedPause = normalizedBeat(snapshot.pendingPause, 0);
       state.pendingPause = importedPause && ["pause", "check"].includes(importedPause.kind) ? importedPause : null;
       state.beatQueue = (Array.isArray(snapshot.beatQueue) ? snapshot.beatQueue : []).slice(0, 20).map(normalizedBeat).filter(Boolean);
@@ -4185,6 +4370,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.imageSize = ["1536x1024", "1024x1024", "1024x1536"].includes(settings.imageSize) ? settings.imageSize : "1536x1024";
       state.imageQuality = ["auto", "low", "medium", "high"].includes(settings.imageQuality) ? settings.imageQuality : "auto";
       state.showImageArea = settings.showImageArea !== false;
+      state.musicTrack = libraryName(settings.musicTrack); state.ambienceTrack = libraryName(settings.ambienceTrack);
+      state.musicVolume = boundedInteger(settings.musicVolume, 0, 100, 55); state.ambienceVolume = boundedInteger(settings.ambienceVolume, 0, 100, 35);
+      state.interfaceSkin = libraryName(settings.interfaceSkin);
       state.columnRatios = normalizeColumnRatios(settings.columnRatios);
       state.artDirection = String(settings.artDirection || "").slice(0, 12000);
       // Held to the same rule as a portrait: a data image only, and bounded. An imported style sheet
@@ -4365,6 +4553,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.memoryCandidates = [];
       state.turnTraces = [];
       state.turnCheckpoints = [];
+      state.sceneBookmarks = [];
+      state.relationshipTimeline = [];
       markSaved();
       closeSessionSetup();
       renderAll();
@@ -4580,6 +4770,25 @@ this program. If not, see https://www.gnu.org/licenses/.
       reader.readAsDataURL(file);
     });
     $("clear-portrait").addEventListener("click", () => { portraitRequestToken += 1; pendingPortraitData = ""; $("character-portrait-url").value = ""; $("character-portrait-upload").value = ""; renderPortraitPreview(); });
+    $("character-active-expression").addEventListener("change", event => { pendingActiveExpression = event.target.value; renderPortraitPreview(); });
+    $("expression-list").addEventListener("click", event => { const button = event.target.closest("[data-expression]"); if (!button) return; pendingActiveExpression = button.dataset.expression; renderPortraitPreview(); });
+    $("clear-expressions").addEventListener("click", () => { portraitRequestToken += 1; pendingExpressions = []; pendingActiveExpression = ""; $("character-expression-upload").value = ""; renderPortraitPreview(); });
+    $("character-expression-upload").addEventListener("change", async event => {
+      const files = Array.from(event.target.files || []).slice(0, 12 - pendingExpressions.length);
+      const token = ++portraitRequestToken, targetIndex = editingIndex;
+      for (const file of files) {
+        if (file.size > MAX_PORTRAIT_FILE_BYTES || !/^image\//i.test(file.type)) continue;
+        const dataUrl = await new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => resolve(""); reader.readAsDataURL(file); });
+        if (!dataUrl || dataUrl.length > PORTRAIT_MAX_CHARS) continue;
+        const image = await downscalePortrait(dataUrl);
+        if (token !== portraitRequestToken || targetIndex !== editingIndex) return;
+        const base = file.name.replace(/\.[^.]+$/, "").trim().slice(0, 60) || "expression";
+        let label = base, suffix = 2; while (pendingExpressions.some(item => item.label === label)) label = base.slice(0, 54) + " " + suffix++;
+        pendingExpressions.push({ label, image });
+      }
+      if (!pendingActiveExpression && pendingExpressions.length) pendingActiveExpression = pendingExpressions[0].label;
+      renderPortraitPreview(); event.target.value = "";
+    });
 
     // Shared by both reference uploads. Same ceilings as a portrait on the way in, then downscaled
     // to REFERENCE_MAX_DIMENSION -- larger than a portrait, because these are read by the image
@@ -4718,6 +4927,16 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("close-help").addEventListener("click", () => closeBackdrop("help-backdrop"));
     $("help-backdrop").addEventListener("click", event => { if (event.target.id === "help-backdrop") requestCloseModal("help-backdrop"); });
     $("settings-button").addEventListener("click", () => openBackdrop("settings-backdrop", "settings-palette"));
+    $("bookmark-scene").addEventListener("click", bookmarkScene);
+    $("party-banter").addEventListener("click", handleBanter);
+    $("history-panel").addEventListener("click", event => { const button = event.target.closest("[data-remove-bookmark]"); if (!button) return; state.sceneBookmarks = state.sceneBookmarks.filter(item => item.id !== button.dataset.removeBookmark); markDirty(); renderHistory(); });
+    [["music", "musicTrack"], ["ambience", "ambienceTrack"]].forEach(([kind, key]) => {
+      $(kind + "-toggle").addEventListener("click", () => toggleLocalAudio(kind));
+      $(kind + "-track").addEventListener("change", event => { const audio = kind === "music" ? musicAudio : ambienceAudio; if (audio) { audio.pause(); audio.removeAttribute("src"); } state[key] = event.target.value; markDirty(); renderMediaControls(); });
+      $(kind + "-volume").addEventListener("input", event => { state[kind + "Volume"] = boundedInteger(event.target.value, 0, 100, 50); const audio = localAudio(kind); if (audio) audio.volume = state[kind + "Volume"] / 100; markDirty(); });
+    });
+    $("settings-skin").addEventListener("change", event => { state.interfaceSkin = event.target.value; markDirty(); renderMediaControls(); });
+    $("refresh-local-library").addEventListener("click", refreshLocalLibrary);
     $("close-settings").addEventListener("click", () => closeBackdrop("settings-backdrop"));
     $("done-settings").addEventListener("click", () => closeBackdrop("settings-backdrop"));
     $("settings-backdrop").addEventListener("click", event => { if (event.target.id === "settings-backdrop") requestCloseModal("settings-backdrop"); });
@@ -4909,7 +5128,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
       const existing = editingIndex === null ? null : state.party[editingIndex];
       if (characterFileLoading) return;
-      const member = { id: existing ? existing.id : newPartyId(name), name, role: $("character-role").value.trim() || "unassigned", pronouns: $("character-pronouns").value.trim() || "pronouns unset", feeling: $("character-feeling").value.trim() || "neutral", personality: $("character-personality").value.trim(), appearance: $("character-appearance").value.trim(), strengths: $("character-strengths").value.trim(), weaknesses: $("character-weaknesses").value.trim(), stats: parseStats($("character-stats").value), color: $("character-color").value, portraitUrl: $("character-portrait-url").value.trim(), portraitData: pendingPortraitData, goals: $("character-goals").value.trim(), advancedPersonality: $("character-advanced-personality").value.trim(), dialogueGuidance: $("character-dialogue-guidance").value.trim(), relationships: $("character-relationships").value.trim(), characterFile: pendingCharacterFileName, characterFileContent: pendingCharacterFileContent.slice(0, 120000), referenceImage: pendingReferenceImage, useAsImageReference: $("character-use-reference").checked, muted: existing ? existing.muted === true : false, initiative: existing ? existing.initiative !== false : true };
+      const member = { id: existing ? existing.id : newPartyId(name), name, role: $("character-role").value.trim() || "unassigned", pronouns: $("character-pronouns").value.trim() || "pronouns unset", feeling: $("character-feeling").value.trim() || "neutral", personality: $("character-personality").value.trim(), appearance: $("character-appearance").value.trim(), strengths: $("character-strengths").value.trim(), weaknesses: $("character-weaknesses").value.trim(), stats: parseStats($("character-stats").value), color: $("character-color").value, portraitUrl: $("character-portrait-url").value.trim(), portraitData: pendingPortraitData, expressions: structuredClone(pendingExpressions), activeExpression: pendingActiveExpression, goals: $("character-goals").value.trim(), advancedPersonality: $("character-advanced-personality").value.trim(), dialogueGuidance: $("character-dialogue-guidance").value.trim(), relationships: $("character-relationships").value.trim(), characterFile: pendingCharacterFileName, characterFileContent: pendingCharacterFileContent.slice(0, 120000), referenceImage: pendingReferenceImage, useAsImageReference: $("character-use-reference").checked, muted: existing ? existing.muted === true : false, initiative: existing ? existing.initiative !== false : true };
       state.bubbles = [];
       if (editingIndex === null) { state.party.push(member); state.selected = state.party.length - 1; } else state.party[editingIndex] = member;
       markDirty();
@@ -4947,6 +5166,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         setPersistenceStatus("Saved workspace could not be loaded. Existing saves were left intact. " + error.message, true);
       } finally { document.querySelector(".app").inert = false; }
       refreshCharacterFiles();
+      refreshLocalLibrary();
     }
     bootWorkspace().then(() => {
 

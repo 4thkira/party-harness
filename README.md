@@ -53,8 +53,17 @@ Keys typed in Settings disappear when you refresh. To avoid retyping them:
 | Sessions | Named saves, session import/export, and readable story exports. |
 | Story text formatting | Markdown mode safely renders emphasis, headings, lists, and inline code; Plain text keeps the original markers visible. |
 | Column dividers | On desktop, drag the narrow dividers between Story, Image, and Party to choose how much room each gets. Arrow keys nudge a focused divider; double-click resets both. The proportions travel with saves and exports. |
+| Party banter | Requests a short in-character exchange without advancing the turn or applying world-state changes. It is still a provider request. |
+| Bookmark | Saves the current scene title, location, turn, and a short excerpt under the History tab. |
+| Portrait expressions | Add several images to a character sheet, then choose which expression is shown as that character's current portrait. |
 
-The right-hand rail is split into **Party**, **World**, and **Trace** tabs so the roster, selected character tools, mechanical state, and diagnostics do not compete for the same vertical space. The active tab scrolls on desktop; on a narrow screen the rail becomes part of the normal page flow.
+The right-hand rail is split into **Party**, **World**, **History**, and **Trace** tabs. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
+
+## Local music, ambience, and interface skins
+
+Create `music/`, `ambience/`, and `skins/` folders beside `server.js` (the harness also works when they are absent). Put MP3, OGG, WAV, M4A, or FLAC files in the two audio folders, then use the controls below the scene image. Music and ambience can play together at separate volumes. Browsers vary in which audio formats they decode, so MP3 and OGG are the most portable choices.
+
+Put CSS files in `skins/`, open **Settings → Appearance**, and choose **Refresh local library**. A skin is ordinary CSS loaded after the built-in styles, so it can override colors, borders, spacing, and typography. Treat a downloaded skin as code you should read before using. These three folders are ignored by Git and excluded from public release archives, keeping personal media and styling local.
 
 Autosave and named saves live in this browser on this computer. Use the same browser, address, and port to return to them. Clearing site data can erase them. **Export session JSON** for a portable backup; **Export story (Markdown)** is a readable transcript, not a restorable session.
 

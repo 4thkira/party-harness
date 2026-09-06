@@ -1168,7 +1168,7 @@ function normalizeTurn(value, party, bubbleLimit = 2, statDefinitions = []) {
   };
 }
 
-function buildInstructions(settings) {
+function buildInstructions(settings, interactionMode = "turn") {
   const customPrompt = typeof settings.systemPrompt === "string" ? settings.systemPrompt.trim().slice(0, 12000) : "";
   const mode = bubbleMode(settings);
   const playerMode = settings.playerMode === "dm" ? "dm" : "party-member";
@@ -1211,6 +1211,7 @@ function buildInstructions(settings) {
     "Party members with muted true must not speak. Members with initiative false should speak only when directly addressed or when withholding their response would make the scene incoherent; silence remains valid.",
     "Return only the requested JSON structure."
   ];
+  if (interactionMode === "banter") contract.push("This request is PARTY BANTER: return two to eight dialogue beats as a brief in-character aside. Do not advance the scene, resolve actions, reveal new facts, add pauses or checks, or propose any state changes. Muted characters remain silent.");
 
   // Set by the player through the harness UI, not by the prose prompt. An author's direction can
   // shape voice and content; it does not get to turn a muted character back on or ignore a chosen
@@ -1686,6 +1687,7 @@ async function handleTurn(req, res) {
     recentNarrative: Array.isArray(input.recentNarrative) ? input.recentNarrative.slice(-48) : [],
     playerAction: input.action.trim()
   };
+  context.interactionMode = input.interactionMode === "banter" ? "banter" : "turn";
 
   const mode = bubbleMode(context.settings);
   const narrativeTokens = settings.responseLength === "long" ? 1400 : settings.responseLength === "short" ? 650 : 950;
@@ -1698,11 +1700,11 @@ async function handleTurn(req, res) {
   // HTTP-200 completion.
   const novelAITokens = clampNovelAITokens(narrativeTokens * 2 + 1800);
   const payload = provider === "novelai"
-    ? buildNovelAIRequest({ instructions: buildInstructions(settings), input: context, settings, maxTokens: novelAITokens, temperature: 0.78, mode: "turn" })
+    ? buildNovelAIRequest({ instructions: buildInstructions(settings, context.interactionMode), input: context, settings, maxTokens: novelAITokens, temperature: 0.78, mode: "turn" })
     : {
         model: settings.model || DEFAULT_MODEL,
         store: false,
-        instructions: buildInstructions(settings),
+        instructions: buildInstructions(settings, context.interactionMode),
         input: JSON.stringify(context),
         text: {
           format: {
@@ -1740,7 +1742,7 @@ async function handleTurn(req, res) {
         generatedText = extractNovelAIText(response);
       } catch (chatError) {
         const fallbackPrompt = [
-          buildInstructions(settings),
+          buildInstructions(settings, context.interactionMode),
           "SCENE ENGINE CONTEXT:",
           JSON.stringify(compactNovelAIContext(context)),
           "Return the roleplay turn JSON now."
@@ -2127,6 +2129,12 @@ function jsonRequest(req) {
 // all. Until then the root is still read, minus anything shaped like documentation.
 const CHARACTER_DIR = "characters";
 const NON_CHARACTER_MARKDOWN = /^(?:rp-party-harness-.*|readme|changelog|license|licence|contributing|notes|todo|claude|agents)\.md$/i;
+const LOCAL_LIBRARY = {
+  music: { directory: "music", extensions: new Set([".mp3", ".ogg", ".wav", ".m4a", ".flac"]), maxBytes: 200 * 1024 * 1024 },
+  ambience: { directory: "ambience", extensions: new Set([".mp3", ".ogg", ".wav", ".m4a", ".flac"]), maxBytes: 200 * 1024 * 1024 },
+  skins: { directory: "skins", extensions: new Set([".css"]), maxBytes: 256 * 1024 }
+};
+const LOCAL_MEDIA_TYPES = { ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav", ".m4a": "audio/mp4", ".flac": "audio/flac", ".css": "text/css; charset=utf-8" };
 
 function characterMarkdownAllowed(name) {
   return /\.md$/i.test(name) && !NON_CHARACTER_MARKDOWN.test(name);
@@ -2168,6 +2176,52 @@ async function listCharacterMarkdown() {
     .sort((a, b) => a.localeCompare(b));
 }
 
+function localLibraryPath(kind, name) {
+  const library = LOCAL_LIBRARY[kind];
+  if (!library || typeof name !== "string" || path.basename(name) !== name || name.length > 240) return "";
+  if (!library.extensions.has(path.extname(name).toLowerCase())) return "";
+  const root = path.join(__dirname, library.directory);
+  const resolved = path.resolve(root, name);
+  if (!resolved.startsWith(path.resolve(root) + path.sep)) return "";
+  try {
+    const realRoot = fs.realpathSync(root), realFile = fs.realpathSync(resolved);
+    const info = fs.statSync(realFile);
+    return info.isFile() && info.size <= library.maxBytes && realFile.startsWith(realRoot + path.sep) ? realFile : "";
+  } catch { return ""; }
+}
+
+async function listLocalLibrary(kind) {
+  const library = LOCAL_LIBRARY[kind];
+  if (!library) return [];
+  const root = path.join(__dirname, library.directory);
+  let entries;
+  try { entries = await fs.promises.readdir(root, { withFileTypes: true }); } catch { return []; }
+  return entries.filter(entry => entry.isFile() && localLibraryPath(kind, entry.name))
+    .map(entry => entry.name).sort((a, b) => a.localeCompare(b));
+}
+
+function serveLocalLibraryFile(req, res, kind, name) {
+  const filePath = localLibraryPath(kind, name);
+  if (!filePath) { writeJson(res, 404, { error: "Local library file not found." }); return; }
+  const info = fs.statSync(filePath);
+  const contentType = LOCAL_MEDIA_TYPES[path.extname(filePath).toLowerCase()] || "application/octet-stream";
+  const range = /^bytes=(\d*)-(\d*)$/i.exec(String(req.headers.range || ""));
+  let start = 0, end = info.size - 1, status = 200;
+  if (range && kind !== "skins") {
+    start = range[1] ? Number(range[1]) : 0;
+    end = range[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= info.size) {
+      res.writeHead(416, { "Content-Range": "bytes */" + info.size }); res.end(); return;
+    }
+    status = 206;
+  }
+  const headers = { "Content-Type": contentType, "Content-Length": end - start + 1, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
+  if (kind !== "skins") headers["Accept-Ranges"] = "bytes";
+  if (status === 206) headers["Content-Range"] = "bytes " + start + "-" + end + "/" + info.size;
+  res.writeHead(status, headers);
+  fs.createReadStream(filePath, { start, end }).on("error", () => res.destroy()).pipe(res);
+}
+
 function characterFileNameFromUrl(url) {
   const prefix = "/api/character-files/";
   if (!url.startsWith(prefix)) return "";
@@ -2188,7 +2242,7 @@ const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
   "media-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https: http://localhost:* http://127.0.0.1:* http://[::1]:*",
   "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
   "form-action 'none'",
@@ -2246,6 +2300,20 @@ async function handleRequest(req, res) {
     } catch (error) {
       writeJson(res, 500, { error: "Character files could not be listed." });
     }
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/api/local-library") {
+    const [music, ambience, skins] = await Promise.all([listLocalLibrary("music"), listLocalLibrary("ambience"), listLocalLibrary("skins")]);
+    writeJson(res, 200, { music, ambience, skins });
+    return;
+  }
+
+  const localAssetMatch = /^\/local\/(music|ambience|skins)\/([^/?#]+)$/.exec(req.url);
+  if (req.method === "GET" && localAssetMatch) {
+    let name;
+    try { name = decodeURIComponent(localAssetMatch[2]); } catch { name = ""; }
+    serveLocalLibraryFile(req, res, localAssetMatch[1], name);
     return;
   }
 
