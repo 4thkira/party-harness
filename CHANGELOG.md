@@ -6,6 +6,11 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.3.0] — 2026-09-05
+
+- Improved NovelAI text scaffolding with an explicit JSON contract, conservative sampling, reasoning-wrapper cleanup, and a playable plain-prose fallback when the model ignores the JSON shell.
+- Added display-only story text formatting with safe Markdown emphasis, headings, lists, and inline code, plus a Plain text option.
+
 ## [0.2.2] — 2026-09-05
 
 - Restored the original floating speech-bubble presentation beside the third-column party cards.

@@ -184,6 +184,21 @@ console.log("\nbubble limits");
     "client " + JSON.stringify(client) + " vs server " + JSON.stringify(server));
 }
 
+console.log("\nNovelAI scaffolding");
+{
+  check("NovelAI requests carry an explicit JSON contract",
+    /function buildNovelAIRequest\(\{/.test(SERVER)
+      && /does not enforce a JSON schema or response_format/.test(SERVER)
+      && /Return exactly one valid JSON object and nothing else/.test(SERVER));
+  check("NovelAI strips reasoning wrappers before parsing",
+    /function stripNovelAIReasoning\(text\)/.test(SERVER)
+      && /parseNovelAITurn\(text\)/.test(SERVER)
+      && /stripNovelAIReasoning\(generatedText\)/.test(SERVER));
+  check("NovelAI sampling leaves headroom for structured prose",
+    /temperature: 0\.78/.test(SERVER) && /top_p: 0\.95/.test(SERVER)
+      && /max_tokens: novelAITokens/.test(SERVER));
+}
+
 console.log("\nrequest size budget");
 {
   const bodyLimit = num(SERVER, "MAX_REQUEST_BODY_BYTES");
@@ -288,6 +303,22 @@ console.log("\ntext-only workspace");
     /\.workspace\.text-only \.visual-column \{ display: none; \}/.test(HTML)
       && /\.workspace\.text-only \{ grid-template-columns: minmax\(0, 1fr\) minmax\(285px, \.8fr\); \}/.test(HTML));
   check("hidden image mode cannot start a generation request", /!state\.showImageArea/.test(HTML));
+}
+
+console.log("\nstory text formatting");
+{
+  check("story text has a safe Markdown renderer",
+    /function formatStoryText\(value\)/.test(HTML)
+      && /escapeHtml\(raw\)/.test(HTML)
+      && /formatted-heading/.test(HTML)
+      && /formatted-list/.test(HTML));
+  check("formatting preference is user-visible and persisted",
+    /id="settings-text-formatting"/.test(HTML)
+      && /textFormatting: state\.textFormatting/.test(HTML)
+      && /state\.textFormatting = settings\.textFormatting === "plain"/.test(HTML));
+  check("formatting preference reaches the scene engine",
+    /textFormatting: state\.textFormatting/.test(HTML)
+      && /textFormatting: settings\.textFormatting === "plain"/.test(SERVER));
 }
 
 console.log("\nsidebar navigation");

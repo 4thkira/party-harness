@@ -184,6 +184,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .narrative-line strong { font-family: var(--mono); font-size: .65em; letter-spacing: .12em; text-transform: uppercase; color: var(--rust); }
     .narrative-line.speech { padding-left: 12px; border-left: 2px solid var(--paper-3); font-size: 16px; font-style: italic; }
     .narrative-line.speech strong { font-style: normal; color: var(--orange); }
+    .formatted-heading { display: block; margin: 2px 0 4px; font-size: 1.04em; font-weight: 700; }
+    .formatted-list { display: block; padding-left: 1em; }
+    .narrative-line code, .member-bubble-text code { padding: 0 3px; color: var(--rust); background: rgba(0,0,0,.06); font-family: var(--mono); font-size: .84em; font-style: normal; }
     .narrative-line.error { color: #8a3f32; font-family: var(--mono); font-size: 12px; }
     .narrative-line.error strong { color: #8a3f32; }
     .narrative-line.summary { padding: 9px 12px; border: 1px dashed var(--paper-3); color: var(--muted); font-size: 14px; font-style: italic; }
@@ -824,6 +827,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="settings-palette">Interface palette</label><select id="settings-palette"><option value="neutral">Neutral paper</option><option value="midnight">Midnight slate</option><option value="ember">Soft ember</option><option value="violet">Dusty violet</option></select></div>
           <div class="field"><label for="settings-accent">Custom accent</label><input id="settings-accent" type="color" value="#5b625c"></div>
           <div class="field"><label for="settings-font">Narrative / heading font</label><select id="settings-font"><option value="classic">Classic serif</option><option value="typewriter">Typewriter</option><option value="humanist">Humanist sans</option></select></div>
+          <div class="field"><label for="settings-text-formatting">Story text formatting</label><select id="settings-text-formatting" data-help="Markdown mode renders safe emphasis, headings, lists, and inline code in generated story text. Plain mode shows the same text without styling." aria-description="Markdown mode renders safe emphasis, headings, lists, and inline code in generated story text. Plain mode shows the same text without styling."><option value="markdown">Markdown — readable formatting</option><option value="plain">Plain text — no styling markers</option></select></div>
+          <p class="settings-note">Formatting only changes how story text is displayed. The original text stays in the session and exports.</p>
         </section>
         <section class="settings-group">
           <div class="settings-group-title">Sound</div>
@@ -1143,6 +1148,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       palette: "neutral",
       customAccent: "",
       font: "classic",
+      textFormatting: "markdown",
       grounding: "balanced",
       responseLength: "medium",
       imageProvider: "openai",
@@ -1382,6 +1388,34 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     const initials = (name) => name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
     const escapeHtml = (value) => String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#039;"}[char]));
+    function formatStoryText(value) {
+      const raw = String(value ?? "").replace(/\r\n?/g, "\n");
+      const escaped = escapeHtml(raw);
+      if (state.textFormatting === "plain") return escaped.replace(/\n/g, "<br>");
+      const renderInline = source => {
+        const tokens = [];
+        const hold = html => {
+          const marker = "\u0000" + tokens.length + "\u0000";
+          tokens.push(html);
+          return marker;
+        };
+        let output = source.replace(/`([^`\n]+)`/g, (_, text) => hold("<code>" + text + "</code>"));
+        output = output.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+        output = output.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
+        output = output.replace(/~~([^~\n]+)~~/g, "<del>$1</del>");
+        output = output.replace(/(^|[^\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>");
+        output = output.replace(/(^|[^\w])_([^_\n]+)_(?!\w)/g, "$1<em>$2</em>");
+        output = output.replace(/\u0000(\d+)\u0000/g, (_, index) => tokens[Number(index)] || "");
+        return output;
+      };
+      return escaped.split("\n").map(line => {
+        const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+        if (heading) return '<span class="formatted-heading">' + renderInline(heading[2]) + '</span>';
+        const list = /^\s*[-*]\s+(.+)$/.exec(line);
+        if (list) return '<span class="formatted-list">• ' + renderInline(list[1]) + '</span>';
+        return renderInline(line);
+      }).join("<br>");
+    }
     // https only, deliberately. The page's own img-src is 'self' data: https:, so a remote http://
     // portrait used to pass this check and then get blocked by the CSP -- a broken image and a console
     // error with nothing explaining why. Refusing it here is the honest version of what already
@@ -1471,6 +1505,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       setControlValue("settings-palette", state.palette);
       setControlValue("settings-accent", state.customAccent || PALETTES[state.palette].rust);
       setControlValue("settings-font", state.font);
+      setControlValue("settings-text-formatting", state.textFormatting);
       setControlValue("settings-bubble-mode", state.mode);
       setControlValue("settings-grounding", state.grounding);
       setControlValue("settings-response-length", state.responseLength);
@@ -1715,13 +1750,13 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
 
     function narrativeLineMarkup(line) {
-      if (line.kind === "label") return `<p class="narrative-line"><strong>Scene</strong><br>${escapeHtml(line.text)}</p>`;
-      if (line.kind === "choice") return `<p class="narrative-line muted"><strong>Action</strong><br>${escapeHtml(line.text)}</p>`;
-      if (line.kind === "speech") return `<p class="narrative-line speech"><strong>${escapeHtml(line.character || "Someone")}${line.type ? " / " + escapeHtml(line.type) : ""}</strong><br>${escapeHtml(line.text)}</p>`;
-      if (line.kind === "pause") return `<p class="narrative-line muted"><strong>${escapeHtml(line.pauseType || "Pause")}</strong><br>${escapeHtml(line.text)}</p>`;
-      if (line.kind === "check") return `<p class="narrative-line ${line.success ? "" : "muted"}"><strong>${escapeHtml(line.character || "Party")} / ${escapeHtml(line.stat || "Check")}</strong><br>${escapeHtml(line.text)}</p>`;
-      if (line.kind === "error") return `<p class="narrative-line error"><strong>Harness error</strong><br>${escapeHtml(line.text)}</p>`;
-      return `<p class="narrative-line">${escapeHtml(line.text)}</p>`;
+      if (line.kind === "label") return `<p class="narrative-line"><strong>Scene</strong><br>${formatStoryText(line.text)}</p>`;
+      if (line.kind === "choice") return `<p class="narrative-line muted"><strong>Action</strong><br>${formatStoryText(line.text)}</p>`;
+      if (line.kind === "speech") return `<p class="narrative-line speech"><strong>${escapeHtml(line.character || "Someone")}${line.type ? " / " + escapeHtml(line.type) : ""}</strong><br>${formatStoryText(line.text)}</p>`;
+      if (line.kind === "pause") return `<p class="narrative-line muted"><strong>${escapeHtml(line.pauseType || "Pause")}</strong><br>${formatStoryText(line.text)}</p>`;
+      if (line.kind === "check") return `<p class="narrative-line ${line.success ? "" : "muted"}"><strong>${escapeHtml(line.character || "Party")} / ${escapeHtml(line.stat || "Check")}</strong><br>${formatStoryText(line.text)}</p>`;
+      if (line.kind === "error") return `<p class="narrative-line error"><strong>Harness error</strong><br>${formatStoryText(line.text)}</p>`;
+      return `<p class="narrative-line">${formatStoryText(line.text)}</p>`;
     }
 
     function renderNarrative() {
@@ -1867,7 +1902,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       layer.innerHTML = state.party.map(member => state.bubbles.map((bubble, bubbleIndex) => {
         const belongs = bubble.characterId ? bubble.characterId === member.id : bubble.character === member.name;
         if (!belongs) return "";
-        return '<div class="member-bubble-stack" data-bubble-anchor="' + escapeHtml(member.id) + '"><div class="member-bubble"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' speech bubble">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + escapeHtml(bubble.type || "reaction") + '</span><span class="member-bubble-text">' + escapeHtml(bubble.text) + '</span></div></div>';
+        return '<div class="member-bubble-stack" data-bubble-anchor="' + escapeHtml(member.id) + '"><div class="member-bubble"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' speech bubble">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + escapeHtml(bubble.type || "reaction") + '</span><span class="member-bubble-text">' + formatStoryText(bubble.text) + '</span></div></div>';
       }).join("")).join("");
       layer.querySelectorAll("[data-dismiss-bubble]").forEach(button => button.addEventListener("click", event => {
         event.stopPropagation();
@@ -1983,7 +2018,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
       const labels = { continue: "SCENE BREAK", player_action: "PLAYER ACTION", choice: "DECISION", check: "STAT CHECK" };
       $("pause-kicker").textContent = labels[pause.pauseType] || "PLAYER PAUSE";
-      $("pause-prompt").textContent = pause.prompt || "Continue when you are ready.";
+      $("pause-prompt").innerHTML = formatStoryText(pause.prompt || "Continue when you are ready.");
       let actions = "";
       if (pause.pauseType === "continue") {
         actions = '<button class="pause-choice primary" type="button" data-pause-continue="1">CONTINUE SCENE ↗</button>';
@@ -2189,6 +2224,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     function appendRuntimePrompt() {
       $("prompt-output").textContent += "\n\nRUNTIME SETTINGS:\n" +
         "font: " + state.font + "\n" +
+        "story text formatting: " + state.textFormatting + "\n" +
         "canon mode: " + state.grounding + "\n" +
         "turn length: " + state.responseLength + "\n" +
         "image provider: " + state.imageProvider + "\n" +
@@ -2271,6 +2307,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           apiBaseUrl: state.apiBaseUrl, structuredOutput: state.structuredOutput,
           model: state.model,
           systemPrompt: state.systemPrompt,
+          textFormatting: state.textFormatting,
           playerMode: state.playerMode,
           bubbleFrequency: state.mode,
           grounding: state.grounding,
@@ -3701,6 +3738,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           palette: state.palette,
           customAccent: state.customAccent,
           font: state.font,
+          textFormatting: state.textFormatting,
           grounding: state.grounding,
           responseLength: state.responseLength,
           imageProvider: state.imageProvider,
@@ -3953,6 +3991,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         ? safeColor(settings.customAccent)
         : "";
       state.font = FONTS[settings.font] ? settings.font : "classic";
+      state.textFormatting = settings.textFormatting === "plain" ? "plain" : "markdown";
       state.grounding = ["strict", "balanced", "loose"].includes(settings.grounding) ? settings.grounding : "balanced";
       state.responseLength = ["short", "medium", "long"].includes(settings.responseLength) ? settings.responseLength : "medium";
       state.imageProvider = ["openai", "novelai", "stability", "automatic1111", "fooocus", "comfyui", "compatible"].includes(settings.imageProvider) ? settings.imageProvider : "openai";
@@ -4524,6 +4563,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("settings-palette").addEventListener("change", event => { state.palette = event.target.value; state.customAccent = ""; renderAll(); });
     $("settings-accent").addEventListener("input", event => { state.customAccent = event.target.value; applyPalette(); });
     $("settings-font").addEventListener("change", event => { state.font = event.target.value; renderAll(); });
+    $("settings-text-formatting").addEventListener("change", event => { state.textFormatting = event.target.value === "plain" ? "plain" : "markdown"; markDirty(); renderAll(); });
     $("settings-bubble-mode").addEventListener("change", event => { state.mode = event.target.value; state.bubbles = []; renderAll(); });
     $("settings-grounding").addEventListener("change", event => { state.grounding = event.target.value; renderAll(); });
     $("settings-response-length").addEventListener("change", event => { state.responseLength = event.target.value; renderAll(); });

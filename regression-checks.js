@@ -432,3 +432,31 @@ test("speech bubbles render in the outside overlay and remain dismissible", () =
   h.run("dismissBubble({stopPropagation(){}})");
   assert.equal(h.run("state.bubbles.length"), 0);
 });
+
+test("story formatting renders safe Markdown and supports plain text", () => {
+  const h = harness();
+  h.run("state.textFormatting = 'markdown'");
+  const formatted = h.run("formatStoryText('# Scene\\n\\nA **bold** and *quiet* \\u0060signal\\u0060 with <script>alert(1)</script>.\\n- Keep watch')");
+  assert.match(formatted, /formatted-heading/);
+  assert.match(formatted, /<strong>bold<\/strong>/);
+  assert.match(formatted, /<em>quiet<\/em>/);
+  assert.match(formatted, /<code>signal<\/code>/);
+  assert.match(formatted, /formatted-list/);
+  assert.match(formatted, /&lt;script&gt;/);
+  assert.doesNotMatch(formatted, /<script>/);
+  h.run("state.textFormatting = 'plain'");
+  const plain = h.run("formatStoryText('A **bold** line')");
+  assert.match(plain, /\\*\\*bold\\*\\*/);
+  assert.doesNotMatch(plain, /<strong>/);
+});
+
+test("NovelAI wrappers are stripped and prose fallback stays playable", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const start = source.indexOf("function parseTurnJson(");
+  const end = source.indexOf("function normalizeTurn(", start);
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(start, end), context);
+  assert.equal(vm.runInContext("stripNovelAIReasoning('<think>private</think><|assistant|>{\\\"narration\\\":\\\"Ready\\\"}<|end|>')", context), '{"narration":"Ready"}');
+  assert.equal(vm.runInContext("parseNovelAITurn('The model ignored the JSON shell but wrote a usable scene.').narration", context), "The model ignored the JSON shell but wrote a usable scene.");
+  assert.throws(() => vm.runInContext("parseNovelAITurn('{broken')", context));
+});

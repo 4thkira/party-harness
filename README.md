@@ -48,6 +48,7 @@ Keys typed in Settings disappear when you refresh. To avoid retyping them:
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
 | Sessions | Named saves, session import/export, and readable story exports. |
+| Story text formatting | Markdown mode safely renders emphasis, headings, lists, and inline code; Plain text keeps the original markers visible. |
 
 The right-hand rail is split into **Party**, **World**, and **Trace** tabs so the roster, selected character tools, mechanical state, and diagnostics do not compete for the same vertical space. The active tab scrolls on desktop; on a narrow screen the rail becomes part of the normal page flow.
 
@@ -126,6 +127,10 @@ The API base URL is different from the custom roleplay backend URL. For local/co
 New hosted presets start with an empty model field so you can enter a currently available model from your account. Switching text providers clears the browser text key, model, base URL, output-mode override, and custom roleplay backend; switching image providers also clears the image key, image base URL, ComfyUI workflow, and model so connection details cannot cross services. Enter the new connection's details. OpenAI and NovelAI retain their existing default model suggestions. Local UI presets use their usual loopback ports as placeholders. Session files retain model/compatibility settings, but imported external files cannot set a provider base URL or ComfyUI workflow. Re-enter those values after importing.
 
 **Structured output compatibility:** local presets default to JSON schema; hosted chat presets default to JSON mode. Use JSON schema where your model supports it. If a server rejects response_format, choose Prompt only. Prompt only still asks for the required JSON structure but cannot enforce it during generation. The harness parses and normalizes replies and reports unusable or truncated output rather than fabricating a scene. There is no automatic retry that silently switches modes and spends more credits.
+
+**NovelAI compatibility:** NovelAI's OpenAI-compatible text endpoint does not enforce the JSON schema used by OpenAI. The harness sends an explicit JSON contract, disables thinking for these structured turns, uses conservative sampling, strips common reasoning wrappers, and keeps a plain-prose response as narration if the model ignores the JSON shell. <code>glm-4-6</code> is the default model; enter the exact model ID available to your account. See NovelAI's [Generation API documentation](https://docs.novelai.net/en/scripting/generation-api/) for current model and parameter availability.
+
+**Story formatting:** Markdown mode is on by default and is display-only. It supports <code>*italics*</code>, <code>**bold**</code>, <code>~~strikethrough~~</code>, inline code, <code># headings</code>, and <code>- lists</code> in generated narration, dialogue, bubbles, and pause text. The renderer escapes HTML before adding those safe tags, and the underlying text remains unchanged in saves and exports. Switch to Plain text when a provider's markers should remain literal.
 
 **TEST LOCAL CONNECTION** checks the harness server and configured-key presence. It does not validate the model server, provider account, model access, or generation quality. These adapters have mock protocol tests and local HTTP integration tests; live hosted calls and actual Ollama/LM Studio model generation have not been validated in this release.
 
