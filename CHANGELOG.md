@@ -6,6 +6,12 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.4.0] — 2026-09-06
+
+- Made party bubbles independent additive asides instead of duplicate transcript dialogue.
+- Added explicit speech and thought bubble kinds, with a dashed thought-bubble treatment and screen-reader announcements that distinguish spoken asides from private thoughts.
+- Kept legacy snapshots compatible by treating bubbles without a kind as speech bubbles, and updated provider prompts, NovelAI JSON guidance, README, and the harness summary to document the contract.
+
 ## [0.3.2] — 2026-09-06
 
 - Applied the NovelAI output and context safeguards to character-profile and session-setup fallback requests as well as live turns.

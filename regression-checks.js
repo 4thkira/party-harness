@@ -291,9 +291,10 @@ test("server normalizes beat-local changes and does not duplicate aggregate chan
   const source = fs.readFileSync(path.join(__dirname,"server.js"),"utf8");
   const context = vm.createContext({});
   vm.runInContext(source.slice(source.indexOf("function normalizeTurn("),source.indexOf("function buildInstructions(")),context);
-  const normalized = vm.runInContext(`normalizeTurn({narration:'Scene',beats:[{kind:'narration',text:'Scene',stateChanges:{statDeltas:[{characterId:'a',stat:'resolve',delta:99}],memoryCandidates:[{kind:'reaction',text:'Surprised',subjectId:'a'}]}}],stateChanges:{flagChanges:[{key:'duplicate',value:'bad'}]}},[{id:'a',name:'A'}])`,context);
+  const normalized = vm.runInContext(`normalizeTurn({narration:'Scene',bubbles:[{characterId:'a',kind:'thought',type:'concern',text:'Something is wrong.'}],beats:[{kind:'narration',text:'Scene',stateChanges:{statDeltas:[{characterId:'a',stat:'resolve',delta:99}],memoryCandidates:[{kind:'reaction',text:'Surprised',subjectId:'a'}]}}],stateChanges:{flagChanges:[{key:'duplicate',value:'bad'}]}},[{id:'a',name:'A'}])`,context);
   assert.equal(normalized.beats[0].stateChanges.statDeltas[0].delta, 25);
   assert.equal(normalized.beats[0].stateChanges.memoryCandidates[0].kind, "reaction");
+  assert.equal(normalized.bubbles[0].kind, "thought");
   assert.equal(normalized.stateChanges.flagChanges.length, 0);
 });
 
@@ -431,6 +432,28 @@ test("speech bubbles render in the outside overlay and remain dismissible", () =
   assert.equal(h.run("testBubble.style.left"), "-12px");
   h.run("dismissBubble({stopPropagation(){}})");
   assert.equal(h.run("state.bubbles.length"), 0);
+});
+
+test("additive bubbles stay out of the transcript and thought styling survives", () => {
+  const h = harness();
+  h.run(`
+    state.narrative = [];
+    state.beatQueue = prepareBeatQueue({beats:[],stateChanges:{}}, 'The room goes quiet.');
+    processBeatQueue([{characterId:state.party[0].id,kind:'thought',type:'concern',text:'This is not a safe silence.'}]);
+    const layer = document.getElementById('sidebar-bubble-layer');
+    const panel = document.getElementById('sidebar-panel-party');
+    layer.getBoundingClientRect = () => ({top:0,left:300});
+    panel.getBoundingClientRect = () => ({top:0,left:300,right:600,bottom:500});
+    panel.querySelectorAll = () => [];
+    layer.querySelectorAll = () => [];
+    state.bubbles = [{characterId:state.party[0].id,kind:'thought',type:'concern',text:'This is not a safe silence.'}];
+    renderPartyBubbles();
+  `);
+  assert.equal(h.run("state.narrative.length"), 1);
+  assert.equal(h.run("state.narrative[0].kind"), "body");
+  assert.equal(h.run("state.bubbles[0].kind"), "thought");
+  assert.match(h.element("sidebar-bubble-layer").innerHTML, /member-bubble thought/);
+  assert.match(h.element("sidebar-bubble-layer").innerHTML, /data-bubble-kind="thought"/);
 });
 
 test("story formatting renders safe Markdown and supports plain text", () => {

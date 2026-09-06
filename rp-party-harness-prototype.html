@@ -350,6 +350,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .member-bubble-stack { position: absolute; z-index: 20; right: calc(100% + 12px); top: 0; width: min(300px, 28vw); display: grid; gap: 7px; pointer-events: auto; }
     .member-bubble { position: relative; padding: 10px 30px 10px 12px; color: var(--ink); background: var(--paper); border: 2px solid var(--line); box-shadow: 4px 4px 0 var(--rust); animation: arrive .2s ease-out; }
     .member-bubble:after { content: ""; position: absolute; right: -9px; top: 21px; width: 14px; height: 14px; background: var(--paper); border-top: 2px solid var(--line); border-right: 2px solid var(--line); transform: rotate(45deg); }
+    .member-bubble.thought { background: var(--paper-2); border-style: dashed; box-shadow: 4px 4px 0 var(--paper-3); }
+    .member-bubble.thought:after { right: -8px; top: auto; bottom: 12px; width: 9px; height: 9px; border: 2px solid var(--line); border-radius: 50%; background: var(--paper-2); transform: none; box-shadow: 10px 10px 0 -2px var(--paper-2), 10px 10px 0 0 var(--line); }
+    .member-bubble.thought .member-bubble-text { font-style: italic; }
     .member-bubble-name { display: block; margin-bottom: 4px; color: var(--rust); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
     .member-bubble-text { display: block; font-family: var(--serif); font-size: 15px; line-height: 1.3; }
     .dismiss-member-bubble { position: absolute; top: 4px; right: 5px; width: 20px; height: 20px; padding: 0; border: 0; color: var(--muted); background: transparent; font: 18px/20px var(--mono); }
@@ -661,7 +664,7 @@ this program. If not, see https://www.gnu.org/licenses/.
             <div id="turn-trace-panel"></div>
           </section>
         </div>
-        <div class="sidebar-bubble-layer" id="sidebar-bubble-layer" aria-label="Contextual party speech bubbles" hidden></div>
+        <div class="sidebar-bubble-layer" id="sidebar-bubble-layer" aria-label="Party asides and thoughts" hidden></div>
 
       </aside>
     </main>
@@ -839,7 +842,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         </section>
         <section class="settings-group full compact-settings-row">
           <div class="settings-group-title">Roleplay behavior</div>
-          <div class="field"><label for="settings-bubble-mode">Speech bubble frequency</label><select id="settings-bubble-mode" data-help="Controls how often characters contribute speech bubbles. Even Talkative allows silence when it fits the scene." aria-description="Controls how often characters contribute speech bubbles. Even Talkative allows silence when it fits the scene."><option value="quiet">Quiet — important reactions only</option><option value="normal">Normal — meaningful contributions</option><option value="talkative">Talkative — more banter</option></select></div>
+          <div class="field"><label for="settings-bubble-mode">Party aside frequency</label><select id="settings-bubble-mode" data-help="Controls how often characters add short speech or thought bubbles beside their portraits. Even Talkative allows silence when it fits the scene." aria-description="Controls how often characters add short speech or thought bubbles beside their portraits. Even Talkative allows silence when it fits the scene."><option value="quiet">Quiet — important reactions only</option><option value="normal">Normal — meaningful contributions</option><option value="talkative">Talkative — more banter</option></select></div>
           <div class="field"><label for="settings-grounding">Canon / improvisation</label><select id="settings-grounding" data-help="Controls how cautiously the AI follows established lore versus inventing new details. Pinned facts still apply." aria-description="Controls how cautiously the AI follows established lore versus inventing new details. Pinned facts still apply."><option value="strict">Strict canon — flag uncertainty</option><option value="balanced">Balanced — preserve core, improvise edges</option><option value="loose">Loose improv — prioritize momentum</option></select></div>
           <div class="field"><label for="settings-response-length">Turn response length</label><select id="settings-response-length" data-help="Requests shorter or longer generated turns. Longer replies may take more time and use more provider tokens." aria-description="Requests shorter or longer generated turns. Longer replies may take more time and use more provider tokens."><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select></div>
         </section>
@@ -1031,7 +1034,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       "You are the scene engine for an ongoing party roleplay.",
       "Preserve established facts. Characters must act according to their personality, strengths, weaknesses, goals, dialogue guidance, relationships, and current feelings.",
       "The player's action is an intent, not an order that overrides character autonomy or established reality.",
-      "Speech bubbles are contextual interruptions attached to the speaking character's portrait. Return an empty bubbles array unless a character has a meaningful observation, opinion, warning, emotional reaction, or relevant suggestion.",
+      "Bubbles are optional extra asides attached to a character's portrait, not duplicate transcript text. Return an empty bubbles array unless a character has a concise observation, hint, warning, reaction, aside, or unspoken thought that adds information beyond the full reply.",
       // Must stay byte-identical to DEFAULT_SYSTEM_PROMPT in server.js. This copy is only the
       // fallback for a boot where /api/defaults did not answer, and the line below is the
       // prompt-injection guardrail for attached Markdown profiles — the worst one to lose offline.
@@ -1847,9 +1850,10 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     // Announced separately from the transcript so a screen reader hears the new turn instead of
     // the whole session replayed on every redraw.
-    function announceTurn(narration, bubbles) {
-      const spoken = (bubbles || []).map(bubble => bubble.character + " says: " + bubble.text).join(" ");
-      $("narrative-live").textContent = [narration, spoken].filter(Boolean).join(" ");
+    function announceTurn(narration, speech, asides) {
+      const spoken = (speech || []).map(line => line.character + " says: " + line.text).join(" ");
+      const extra = (asides || []).map(bubble => bubble.character + (bubble.kind === "thought" ? " thinks: " : " adds: ") + bubble.text).join(" ");
+      $("narrative-live").textContent = [narration, spoken, extra].filter(Boolean).join(" ");
     }
 
     function renderVisual() {
@@ -1871,11 +1875,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (visualColumn) visualColumn.setAttribute("aria-hidden", state.showImageArea ? "false" : "true");
     }
 
-    // Speech bubbles are rendered into the rail's overlay layer so they can float outside the third
-    // column without being clipped by the Party panel's scroll container. Only the count line lives
-    // here.
+    // Asides are rendered into the rail's overlay layer so they can float outside the third column
+    // without being clipped by the Party panel's scroll container. Only the count line lives here.
     function renderBubbles() {
-      $("bubble-status").textContent = state.bubbles.length ? `BUBBLES: ${state.bubbles.length} CONTEXTUAL INTERRUPTION${state.bubbles.length === 1 ? "" : "S"}` : "BUBBLES: NONE / PARTY IS SILENT";
+      $("bubble-status").textContent = state.bubbles.length ? `BUBBLES: ${state.bubbles.length} EXTRA ASIDE${state.bubbles.length === 1 ? "" : "S"}` : "BUBBLES: NONE / PARTY IS SILENT";
     }
 
     // Moves a member and keeps the selection pointing at the same person rather than the same slot.
@@ -1902,7 +1905,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       layer.innerHTML = state.party.map(member => state.bubbles.map((bubble, bubbleIndex) => {
         const belongs = bubble.characterId ? bubble.characterId === member.id : bubble.character === member.name;
         if (!belongs) return "";
-        return '<div class="member-bubble-stack" data-bubble-anchor="' + escapeHtml(member.id) + '"><div class="member-bubble"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' speech bubble">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + escapeHtml(bubble.type || "reaction") + '</span><span class="member-bubble-text">' + formatStoryText(bubble.text) + '</span></div></div>';
+        const kind = bubble.kind === "thought" ? "thought" : "speech";
+        const label = kind === "thought" ? "thought bubble" : "speech bubble";
+        return '<div class="member-bubble-stack" data-bubble-anchor="' + escapeHtml(member.id) + '"><div class="member-bubble ' + kind + '" data-bubble-kind="' + kind + '"><button class="dismiss-member-bubble" type="button" data-dismiss-bubble="' + bubbleIndex + '" aria-label="Dismiss ' + escapeHtml(member.name) + ' ' + label + '">×</button><span class="member-bubble-name">' + escapeHtml(member.name) + ' / ' + kind + ' / ' + escapeHtml(bubble.type || "reaction") + '</span><span class="member-bubble-text">' + formatStoryText(bubble.text) + '</span></div></div>';
       }).join("")).join("");
       layer.querySelectorAll("[data-dismiss-bubble]").forEach(button => button.addEventListener("click", event => {
         event.stopPropagation();
@@ -1979,7 +1984,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("add-member").disabled = state.party.length >= 5;
       $("add-member").textContent = state.party.length >= 5 ? "PARTY LIMIT REACHED" : "+ ADD PARTY MEMBER";
       const selected = state.party[state.selected];
-      $("selected-panel").innerHTML = selected ? `<div class="selected-kicker">Selected character</div><div class="selected-summary"><strong>${escapeHtml(selected.name)}</strong><span>${escapeHtml(selected.feeling || "neutral")}</span></div><button class="sheet-button" type="button" id="open-selected-sheet">VIEW CHARACTER SHEET ↗</button><div class="line-editor-actions"><button class="turn-action" type="button" id="toggle-selected-mute" data-help="Suppress this character’s generated dialogue and speech bubbles. They stay in the party and can still appear in narration. This does not mute sound effects." aria-description="Suppress this character’s generated dialogue and speech bubbles. They stay in the party and can still appear in narration. This does not mute sound effects.">${selected.muted ? "UNMUTE" : "MUTE"}</button><button class="turn-action" type="button" id="toggle-selected-initiative" data-help="FREE allows spontaneous speech. REACTIVE asks them to speak mainly when addressed or when a response is needed for the scene. This is AI guidance, not turn order." aria-description="FREE allows spontaneous speech. REACTIVE asks them to speak mainly when addressed or when a response is needed for the scene. This is AI guidance, not turn order.">INITIATIVE: ${selected.initiative === false ? "REACTIVE" : "FREE"}</button></div>` : "";
+      $("selected-panel").innerHTML = selected ? `<div class="selected-kicker">Selected character</div><div class="selected-summary"><strong>${escapeHtml(selected.name)}</strong><span>${escapeHtml(selected.feeling || "neutral")}</span></div><button class="sheet-button" type="button" id="open-selected-sheet">VIEW CHARACTER SHEET ↗</button><div class="line-editor-actions"><button class="turn-action" type="button" id="toggle-selected-mute" data-help="Suppress this character’s generated dialogue and speech or thought bubbles. They stay in the party and can still appear in narration. This does not mute sound effects." aria-description="Suppress this character’s generated dialogue and speech or thought bubbles. They stay in the party and can still appear in narration. This does not mute sound effects.">${selected.muted ? "UNMUTE" : "MUTE"}</button><button class="turn-action" type="button" id="toggle-selected-initiative" data-help="FREE allows spontaneous speech. REACTIVE asks them to speak mainly when addressed or when a response is needed for the scene. This is AI guidance, not turn order." aria-description="FREE allows spontaneous speech. REACTIVE asks them to speak mainly when addressed or when a response is needed for the scene. This is AI guidance, not turn order.">INITIATIVE: ${selected.initiative === false ? "REACTIVE" : "FREE"}</button></div>` : "";
       if (selected) {
         $("open-selected-sheet").addEventListener("click", () => openModal(state.selected));
         $("toggle-selected-mute").addEventListener("click", () => { selected.muted = !selected.muted; state.bubbles = state.bubbles.filter(bubble => bubble.characterId !== selected.id); markDirty(); renderAll(); });
@@ -2218,7 +2223,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     function renderPrompt() {
       const roster = state.party.map(member => `${member.name} [characterId: ${member.id}] (${member.role}; feeling: ${member.feeling}; strengths: ${member.strengths}; weaknesses: ${member.weaknesses}; speech: ${member.muted ? "muted" : "allowed"}; initiative: ${member.initiative === false ? "reactive" : "free"})`).join("\n");
-      $("prompt-output").textContent = `You are facilitating an ongoing party roleplay. Preserve established facts. Let characters act according to their personality, strengths, weaknesses, feelings, and relationships. Character speech bubbles are context-dependent and should be omitted unless someone has a meaningful contribution.\n\nSESSION: ${state.sessionName}\nSCENE: ${state.sceneTitle} — ${state.location}\nTONE / GENRE: ${state.scenarioTone || "not specified"}\nPLAYER MODE: ${state.playerMode === "dm" ? "unseen DM / external facilitator" : "first listed party member"}\nPLAYER PERSPECTIVE: ${state.playerRole || "not specified"}\nSCENARIO PREMISE: ${state.scenarioPremise || "not specified"}\nOPENING SITUATION: ${state.openingSituation || "not specified"}\nWORLD / CANON NOTES: ${state.worldNotes || "none"}\nSESSION STATS: ${JSON.stringify(normalizeStatDefinitions(state.statDefinitions))}\nSESSION PROMPT / CANON NOTES: ${state.sessionPrompt || "none"}\nPINNED CANON (never contradicted; survives summarization): ${state.pinnedFacts || "none"}\nSTORY SO FAR: ${state.storySummary || "none yet"}\nMECHANICAL WORLD STATE: ${JSON.stringify(publicWorldState())}\nBUBBLE FREQUENCY: ${state.mode}\nPARTY:\n${roster}\n\nReturn an ordered beat timeline with explicit pauses, optional contextual character bubbles, suggestions, and validated state-change proposals.`;
+      $("prompt-output").textContent = `You are facilitating an ongoing party roleplay. Preserve established facts. Let characters act according to their personality, strengths, weaknesses, feelings, and relationships. Add an empty bubbles array unless a character has a short, additive aside or unspoken thought that is not already in the full reply.\n\nSESSION: ${state.sessionName}\nSCENE: ${state.sceneTitle} — ${state.location}\nTONE / GENRE: ${state.scenarioTone || "not specified"}\nPLAYER MODE: ${state.playerMode === "dm" ? "unseen DM / external facilitator" : "first listed party member"}\nPLAYER PERSPECTIVE: ${state.playerRole || "not specified"}\nSCENARIO PREMISE: ${state.scenarioPremise || "not specified"}\nOPENING SITUATION: ${state.openingSituation || "not specified"}\nWORLD / CANON NOTES: ${state.worldNotes || "none"}\nSESSION STATS: ${JSON.stringify(normalizeStatDefinitions(state.statDefinitions))}\nSESSION PROMPT / CANON NOTES: ${state.sessionPrompt || "none"}\nPINNED CANON (never contradicted; survives summarization): ${state.pinnedFacts || "none"}\nSTORY SO FAR: ${state.storySummary || "none yet"}\nMECHANICAL WORLD STATE: ${JSON.stringify(publicWorldState())}\nBUBBLE FREQUENCY: ${state.mode}\nPARTY:\n${roster}\n\nReturn an ordered beat timeline with explicit pauses, optional additive speech or thought bubbles, suggestions, and validated state-change proposals.`;
     }
 
     function appendRuntimePrompt() {
@@ -2251,7 +2256,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         const member = findPartyMember(bubble);
         if (!member || member.muted || typeof bubble.text !== "string" || !bubble.text.trim() || seenCharacters.has(member.id)) return null;
         seenCharacters.add(member.id);
-        return { character: member.name, characterId: member.id, type: typeof bubble.type === "string" && bubble.type.trim() ? bubble.type.trim().slice(0, 80) : "reaction", text: bubble.text.trim().slice(0, 2000) };
+        return { character: member.name, characterId: member.id, kind: bubble.kind === "thought" ? "thought" : "speech", type: typeof bubble.type === "string" && bubble.type.trim() ? bubble.type.trim().slice(0, 80) : "reaction", text: bubble.text.trim().slice(0, 2000) };
       }).filter(Boolean).slice(0, BUBBLE_LIMITS[state.mode] || 2);
     }
 
@@ -2679,10 +2684,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       return result;
     }
 
-    function prepareBeatQueue(result, narration, bubbles) {
+    function prepareBeatQueue(result, narration) {
       const beats = (Array.isArray(result.beats) ? result.beats : []).slice(0, 20).map(normalizedBeat).filter(Boolean);
-      if (!beats.length) beats.push(normalizedBeat({ kind: "narration", text: narration }, 0),
-        ...bubbles.map((bubble, index) => normalizedBeat({ kind: "dialogue", ...bubble }, index + 1)));
+      if (!beats.length) beats.push(normalizedBeat({ kind: "narration", text: narration }, 0));
       if (!beats.some(beat => Object.values(beat.stateChanges).some(list => list.length))) {
         // Older/custom providers have aggregate changes only. Defer them until their final beat.
         beats[beats.length - 1].stateChanges = boundedChanges(result.stateChanges);
@@ -2690,9 +2694,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       return beats;
     }
 
-    function processBeatQueue() {
+    function processBeatQueue(asides = null) {
       const appended = [];
-      const bubbleCandidates = [];
       const stateReport = { applied: [], rejected: [] };
       while (state.beatQueue.length && !state.pendingPause) {
         const beat = normalizedBeat(state.beatQueue.shift(), appended.length);
@@ -2705,7 +2708,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           state.narrative.push(line); appended.push(line);
         } else if (beat.kind === "dialogue") {
           const line = { kind: "speech", character: beat.character, characterId: beat.characterId, type: beat.type, text: beat.text };
-          state.narrative.push(line); appended.push(line); bubbleCandidates.push(line);
+          state.narrative.push(line); appended.push(line);
         } else if (beat.kind === "system") {
           const line = { kind: "label", text: beat.text };
           state.narrative.push(line); appended.push(line);
@@ -2715,10 +2718,10 @@ this program. If not, see https://www.gnu.org/licenses/.
           if (state.pendingPause.pauseType !== "continue") state.beatQueue = [];
         }
       }
-      if (bubbleCandidates.length) state.bubbles = limitBubbles(bubbleCandidates);
+      if (Array.isArray(asides)) state.bubbles = limitBubbles(asides);
       const narration = appended.filter(line => line.kind === "body" || line.kind === "label").map(line => line.text).join(" ");
       const speech = appended.filter(line => line.kind === "speech").map(line => ({ character: line.character, text: line.text }));
-      if (narration || speech.length) { announceTurn(narration, speech); playPageTurn(); }
+      if (narration || speech.length || (Array.isArray(asides) && state.bubbles.length)) { announceTurn(narration, speech, Array.isArray(asides) ? state.bubbles : []); playPageTurn(); }
       appended.stateReport = stateReport;
       return appended;
     }
@@ -2962,9 +2965,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         markDirty();
         const fallbackBubbles = limitBubbles(resultObject.bubbles);
         state.pendingPause = null;
-        state.beatQueue = prepareBeatQueue(resultObject, narration, fallbackBubbles);
         state.bubbles = [];
-        const displayedBeats = processBeatQueue();
+        state.beatQueue = prepareBeatQueue(resultObject, narration);
+        const displayedBeats = processBeatQueue(fallbackBubbles);
         state.suggestions = Array.isArray(resultObject.suggestions)
           ? resultObject.suggestions.map(value => typeof value === "string" ? value.trim().slice(0, 500) : "").filter(Boolean).slice(0, 5)
           : [];
@@ -3934,7 +3937,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         return normalized;
       }) : [];
       state.bubbles = Array.isArray(snapshot.bubbles)
-        ? snapshot.bubbles.slice(0, MAX_IMPORTED_BUBBLES).filter(bubble => bubble && typeof bubble.text === "string").map(bubble => ({ character: String(bubble.character || "").slice(0, 200), characterId: String(bubble.characterId || "").slice(0, 64), type: String(bubble.type || "reaction").slice(0, 80), text: String(bubble.text).slice(0, 2000) })).filter(findPartyMember)
+        ? snapshot.bubbles.slice(0, MAX_IMPORTED_BUBBLES).filter(bubble => bubble && typeof bubble.text === "string").map(bubble => ({ character: String(bubble.character || "").slice(0, 200), characterId: String(bubble.characterId || "").slice(0, 64), kind: bubble.kind === "thought" ? "thought" : "speech", type: String(bubble.type || "reaction").slice(0, 80), text: String(bubble.text).slice(0, 2000) })).filter(findPartyMember)
         : [];
       state.storySummary = String(snapshot.storySummary || "").slice(0, 8000);
       state.pinnedFacts = String(snapshot.pinnedFacts || "").slice(0, 8000);

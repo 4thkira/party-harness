@@ -379,13 +379,27 @@ console.log("\nstructured roleplay runtime");
   check("server schema requires an ordered beat timeline",
     /beats:\s*\{[\s\S]{0,1200}?enum: \["narration", "dialogue", "pause", "system", "check"\]/.test(SERVER)
       && /required: \["narration", "bubbles", "suggestions", "beats", "stateChanges"\]/.test(SERVER));
+  check("bubbles have an explicit speech or thought kind",
+    /kind:\s*\{ type: "string", enum: \["speech", "thought"\] \}/.test(SERVER)
+      && /required: \["character", "characterId", "kind", "type", "text"\]/.test(SERVER)
+      && /kind: bubble\.kind === "thought" \? "thought" : "speech"/.test(SERVER));
+  check("bubbles stay outside the canonical transcript",
+    /function prepareBeatQueue\(result, narration\)/.test(HTML)
+      && !/\.\.\.bubbles\.map\(\(bubble, index\) => normalizedBeat\(\{ kind: "dialogue"/.test(HTML)
+      && /processBeatQueue\(fallbackBubbles\)/.test(HTML)
+      && /Bubbles are separate optional asides and must not be copied into narration, dialogue beats, or the transcript\./.test(SERVER));
+  check("thought bubbles have distinct visual and accessible treatment",
+    /\.member-bubble\.thought\s*\{/.test(HTML)
+      && /data-bubble-kind/.test(HTML)
+      && /bubble\.kind === "thought" \? "thought" : "speech"/.test(HTML)
+      && /bubble\.kind === "thought" \? " thinks: " : " adds: "/.test(HTML));
   const stateArrays = ["feelingUpdates", "statDeltas", "relationshipDeltas", "inventoryChanges", "conditionChanges", "flagChanges", "clockChanges", "objectiveChanges", "memoryCandidates"];
   check("every mechanical proposal array is required", stateArrays.every(name => SERVER.includes('"' + name + '"'))
     && /required: \["feelingUpdates", "statDeltas", "relationshipDeltas"/.test(SERVER));
   check("mechanical world state reaches the provider context",
     /worldState: publicWorldState\(\)/.test(HTML) && /worldState: boundedWorldState\(input\.worldState\)/.test(SERVER));
   check("beats stop at explicit pauses and can resume locally",
-    /function processBeatQueue\(\)/.test(HTML) && /state\.pendingPause = \{ \.\.\.beat/.test(HTML)
+    /function processBeatQueue\(asides = null\)/.test(HTML) && /state\.pendingPause = \{ \.\.\.beat/.test(HTML)
       && /data-pause-continue/.test(HTML));
   check("checks resolve locally before their result returns to the model",
     /function resolvePendingCheck\(\)/.test(HTML) && /Math\.floor\(Math\.random\(\) \* 100\) \+ 1/.test(HTML)
