@@ -4,6 +4,13 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
+- Switched stat checks to roll-over, so a high roll always reads as a good roll. The odds are unchanged — a stat of 50 at difficulty 50 still succeeds half the time — but the threshold is now a floor the player passes rather than a ceiling they stay under.
+- Stated the check threshold explicitly everywhere it appears: the transcript, the dice overlay, the runtime panel, and the result sent back to the engine all read "rolled 80, needed 60 or over" instead of an "against 60" comparison that could be read either way. The engine had been receiving that ambiguous phrasing next to the word FAILURE and could narrate the opposite of the resolved outcome.
+- Told the engine the check convention and that a CHECK RESULT is already resolved by the harness and must be narrated as written rather than recomputed from the numbers. The convention was previously undocumented anywhere in the project.
+- Recorded the passing threshold on each stored check, so a check keeps the wording it was resolved under. Sessions saved before this change keep their outcomes; their checks simply omit the threshold rather than restating an old one under the new convention.
+- Replaced the dice reveal's shaking question mark with a die that tumbles through values and decelerates into its result, over a duration the DICE_ROLL_MS constant now actually controls. Reduced-motion still skips straight to the number.
+- Fixed NovelAI returning nothing for session generation, character import, and turns. Its OpenAI-compatible chat endpoint answers a non-streamed request with an empty text field and no message object, so those requests are now streamed and reassembled instead of falling through to a raw text-completion fallback that returned unusable prose.
+- Told NovelAI which fields a session setup and a character profile must contain. That endpoint enforces no JSON schema, so a generated session filled every field with a placeholder rather than the scenario that was asked for.
 - Added local looping music and ambient layers, each with its own track and volume control. Files stay in the user's `music/` and `ambience/` folders and are served only through the local harness.
 - Reserved a separate middle-column row for those audio controls, so a tall scene preview cannot cover them at short or narrow viewport sizes.
 - Added portrait expression sets. Multiple uploaded expressions travel with a character sheet, and the selected expression becomes that character's portrait throughout the interface.

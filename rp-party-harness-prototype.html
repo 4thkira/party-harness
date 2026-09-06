@@ -96,11 +96,11 @@ this program. If not, see https://www.gnu.org/licenses/.
       min-width: 0;
       display: grid;
       grid-template-columns: minmax(310px, var(--narrative-share, 1fr)) 9px minmax(400px, var(--visual-share, 1.25fr)) 9px minmax(290px, var(--sidebar-share, .9fr));
-      gap: 4px;
-      padding: 9px;
+      gap: 3px;
+      padding: 6px;
       height: calc(100vh - 54px);
     }
-    .narrative-column, .visual-column { min-width: 0; min-height: 0; display: grid; gap: 8px; }
+    .narrative-column, .visual-column { min-width: 0; min-height: 0; display: grid; gap: 6px; }
     .narrative-column { grid-template-rows: auto minmax(0, 1fr) auto auto auto; overflow: hidden; }
     .visual-column { position: relative; z-index: 1; grid-template-rows: auto auto auto; align-content: start; overflow: hidden; }
     .workspace.text-only { grid-template-columns: minmax(0, 1fr) minmax(285px, .8fr); }
@@ -191,7 +191,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
-      padding: 14px 18px 16px;
+      padding: 10px 14px 12px;
       background: var(--paper);
       scrollbar-color: var(--rust) transparent;
     }
@@ -228,7 +228,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     /* Turn feedback and turn-level controls. A turn can take a minute; a dimmed button was the
        only thing saying so. */
-    .turn-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; padding: 5px 0; }
+    .turn-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; padding: 3px 0; }
     #turn-status { color: var(--rust); font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
     #turn-status.working { display: inline-flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); color: var(--ink); background: var(--paper); }
     #turn-status.working::before, .loading-wheel { content: ""; display: inline-block; flex: 0 0 auto; width: 24px; height: 24px; box-sizing: border-box; border: 3px solid currentColor; border-right-color: transparent; border-bottom-color: transparent; border-radius: 50%; animation: loading-spin .9s linear infinite; }
@@ -244,12 +244,12 @@ this program. If not, see https://www.gnu.org/licenses/.
     .turn-action { padding: 4px 9px; color: var(--muted); background: none; border: 1px solid var(--paper-3); font-family: var(--mono); font-size: 10px; letter-spacing: .08em; cursor: pointer; }
     .turn-action:hover:not(:disabled) { color: var(--ink); border-color: var(--rust); }
     .turn-action:disabled { opacity: .35; cursor: not-allowed; }
-    .pause-panel { display: none; padding: 10px 12px; color: var(--paper); background: #241f1b; border: 1px solid var(--orange); box-shadow: 3px 3px 0 #0f0d0c; }
+    .pause-panel { display: none; padding: 7px 9px; color: var(--paper); background: #241f1b; border: 1px solid var(--orange); box-shadow: 3px 3px 0 #0f0d0c; }
     .pause-panel.active { display: block; }
-    .pause-kicker { margin: 0 0 5px; color: var(--orange); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; }
-    .pause-prompt { margin: 0; font-family: var(--serif); font-size: 16px; line-height: 1.35; }
-    .pause-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-    .pause-choice { padding: 6px 9px; color: var(--paper); background: transparent; border: 1px solid #75695c; font-size: 11px; text-align: left; }
+    .pause-kicker { margin: 0 0 3px; color: var(--orange); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; }
+    .pause-prompt { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.25; }
+    .pause-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    .pause-choice { padding: 5px 8px; color: var(--paper); background: transparent; border: 1px solid #75695c; font-size: 10px; text-align: left; }
     .pause-choice:hover { color: var(--ink); background: var(--orange); border-color: var(--orange); }
     .pause-choice.primary { border-color: var(--orange); }
     /* The transcript itself is rebuilt wholesale on every render, so it must not be the live
@@ -259,8 +259,8 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     @keyframes arrive { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    .response-box { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
-    .response-box textarea { min-height: 58px; max-height: 100px; resize: vertical; padding: 11px; color: var(--paper); background: #191715; border: 2px solid #786d5f; outline: none; }
+    .response-box { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+    .response-box textarea { min-height: 54px; max-height: 100px; resize: vertical; padding: 9px; color: var(--paper); background: #191715; border: 2px solid #786d5f; outline: none; }
     .response-box textarea:focus { border-color: var(--orange); }
     .response-box textarea::placeholder { color: #817668; }
     .send-button { min-width: 120px; border: 2px solid var(--orange); color: var(--ink); background: var(--orange); font-weight: 700; letter-spacing: .08em; }
@@ -280,16 +280,16 @@ this program. If not, see https://www.gnu.org/licenses/.
       display: flex;
       flex-direction: column;
       overflow: visible;
-      padding: 11px;
+      padding: 8px;
       color: var(--ink);
       background: var(--paper-2);
       border: 2px solid var(--line);
       box-shadow: var(--shadow);
     }
-    .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 2px solid var(--line); }
+    .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 2px solid var(--line); }
     .sidebar-head h3 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
     .party-count { color: var(--rust); font-size: 11px; }
-    .sidebar-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 9px 0 8px; border-bottom: 1px solid #aa9b87; }
+    .sidebar-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 7px 0 6px; border-bottom: 1px solid #aa9b87; }
     .sidebar-tab { min-width: 0; padding: 7px 4px; border: 1px solid #a3937d; color: var(--muted); background: transparent; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
     .sidebar-tab:hover { color: var(--rust); border-color: var(--rust); }
     .sidebar-tab.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
@@ -304,10 +304,10 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-bubble-layer { position: absolute; z-index: 30; inset: 0; overflow: visible; pointer-events: none; }
     .sidebar-bubble-layer[hidden] { display: none; }
     .sidebar-bubble-layer .member-bubble-stack { top: auto; right: auto; pointer-events: auto; }
-    .party-list { display: grid; gap: 7px; padding: 9px 0; }
+    .party-list { display: grid; gap: 6px; padding: 7px 0; }
     .member {
       position: relative;
-      padding: 7px 8px;
+      padding: 6px 7px;
       border: 1px solid #867968;
       background: rgba(244,238,224,.5);
       transition: transform .12s, border-color .12s;
@@ -335,7 +335,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     .add-member { width: 100%; padding: 10px; border: 1px dashed #75695b; color: var(--muted); background: transparent; }
     .add-member:hover { border-color: var(--rust); color: var(--rust); }
 
-    .selected-panel { min-width: 0; padding-top: 9px; border-top: 2px solid var(--line); }
+    .selected-panel { min-width: 0; padding-top: 7px; border-top: 2px solid var(--line); }
     .selected-kicker { margin-bottom: 5px; color: var(--rust); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
     .selected-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .selected-summary strong { min-width: 0; overflow-wrap: anywhere; font-family: var(--serif); font-size: 18px; font-weight: 400; }
@@ -491,7 +491,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     .session-generator .scenario-textarea { min-height: 86px; }
     .generation-status { min-height: 16px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
     .generation-status.error { color: #8f382f; }
-    .media-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; border: 1px solid #514d47; background: #171815; color: var(--paper); }
+    .media-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px; border: 1px solid #514d47; background: #171815; color: var(--paper); }
     .media-channel { display: grid; grid-template-columns: auto minmax(0,1fr) 64px; gap: 5px; align-items: center; }
     .media-channel button, .media-channel select { min-width: 0; height: 27px; border: 1px solid #6f6c64; color: var(--paper); background: #20211e; font-size: 9px; }
     .media-channel input { width: 64px; accent-color: var(--orange); }
@@ -501,7 +501,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     .dice-overlay.show { opacity: 1; }
     .dice-card { min-width: 240px; padding: 20px; border: 2px solid var(--paper); color: var(--paper); background: #171815; box-shadow: 8px 8px 0 #000; text-align: center; }
     .dice-value { display: grid; place-items: center; width: 86px; height: 86px; margin: 10px auto; border: 3px solid var(--orange); font: 42px/1 var(--serif); transform: rotate(-3deg); }
-    .dice-overlay.rolling .dice-value { animation: dice-jolt .12s steps(2,end) infinite; }
+    .dice-overlay.rolling .dice-value { animation: dice-jolt .16s steps(2,end) infinite; color: var(--orange); }
     @keyframes dice-jolt { 50% { transform: rotate(4deg) scale(1.06); } }
     .system-prompt { min-height: 150px !important; resize: vertical; font: 12px/1.45 var(--mono); }
     .system-prompt-footer { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
@@ -1963,12 +1963,54 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.sceneBookmarks.push({ id: "bookmark-" + crypto.randomUUID(), turn: state.turn, title: state.sceneTitle, location: state.location, excerpt: excerpt || "The party paused here." });
       state.sceneBookmarks = state.sceneBookmarks.slice(-100); markDirty(); setSidebarTab("history"); renderAll();
     }
+    // A die settling, not a question mark that shakes. The face cycles through random values and
+    // the interval lengthens each step, so the roll visibly decelerates into its result instead of
+    // snapping. Tunable: DICE_ROLL_MS is the whole tumble, DICE_HOLD_MS how long the result stays up.
+    const DICE_ROLL_MS = 1400;
+    const DICE_HOLD_MS = 1600;
+    let diceTimer = null;
+
     function showDiceResult(label, roll, target, success) {
       const overlay = $("dice-overlay");
-      $("dice-label").textContent = label; $("dice-value").textContent = "?"; $("dice-outcome").textContent = "TARGET " + target;
-      overlay.classList.add("show", "rolling");
-      const finish = () => { $("dice-value").textContent = roll; $("dice-outcome").textContent = success ? "SUCCESS" : "FAILURE"; overlay.classList.remove("rolling"); setTimeout(() => overlay.classList.remove("show"), 1300); };
-      if (typeof window.matchMedia !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) finish(); else setTimeout(finish, 480);
+      const face = $("dice-value");
+      $("dice-label").textContent = label;
+      $("dice-outcome").textContent = "NEED " + target + " OR OVER";
+      // A check can resolve while a previous overlay is still counting down. Without this the old
+      // timer would later overwrite the new roll's face with a stale value.
+      if (diceTimer) { clearTimeout(diceTimer); diceTimer = null; }
+      const finish = () => {
+        diceTimer = null;
+        face.textContent = roll;
+        $("dice-outcome").textContent = (success ? "SUCCESS" : "FAILURE") + " — " + roll + " vs " + target;
+        overlay.classList.remove("rolling");
+        diceTimer = setTimeout(() => { overlay.classList.remove("show"); diceTimer = null; }, DICE_HOLD_MS);
+      };
+      overlay.classList.add("show");
+      if (typeof window.matchMedia !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        // No tumble and no shake, but the result still holds long enough to read.
+        face.textContent = roll;
+        finish();
+        return;
+      }
+      // Cosmetic only -- the real roll is seededRoll(pause.checkSeed) and is already fixed by now.
+      // Drawn from crypto rather than Math.random so the invariant banning Math.random from this
+      // file keeps holding: that ban is what stops the actual roll from silently becoming unseeded.
+      const randomFace = () => String((crypto.getRandomValues(new Uint32Array(1))[0] % 100) + 1);
+      overlay.classList.add("rolling");
+      face.textContent = randomFace();
+      // Steps of 55, 66, 79 ... ms: an ease-out with no animation library. elapsed counts the delay
+      // that was actually scheduled, and the last step is trimmed to whatever budget is left, so the
+      // tumble lasts DICE_ROLL_MS rather than the ~1.4x an approximate count would drift to.
+      let elapsed = 0;
+      let step = 55;
+      const tick = () => {
+        elapsed += step;
+        if (elapsed >= DICE_ROLL_MS) { finish(); return; }
+        face.textContent = randomFace();
+        step = Math.min(Math.round(step * 1.2), DICE_ROLL_MS - elapsed);
+        diceTimer = setTimeout(tick, step);
+      };
+      diceTimer = setTimeout(tick, step);
     }
 
     // Which line, if any, is currently open in the inline editor. An index into state.narrative.
@@ -2454,7 +2496,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         groups.push('<div class="runtime-group"><h5>' + label + '</h5>' + entries.map((entry, index) =>
           '<div class="runtime-entry"><button class="memory-pin" type="button" data-world-group="' + group + '" data-world-index="' + index + '" aria-label="Edit ' + escapeHtml(label + ' ' + (entry.name || entry.label || entry.text || index + 1)) + '">EDIT</button><strong>' + escapeHtml(detail(group, entry)) + '</strong>' + ((entry.reason || entry.lastReason || entry.note) ? '<br>' + escapeHtml(entry.reason || entry.lastReason || entry.note) : '') + '</div>').join('') + '</div>');
       });
-      if (state.worldState.recentChecks.length) groups.push('<div class="runtime-group"><h5>Recent checks</h5>' + state.worldState.recentChecks.slice(-3).reverse().map(entry => '<div class="runtime-entry">' + escapeHtml((entry.success ? 'SUCCESS' : 'FAILURE') + ' / ' + entry.label + ': ' + entry.roll + ' against ' + entry.target) + '</div>').join('') + '</div>');
+      if (state.worldState.recentChecks.length) groups.push('<div class="runtime-group"><h5>Recent checks</h5>' + state.worldState.recentChecks.slice(-3).reverse().map(entry => '<div class="runtime-entry">' + escapeHtml((entry.success ? 'SUCCESS' : 'FAILURE') + ' / ' + entry.label + ': rolled ' + entry.roll + (entry.needed ? ', needed ' + entry.needed : '')) + '</div>').join('') + '</div>');
       if (state.memoryCandidates.length) {
         const offset = Math.max(0, state.memoryCandidates.length - 6);
         groups.push('<div class="runtime-group"><h5>Memory proposals / review first</h5>' + state.memoryCandidates.slice(-6).map((entry, index) => '<div class="runtime-entry"><strong>' + escapeHtml(entry.kind || 'development') + '</strong><br>' + escapeHtml(entry.text) + (entry.reason ? '<br>' + escapeHtml(entry.reason) : '') + '<div class="session-actions"><button class="memory-pin" type="button" data-keep-memory="' + (offset + index) + '">REVIEW</button><button class="memory-pin" type="button" data-pin-memory="' + (offset + index) + '">PIN CANON</button><button class="memory-pin" type="button" data-dismiss-memory="' + (offset + index) + '">DISMISS</button></div></div>').join('') + '</div>');
@@ -2783,7 +2825,12 @@ this program. If not, see https://www.gnu.org/licenses/.
       }));
       world.recentChecks = (Array.isArray(value.recentChecks) ? value.recentChecks : []).slice(-20).map(entry => ({
         label: String(entry && entry.label || "Check").slice(0, 200), characterId: String(entry && entry.characterId || "").slice(0, 64), stat: statIndexById(entry && entry.stat) >= 0 ? statDefinition(entry.stat).id : "",
-        roll: boundedInteger(entry && entry.roll, 1, 100, 50), target: boundedInteger(entry && entry.target, 0, 100, 50), success: entry && entry.success === true, turn: boundedInteger(entry && entry.turn, 1, 999999, 1)
+        roll: boundedInteger(entry && entry.roll, 1, 100, 50), target: boundedInteger(entry && entry.target, 0, 100, 50),
+        // Carried through rather than recomputed. A check saved before the roll-over switch has no
+        // `needed` and a target that meant the opposite, so readers fall back to `success` instead of
+        // restating a stale threshold with the current convention's wording.
+        needed: String(entry && entry.needed || "").slice(0, 40),
+        success: entry && entry.success === true, turn: boundedInteger(entry && entry.turn, 1, 999999, 1)
       }));
       world.flags = value.flags && typeof value.flags === "object" && !Array.isArray(value.flags)
         ? Object.fromEntries(Object.entries(value.flags).slice(0, 80).map(([key, entry]) => [runtimeId(key), String(entry).slice(0, 300)]).filter(([key]) => key)) : {};
@@ -3045,20 +3092,32 @@ this program. If not, see https://www.gnu.org/licenses/.
         ? " The scene asked for " + (requested ? '"' + requested + '"' : "a stat") + ", which this session does not define, so " + stat.label + " was rolled instead."
         : "";
       const score = member ? boundedInteger(member.stats[resolvedIndex], 0, 100, 50) : 50;
-      const target = boundedInteger(score - pause.difficulty + 50, 5, 95, 50);
+      // Checks are ROLL-OVER: a high roll is always good, which is what a d20-trained player expects.
+      // The odds live in this success band, not in the direction of the comparison -- a stat of 50 at
+      // difficulty 50 succeeds half the time either way. `band` is that success chance as a percentage
+      // (5-95, so nothing is ever a certainty); the target is the lowest roll inside it.
+      const band = boundedInteger(score - pause.difficulty + 50, 5, 95, 50);
+      const target = 101 - band;
       const seed = pause.checkSeed || newCheckSeed();
       const roll = seededRoll(seed);
-      const success = roll <= target;
+      const success = roll >= target;
       const label = pause.checkLabel || pause.prompt || stat.name + " check";
       showDiceResult(label, roll, target, success);
-      state.worldState.recentChecks.push({ label, characterId: member ? member.id : "", stat: stat.id, roll, target, success, turn: state.turn, substitutedStat: substituted ? requested : "" });
+      // `needed` is stored, not derived at read time, so a check keeps the wording it was resolved
+      // under. Sessions saved before the roll-over switch have no `needed` and a target that meant
+      // the opposite; their `success` flag is still authoritative, and readers fall back to it.
+      const needed = target + " or over";
+      state.worldState.recentChecks.push({ label, characterId: member ? member.id : "", stat: stat.id, roll, target, needed, success, turn: state.turn, substitutedStat: substituted ? requested : "" });
       state.worldState.recentChecks = state.worldState.recentChecks.slice(-20);
       state.pendingPause = null;
       state.beatQueue = [];
-      state.narrative.push({ kind: "check", text: label + ": " + (success ? "SUCCESS" : "FAILURE") + " — rolled " + roll + " against " + target + "." + substitutionNote, character: member ? member.name : "", characterId: member ? member.id : "", stat: stat.label, roll, target, success });
+      // "rolled 80 against 41" is ambiguous in either direction, and the engine was reading the
+      // numbers over the stated outcome. The threshold is always spelled out as a floor -- here, in
+      // the CHECK RESULT text below, in the dice overlay, and in the runtime panel.
+      state.narrative.push({ kind: "check", text: label + ": " + (success ? "SUCCESS" : "FAILURE") + " — rolled " + roll + ", needed " + needed + "." + substitutionNote, character: member ? member.name : "", characterId: member ? member.id : "", stat: stat.label, roll, target, needed, success });
       markDirty();
       renderAll();
-      handleTurn("CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "success" : "failure") + " (rolled " + roll + " against " + target + ")."
+      handleTurn("CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "SUCCESS" : "FAILURE") + " (roll-over check on a 1-100 die: rolled " + roll + ", needed " + needed + ")."
         + (substituted ? " The requested check stat " + (requested ? '"' + requested + '"' : "") + " is not defined in this session; " + stat.name + " was used. Use only stat ids from scenario.statDefinitions." : "")
         + " Continue from this resolved result.", { checkResult: true });
     }

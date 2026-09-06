@@ -514,6 +514,47 @@ test("NovelAI recovers visible token text when the completion text field is empt
   );
 });
 
+test("a NovelAI chat stream is folded back into the non-streaming shape", () => {
+  // NovelAI answers a non-streamed /oa/v1/chat/completions with an empty choices[0].text and no
+  // message object, so the chat path streams and reassembles. That empty reply is the whole reason
+  // session generation, character import, and every turn came back blank on this provider.
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const start = source.indexOf("function collapseNovelAIStream(");
+  const end = source.indexOf("const novelAITextRequest", start);
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(start, end), context);
+  const sse = [
+    'data: {"id":"c1","model":"glm-4-6","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}',
+    '',
+    'data: {"choices":[{"index":0,"delta":{"content":"{\\"sessionName\\":"}}]}',
+    '',
+    'data: {"choices":[{"index":0,"delta":{"content":"\\"Port Veritas\\"}"},"finish_reason":"stop"}],"usage":{"total_tokens":9}}',
+    '',
+    'data: [DONE]'
+  ].join("\n");
+  const collapsed = vm.runInContext("collapseNovelAIStream(" + JSON.stringify(sse) + ")", context);
+  assert.equal(collapsed.choices[0].message.content, '{"sessionName":"Port Veritas"}');
+  assert.equal(collapsed.choices[0].text, '{"sessionName":"Port Veritas"}');
+  assert.equal(collapsed.choices[0].finish_reason, "stop");
+  assert.equal(collapsed.usage.total_tokens, 9);
+  assert.equal(collapsed.id, "c1");
+  // An ordinary JSON body -- an upstream error, or a non-streamed reply -- passes through untouched.
+  assert.equal(vm.runInContext('collapseNovelAIStream(JSON.stringify({statusCode:400,message:"bad request"}))', context), null);
+});
+
+test("the NovelAI structured prompts name every required key", () => {
+  // This endpoint enforces no response_format, so the key names have to travel in the prompt.
+  // Without them the model invents its own and every normalized field falls back to a default.
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const shape = source.slice(source.indexOf("function buildNovelAIRequest("), source.indexOf("const CHARACTER_PROFILE_INSTRUCTIONS"));
+  const schemas = source.slice(source.indexOf("const characterProfileSchema"), source.indexOf("// The bubble frequency setting owns"));
+  for (const match of schemas.matchAll(/required: \[([^\]]+)\]/g)) {
+    for (const key of match[1].match(/"[a-zA-Z]+"/g) || []) {
+      assert.ok(shape.includes(key.slice(1, -1)), "the NovelAI prompt shape omits the required key " + key);
+    }
+  }
+});
+
 test("NovelAI request compaction preserves the saved source and caps output", () => {
   const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
   const start = source.indexOf("function clampNovelAITokens(");

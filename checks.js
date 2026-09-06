@@ -465,6 +465,28 @@ console.log("\nstructured roleplay runtime");
     /checkStatRequested: checkStat \? "" : requestedStat,/.test(SERVER)
       && /which this session does not define, so /.test(HTML)
       && /substitutedStat: substituted \? requested : ""/.test(HTML));
+  // "rolled 44 against 41" is a FAILURE here and a SUCCESS in any roll-over system. The engine was
+  // being handed that phrasing alongside the word "failure" and sometimes narrated the roll it read
+  // in the numbers rather than the outcome the harness had already resolved.
+  check("a roll-over result is stated as a floor everywhere it is shown",
+    /const success = roll >= target;/.test(HTML)
+      && /const target = 101 - band;/.test(HTML)
+      && /const needed = target \+ " or over";/.test(HTML)
+      && /roll-over check on a 1-100 die: rolled " \+ roll \+ ", needed " \+ needed \+ "\)/.test(HTML)
+      && /"NEED " \+ target \+ " OR OVER"/.test(HTML)
+      && !/or under/.test(HTML)
+      && !/' against ' \+ entry\.target/.test(HTML),
+    "a check surface still reads as roll-under or as a bare comparison the engine can read either way");
+  check("the engine is told the check convention and that the harness owns the result",
+    /Checks are ROLL-OVER on a 1-100 die/.test(SERVER)
+      && /A HIGHER difficulty means a HIGHER target/.test(SERVER)
+      && /Never recompute it from the numbers/.test(SERVER));
+  // The tumble decelerates on a fixed budget. An approximate step count drifted to about 1.4x the
+  // named constant, which made the constant useless as a tuning knob.
+  check("the dice tumble honors its stated duration",
+    /const DICE_ROLL_MS = \d+;/.test(HTML)
+      && /step = Math\.min\(Math\.round\(step \* 1\.2\), DICE_ROLL_MS - elapsed\);/.test(HTML)
+      && /elapsed \+= step;\s*\n\s*if \(elapsed >= DICE_ROLL_MS\)/.test(HTML));
   check("state proposals pass through a bounded reducer",
     /function applyStateChanges\(result\)/.test(HTML) && /boundedInteger\(member\.stats\[index\] \+ delta, 0, 100\)/.test(HTML));
   check("undo checkpoints include prose and mechanical state",

@@ -663,8 +663,57 @@ const openAIRequest = async (payload, apiKey, clientResponse, settings = {}) => 
 };
 const openAIImageRequest = (payload, apiKey, clientResponse) => upstreamRequest(UPSTREAM.openaiImage, payload, apiKey, clientResponse);
 const novelAIImageRequest = (payload, apiKey, clientResponse) => upstreamRequest(UPSTREAM.novelaiImage, payload, apiKey, clientResponse);
-const novelAITextRequest = (payload, apiKey, apiPath = "/oa/v1/chat/completions", clientResponse) =>
-  upstreamRequest(UPSTREAM.novelaiText, payload, apiKey, clientResponse, { path: apiPath });
+// NovelAI's OpenAI-compatible /oa/v1/chat/completions answers a non-streamed request with HTTP 200,
+// a populated token_ids array, and an EMPTY choices[0].text with no message object: the tokens are
+// generated but never decoded, so every structured call came back blank. The identical request with
+// stream: true returns proper delta.content, so the chat path always streams and the SSE is folded
+// back into the non-streaming shape the callers already expect. The /oa/v1/completions fallback
+// decodes correctly without streaming, so it is left alone.
+function collapseNovelAIStream(body) {
+  let text = "";
+  let finishReason = "";
+  let usage = null;
+  let id = "";
+  let model = "";
+  let sawEvent = false;
+  for (const line of String(body).split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const chunk = line.slice(5).trim();
+    if (!chunk || chunk === "[DONE]") continue;
+    let event;
+    try { event = JSON.parse(chunk); } catch { continue; }
+    sawEvent = true;
+    const choice = Array.isArray(event.choices) ? event.choices[0] : null;
+    if (choice) {
+      // Chat deltas carry delta.content; the completion-shaped deltas carry text.
+      const delta = typeof choice.delta?.content === "string" ? choice.delta.content : "";
+      text += delta || (typeof choice.text === "string" ? choice.text : "");
+      if (typeof choice.finish_reason === "string" && choice.finish_reason) finishReason = choice.finish_reason;
+    }
+    if (event.usage) usage = event.usage;
+    if (!id && typeof event.id === "string") id = event.id;
+    if (!model && typeof event.model === "string") model = event.model;
+  }
+  // A non-SSE body (an error object, or a future non-streaming fix on their side) passes through untouched.
+  if (!sawEvent) return null;
+  return {
+    id,
+    model,
+    object: "chat.completion",
+    choices: [{ index: 0, message: { role: "assistant", content: text }, text, finish_reason: finishReason || "stop" }],
+    usage
+  };
+}
+
+const novelAITextRequest = async (payload, apiKey, apiPath = "/oa/v1/chat/completions", clientResponse) => {
+  const streaming = apiPath === "/oa/v1/chat/completions";
+  const result = await upstreamRequest(UPSTREAM.novelaiText, streaming ? { ...payload, stream: true } : payload,
+    apiKey, clientResponse, { path: apiPath });
+  if (!streaming || result.status < 200 || result.status >= 300) return result;
+  const collapsed = collapseNovelAIStream(result.body);
+  if (collapsed) result.body = JSON.stringify(collapsed);
+  return result;
+};
 
 function targetForImageUrl(url, label, timeout = UPSTREAM_IMAGE_TIMEOUT_MS) {
   return {
@@ -1196,6 +1245,8 @@ function buildInstructions(settings, interactionMode = "turn") {
     "A beat has kind narration, dialogue, pause, system, or check. Fill fields that do not apply with empty strings, an empty choices array, and difficulty 50. Dialogue beats must use a supplied party character ID.",
     "Use a continue pause to let the player reveal already-written beats in stages, such as narration before dialogue. Use player_action or choice only at the end of the timeline, because later events cannot be known until the player responds. A check beat also ends the timeline; the local harness rolls it and sends the result back on the next turn.",
     "For checks and stat deltas, use only a stat id from scenario.statDefinitions. Its description defines when it applies; do not fall back to generic RPG attributes.",
+    "Checks are ROLL-OVER on a 1-100 die: the harness rolls, and the attempt succeeds when the roll is at or above a target it derives from the character's stat and your difficulty. A HIGHER difficulty means a HIGHER target and a harder check. difficulty 0 is trivial, 50 is an even chance for an average stat, and 100 is near-impossible.",
+    "A CHECK RESULT message states an outcome the harness has already resolved and owns. Narrate that stated success or failure as written. Never recompute it from the numbers, never contradict it, and never narrate the opposite outcome because the roll looks high or low.",
     "All stateChanges arrays must be present, even when empty: feelingUpdates, statDeltas, relationshipDeltas, inventoryChanges, conditionChanges, flagChanges, clockChanges, objectiveChanges, and memoryCandidates.",
     "Every beat has stateChanges. Put each consequence ONLY on the beat where it becomes true. Keep all top-level stateChanges arrays empty. Unrevealed beats have no effects; checks never include effects of an unresolved outcome.",
     "Prefer two to six meaningful beats. Keep the compatibility narration concise; the beats carry the full prose. Do not add pauses or unused beat kinds just to fill the schema.",
@@ -1318,8 +1369,13 @@ function buildNovelAIRequest({ instructions, input, settings = {}, maxTokens, te
   const shape = mode === "turn"
     ? "Required top-level keys are narration, bubbles, suggestions, beats, and stateChanges. Each bubble must include character, characterId, kind (speech or thought), type, and additive text that does not appear in the full reply. Each beat must include kind, text, character, characterId, type, pauseType, prompt, choices, checkLabel, checkStat, difficulty, and stateChanges."
     : mode === "character-profile"
-      ? "Return the complete character profile object requested by the instructions, including every named field and stats."
-      : "Return the complete session setup object requested by the instructions, including every named field and suggestedActions.";
+      // There is no response_format here, so the key names have to travel in the prompt. The OpenAI
+      // path gets them from characterProfileSchema and the other providers get the schema appended
+      // by text-providers.js; without this the model invented its own keys and every field in the
+      // normalized profile fell back to its default.
+      ? "Required top-level keys, all mandatory: name, role, pronouns, feeling, personality, appearance, strengths, weaknesses, goals, advancedPersonality, dialogueGuidance, relationships (all strings), and stats (an array of exactly three integers from 0 to 100)."
+      // Same reason, against sessionSetupSchema.
+      : "Required top-level keys, all mandatory: sessionName, sceneTitle, location, tone, playerRole, opening, premise, worldNotes (all strings), playerMode (the string \"party-member\" or the string \"dm\"), statDefinitions (an array of exactly three objects, each with a lowercase id, a label of at most six characters, a name, and a description), and suggestedActions (an array of exactly three strings).";
   const inputText = typeof input === "string" ? clipNovelAIText(input, NOVELAI_CONTEXT_CHAR_LIMIT) : JSON.stringify(compactNovelAIContext(input));
   return {
     model: settings.model || NOVELAI_DEFAULT_MODEL,
