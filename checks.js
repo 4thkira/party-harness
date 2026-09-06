@@ -194,6 +194,10 @@ console.log("\nNovelAI scaffolding");
     /function stripNovelAIReasoning\(text\)/.test(SERVER)
       && /parseNovelAITurn\(text\)/.test(SERVER)
       && /stripNovelAIReasoning\(generatedText\)/.test(SERVER));
+  check("NovelAI can recover tokenized text when text is blank",
+    /const toTokenText = value =>/.test(SERVER)
+      && /choice\.logprobs\?\.tokens/.test(SERVER)
+      && /choice\.convertedLogprobs/.test(SERVER));
   check("NovelAI sampling leaves headroom for structured prose",
     /temperature: 0\.78/.test(SERVER) && /top_p: 0\.95/.test(SERVER)
       && /NOVELAI_MAX_OUTPUT_TOKENS\s*=\s*2048/.test(SERVER)

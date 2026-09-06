@@ -6,6 +6,11 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 Add the next user-visible changes here before creating the next version tag.
 
+## [0.4.2] — 2026-09-06
+
+- Recovered visible NovelAI output from OpenAI-style logprob token strings when the provider returned `finish_reason=stop` with an empty `text` field.
+- Added regression coverage for both standard and converted NovelAI logprob shapes and documented the recovery behavior.
+
 ## [0.4.1] — 2026-09-06
 
 - Clarified the empty bubble status so ordinary transcript dialogue is not described as a silent party.

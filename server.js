@@ -872,6 +872,22 @@ function extractChatText(response) {
     }
     return "";
   };
+  // NovelAI documents token text in the optional OpenAI-style logprobs object. A few GLM
+  // responses have returned a populated token stream with an empty `text` field even though the
+  // generation stopped normally. Recover the visible token strings before treating that response
+  // as empty; token IDs alone are not enough because this local adapter has no NovelAI tokenizer.
+  const toTokenText = value => {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value.map(toTokenText).join("");
+    if (value && typeof value === "object") {
+      // `convertedLogprobs` uses numeric `token` IDs plus a string `str`; OpenAI-style logprobs
+      // uses a string `token`. Prefer the human-readable field in either shape.
+      if (typeof value.str === "string") return value.str;
+      if (typeof value.token === "string") return value.token;
+      return toTokenText(value.text ?? value.content ?? value.displayText ?? value.chosen ?? "");
+    }
+    return "";
+  };
   const candidates = [
     choice.text,
     choice.message?.content,
@@ -883,6 +899,15 @@ function extractChatText(response) {
   for (const candidate of candidates) {
     const text = toText(candidate);
     if (text) return text;
+  }
+  const tokenCandidates = [
+    choice.logprobs?.tokens,
+    choice.logprobs?.content,
+    choice.convertedLogprobs
+  ];
+  for (const candidate of tokenCandidates) {
+    const text = toTokenText(candidate);
+    if (text.trim()) return text;
   }
   const visibleKeys = Object.keys(choice).slice(0, 8).join(", ") || Object.keys(response).slice(0, 8).join(", ") || "none";
   const diagnostics = [];

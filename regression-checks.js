@@ -496,6 +496,22 @@ test("NovelAI empty choices include the provider's stop diagnostics", () => {
   );
 });
 
+test("NovelAI recovers visible token text when the completion text field is empty", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const start = source.indexOf("function extractChatText(");
+  const end = source.indexOf("function extractNovelAIText(", start);
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(start, end), context);
+  assert.equal(
+    vm.runInContext("extractChatText({choices:[{text:'',logprobs:{tokens:['{\\\"narration\\\":\\\"Recovered\\\"}']},finish_reason:'stop'}]})", context),
+    '{"narration":"Recovered"}'
+  );
+  assert.equal(
+    vm.runInContext("extractChatText({choices:[{text:'',convertedLogprobs:[{chosen:{token:123,str:'{\\\"narration\\\":\\\"Converted\\\"}'}}],finish_reason:'stop'}]})", context),
+    '{"narration":"Converted"}'
+  );
+});
+
 test("NovelAI request compaction preserves the saved source and caps output", () => {
   const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
   const start = source.indexOf("function clampNovelAITokens(");
