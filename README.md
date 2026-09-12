@@ -93,6 +93,40 @@ Free does not mean unlimited. OpenRouter documents lower rate limits and availab
 
 The **TEST LOCAL CONNECTION** button only checks Party Harness's own server and whether a key is present. It does not prove that OpenRouter accepts the key, that the model ID exists, or that the free model is currently available. The real test is starting a session and sending a turn.
 
+### Image generation for beginners
+
+Text generation and image generation are two separate connections. One writes the scene; the other draws a picture. You can use Party Harness for text without setting up images, and you can set up images later. Image generation happens only when you click **GENERATE IMAGE**; it does not happen automatically after every turn.
+
+To make a picture, Party Harness takes the current scene and your visual instructions — for example, “storybook painting, warm candlelight, a rainy castle window” — and sends them to the image provider you selected. The result appears in the image area. Image generation may cost money or use a local computer's time and electricity.
+
+#### Example: use a hosted image provider
+
+OpenAI Images is the simplest hosted example in this app:
+
+1. Make sure you have an OpenAI account and an API key. The [OpenAI image-generation guide](https://platform.openai.com/docs/guides/images) explains the provider side. Image requests are billed separately from ordinary ChatGPT use according to OpenAI's current pricing.
+2. In Party Harness, open **SETTINGS → Scene generation** and choose **OpenAI Images API**.
+3. Leave the image model as the suggested value unless OpenAI's current documentation says your account should use a different one. The current suggestion is `gpt-image-2`.
+4. Paste an image key into **Image API key / token**. If your text provider is also OpenAI and you leave this box blank, Party Harness can reuse the OpenAI text key; using the separate box makes it clearer which key is being used.
+5. Choose an image shape, such as **Landscape**, and optionally write a style in **Image prompt guidance / style**.
+6. Start or continue a session, then click **GENERATE IMAGE**. A short first prompt is a good test.
+
+You do not need to understand “negative prompts” or reference images to begin. Try describing the subject, place, lighting, mood, and art style in ordinary words. You can add a reference image later; the reference-image features currently work with OpenAI Images only. See the [OpenAI Images documentation](https://platform.openai.com/docs/guides/images) for provider-specific limits and prices.
+
+#### Example: generate images on your own computer
+
+For a no-per-image-API-cost setup, use a local image program such as [AUTOMATIC1111](https://github.com/AUTOMATIC1111/stable-diffusion) / [Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge), [Fooocus](https://github.com/lllyasviel/Fooocus), or [ComfyUI](https://github.com/comfyanonymous/ComfyUI). “Local” means the model and the picture-making work stay on your computer. It does not mean the setup is effortless: you need enough storage, and a computer with a suitable graphics card is strongly recommended. The model download can be large.
+
+The easiest local connection to explain is AUTOMATIC1111 or Forge:
+
+1. Install one of those programs by following its own instructions. Start it and leave its server window open.
+2. In its startup options, enable its API if the program requires that. Its API address is usually `http://127.0.0.1:7860`.
+3. In Party Harness, open **SETTINGS → Scene generation** and choose **AUTOMATIC1111 / Forge API**.
+4. Enter `http://127.0.0.1:7860` in **Image API base URL**. Do not add `/sdapi/v1/txt2img`; Party Harness adds that part itself.
+5. Leave **Image API key / token** blank unless you deliberately put a login-protected gateway in front of the local server. Choose the model already loaded by the local program.
+6. Write a visual direction, start a session, and click **GENERATE IMAGE**.
+
+There is no hosted image-provider bill for this local route, but it still uses your computer's electricity and hardware. If you use ComfyUI instead, choose **ComfyUI workflow API** and paste an API-format workflow containing the literal `{{prompt}}` placeholder. ComfyUI is powerful but is a more advanced first setup. Local image programs do not need an API key; they must be installed, running, and loaded with a model before Party Harness can contact them.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
