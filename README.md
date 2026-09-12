@@ -127,6 +127,43 @@ The easiest local connection to explain is AUTOMATIC1111 or Forge:
 
 There is no hosted image-provider bill for this local route, but it still uses your computer's electricity and hardware. If you use ComfyUI instead, choose **ComfyUI workflow API** and paste an API-format workflow containing the literal `{{prompt}}` placeholder. ComfyUI is powerful but is a more advanced first setup. Local image programs do not need an API key; they must be installed, running, and loaded with a model before Party Harness can contact them.
 
+### A calm first session
+
+You do not need to understand every setting before you begin. For a first test, use one text provider, leave image generation turned off or use the image setup above, and keep the request small:
+
+1. Open **NEW SESSION** and choose the scenario that sounds closest to what you want.
+2. Read the party list. The first character is the one you play in **Party-member mode**. If you would rather direct everyone from outside the story, choose **Unseen DM**.
+3. Type one clear action. For example: `I enter the old greenhouse, look around carefully, and ask Rowan what they know about this place.`
+4. Click **SEND TURN** and wait. The provider may take a little while. Do not click the button repeatedly while it is working.
+5. Read the response. If the story stops at a choice or a stat check, follow the button it gives you. If you do not like what happened, **UNDO** goes back one exchange; **REGENERATE** asks the provider for a new version.
+
+You can also start with something even more direct:
+
+```text
+I am new to this story. Please describe the room, introduce the party, and end by asking me what I want to do.
+```
+
+The AI cannot read your mind, so ordinary detail helps. Say what your character does, who they are talking to, and anything important they are trying to accomplish. You do not need special prompt syntax. Short turns are easier to understand and usually cheaper or faster than very large ones.
+
+### Things that look unusual but are normal
+
+- The black terminal window is not another copy of the app. It is the engine that keeps the webpage running, so leave it open.
+- `127.0.0.1` and `localhost` mean “this computer.” They are normal addresses for a program running privately on your machine.
+- A loading message means the harness is waiting for the selected provider. A slow response is not automatically a frozen app; use **Cancel** if you need to stop waiting.
+- A model ID is the provider's technical name for an AI. It may look less friendly than the name shown on the provider's website.
+- A stat check is a story moment where the harness rolls for an uncertain outcome. You are not expected to calculate anything; the screen tells you what to do.
+- A memory proposal is a suggestion for you to review. It is not silently changing your character or story.
+
+### Save your story before experimenting
+
+Party Harness saves its current work in your browser on this computer, but browser storage is not a complete backup. Before deleting browser data, changing browsers, or moving to another computer, use **Export session JSON** and keep that file somewhere safe. That file can be imported later to restore the session. **Export story (Markdown)** is good for reading or sharing a transcript, but it cannot restore the playable session.
+
+It is also fine to make a “test” session while learning. Try settings and prompts there first, then create a fresh session for the story you want to keep. Generated images are not included in session exports, so save any images you want to keep separately.
+
+### If your first turn does not work
+
+First check the three simplest things: the black server window is still open, you are using the exact `http://127.0.0.1:8787/` address, and your selected provider has the correct key and model ID. If you are using a local provider, make sure its own program is running too. Do not paste your API key into a bug report; copy the ordinary error message instead. The fuller [Troubleshooting](#troubleshooting) table covers the next things to try.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
