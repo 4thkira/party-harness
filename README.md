@@ -275,6 +275,56 @@ Edit sheets directly in the party sidebar, or place Markdown (`.md`) profiles in
 
 **About profiles you did not write.** An attached profile is sent to the model as part of the prompt. The harness tells the model to treat it as character reference material and never as instructions, but that instruction is the only thing separating the two: a profile downloaded from elsewhere can contain text written to talk past it and steer the scene, change how characters behave, or try to draw out other context in the session. For profiles you wrote, this does not matter. For a character card from somewhere else, read it before attaching it, the same way you would read a script before running it. The risk is to your story and your session, not to your computer or your key: profiles are never executed, and keys are never placed in the prompt.
 
+## Frequently asked questions
+
+**What is Party Harness?**
+It is a local webpage for running roleplay sessions with a party of AI characters. The webpage, character sheets, story controls, and saves run on your computer; the actual writing comes from whichever text provider you connect.
+
+**Do I have to know how to code?**
+No. On Windows, the normal routine is to double-click **Start Party Harness.cmd**, leave the black window open, and use the app in your browser. The [very simple guide](#the-very-simple-version) walks through the first setup.
+
+**Why does a local program open in my web browser?**
+The browser is simply Party Harness's screen and controls. The address `127.0.0.1` means your own computer, not a public website.
+
+**Why does a black window open? Can I close it?**
+That window is the local server — the small engine supplying the webpage to your browser. Leave it open while playing. Closing it stops Party Harness, but does not delete your saves.
+
+**Do I need an API key?**
+You need a key for most hosted AI providers. You do not usually need one for a model server running on your own computer. See [API keys, explained gently](#api-keys-explained-gently).
+
+**Can I use Party Harness without paying?**
+Yes, with limits or extra setup. OpenRouter offers free models with lower availability and request limits, while Ollama or LM Studio can run a downloaded text model on suitable hardware. See [OpenRouter without paying](#openrouter-without-paying-use-a-free-model). Party Harness itself does not charge you.
+
+**Will Party Harness warn me before a provider charges me?**
+No. The provider controls prices, credits, limits, and billing. Party Harness sends a request when you use actions such as **SEND TURN**, **REGENERATE**, **PARTY BANTER**, profile processing, scenario generation, or **GENERATE IMAGE**. Check the provider's usage page and prices yourself.
+
+**Why did my API key disappear?**
+Keys pasted into the webpage are intentionally temporary and disappear after a refresh. To keep one between launches, save it privately in a [`.env` file](#what-is-a-env-file).
+
+**Can I use one company for text and another for images?**
+Yes. Text and image providers are separate settings. You can also turn off the generated-image area and play entirely with text.
+
+**Do I need image generation to play?**
+No. Images are optional and are created only when you click **GENERATE IMAGE**. See [Image generation for beginners](#image-generation-for-beginners) if you want to add them later.
+
+**Where is my story saved?**
+Autosaves and named saves live in this browser on this computer. Use the same browser, address, and port when returning. Clearing browser data can remove them.
+
+**How do I move or back up a session?**
+Use **Export session JSON**. Import that JSON file later to restore the playable session. **Export story (Markdown)** makes a readable transcript, but cannot restore the session. Generated images must be saved separately.
+
+**Can I add my own characters?**
+Yes. Edit the character sheets in the Party sidebar or add Markdown profiles to the `characters/` folder. The included characters are examples, not a required cast. See [Bring your own characters](#bring-your-own-characters).
+
+**Is my story private?**
+The app and its browser saves are local, but a hosted provider receives the material needed to generate its response. A model running entirely on your computer is the private end-to-end option. See [Local by design](#local-by-design) for the full explanation.
+
+**Does Party Harness decide what stories I am allowed to write?**
+Party Harness does not inspect, upload, or moderate your story. A hosted text or image provider can still apply its own rules to anything sent to it. Local models avoid that provider boundary.
+
+**What should I include when asking for help?**
+Say what operating system you use, what you clicked, which provider and model you selected, and the ordinary error message you saw. Never include your API key, private `.env` file, or personal story text you do not want others to read.
+
 ## Troubleshooting
 
 | Problem | Try this |
