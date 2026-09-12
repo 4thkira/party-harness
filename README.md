@@ -62,6 +62,37 @@ On Windows, File Explorer may hide the ending of filenames. If your new file is 
 
 You do not need an API key for Ollama or LM Studio when the model is running on your own computer. Those programs are local providers. You still need to install and start them, download a model there, and enter that model's exact name in Party Harness.
 
+### OpenRouter: a complete example
+
+OpenRouter is a website that gives you one connection for many different AI models. This makes it a useful first hosted provider to try. The following example assumes you are using the Party Harness webpage, not writing code.
+
+1. Go to [OpenRouter](https://openrouter.ai/) and create an account.
+2. Open OpenRouter's [API key page](https://openrouter.ai/settings/keys), create a key, and copy it. Treat this key like a password. Do not paste it into a public post.
+3. In Party Harness, open **SETTINGS → Text generation connection** and choose **OpenRouter**.
+4. Paste the key into the API key box. The provider API base URL should be `https://openrouter.ai/api/v1`; leave **Custom roleplay backend URL** blank.
+5. In the **Model** box, enter the exact model ID shown on OpenRouter's [models page](https://openrouter.ai/models). A model ID looks like `company/model-name`.
+6. Save or close Settings, start a new session, and click **SEND TURN**.
+
+The model name is not your account name, your API key, or the model's friendly title. Copy the model ID exactly. If you change models later, replace only the model ID; you can keep the same OpenRouter key.
+
+### OpenRouter without paying: use a free model
+
+OpenRouter has models marked **(free)**. You can also enter `openrouter/free`, which is a router that chooses an available free model for you. This is the easiest free option because you do not have to guess which free model is currently available.
+
+To try it:
+
+1. Create an OpenRouter account and API key as described above. “Free model” means the model request costs $0; you may still need an OpenRouter account and key so the service knows who is making the request.
+2. In Party Harness, choose **OpenRouter** in **SETTINGS → Text generation connection**.
+3. Paste your OpenRouter key. Leave the provider API base URL at `https://openrouter.ai/api/v1` and leave **Custom roleplay backend URL** blank.
+4. Enter exactly `openrouter/free` in the **Model** box.
+5. Try a short, simple turn first. Free models can be busy, slower, less consistent, or temporarily unavailable.
+
+Instead of `openrouter/free`, you can choose a particular model marked **(free)** on OpenRouter's [free-model list](https://openrouter.ai/models?pricing=free), then copy its exact model ID. Some model IDs also accept a `:free` ending. The list changes over time, so do not worry if an example model from an older guide is gone.
+
+Free does not mean unlimited. OpenRouter documents lower rate limits and availability for free models, and those limits can change. Free models may also produce less reliable structured responses, which Party Harness needs in order to keep story text, choices, checks, and world-state updates separate. If `openrouter/free` gives an unusable-response error, try a different current free model that lists structured-output support, or switch to a paid model.
+
+The **TEST LOCAL CONNECTION** button only checks Party Harness's own server and whether a key is present. It does not prove that OpenRouter accepts the key, that the model ID exists, or that the free model is currently available. The real test is starting a session and sending a turn.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
