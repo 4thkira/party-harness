@@ -16,6 +16,20 @@ Read [CHANGELOG.md](CHANGELOG.md) to see what changed between versions. Bug-fix 
 
 Every release remains available as its own dated snapshot. The GitHub Releases page keeps each version's notes and download; the changelog is the complete chronological index and links each version to its release. `Unreleased` describes changes on `main` that have not been packaged yet.
 
+## The very simple version
+
+If you have never used a computer program like this before, that is okay. Here is the whole idea:
+
+1. Download the ZIP file from the [Releases page](https://github.com/4thkira/party-harness/releases). A ZIP file is just a box containing the program's files.
+2. Open the ZIP file and choose **Extract all**. This makes a normal folder. Keep all of the files inside that folder together.
+3. Install [Node.js](https://nodejs.org/) if you do not already have it. Node.js is the small helper that lets Party Harness run. You only need to install it once.
+4. Open the new folder. On Windows, double-click **Start Party Harness.cmd**. A black window may appear. Leave it open; it is the program's engine.
+5. Open your web browser — Chrome, Edge, Firefox, or another browser — and go to **http://127.0.0.1:8787/**. This address means “the program running on this computer.”
+6. Inside Party Harness, open **SETTINGS**. Choose where the AI's text should come from, then enter that service's model name and API key if it asks for one. An API key is a password-like code from that service; Party Harness does not provide one.
+7. Click **NEW SESSION**, choose a scenario, type what you want your character or the party to do, and click **SEND TURN**.
+
+If you only want to look around first, you can open the app and edit characters without an API key. You need a working text connection when you want the AI to write a response. When you are finished, close the black window or press **Ctrl+C** in it. Next time, double-click **Start Party Harness.cmd** again.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
