@@ -30,6 +30,38 @@ If you have never used a computer program like this before, that is okay. Here i
 
 If you only want to look around first, you can open the app and edit characters without an API key. You need a working text connection when you want the AI to write a response. When you are finished, close the black window or press **Ctrl+C** in it. Next time, double-click **Start Party Harness.cmd** again.
 
+### API keys, explained gently
+
+Party Harness is the part that remembers your characters, shows the webpage, and keeps track of the story. It does not contain an AI brain of its own. A **text provider** is another company or program that supplies the AI's writing. Party Harness asks that provider for a response when you click **SEND TURN**.
+
+An **API key** is a private code that proves to a provider that you are allowed to use it. Think of it like a ticket or password for computer programs. You get the key from the provider, not from Party Harness:
+
+1. Choose a text provider in Party Harness's Settings. The provider list later in this README explains the choices.
+2. Visit that provider's own website and create an account if you do not have one.
+3. Look for a page called **API keys**, **Developer**, or **Your keys**. The exact name and location are different for every provider.
+4. Create a new key, then copy it immediately. Many providers show the full key only once.
+5. Paste it into the matching API key box in **SETTINGS → Text generation connection**. Do not put quotation marks around it.
+6. Enter a model name that your provider says you can use. A model is the particular AI you are asking to write.
+7. Save or close Settings, then try **SEND TURN**.
+
+Some providers require payment information or charge based on how much text you generate. Some give new accounts a small amount of free use, and some do not. Read the provider's own pricing and usage pages before creating a key. Party Harness cannot tell you whether a key has money or permission behind it.
+
+Never post an API key in a screenshot, chat message, GitHub issue, or public file. If you accidentally share one, go back to the provider's API-key page and delete or revoke it, then make a new one. Your Party Harness key box is temporary: keys typed there disappear when you refresh the page.
+
+### What is a `.env` file?
+
+If you do not want to paste your key every time, you can save it in a file named `.env`. This is just a small plain-text settings file placed beside `server.js`. It is not a program and you do not open it in the browser.
+
+1. In the Party Harness folder, find `.env.example`.
+2. Make a copy of it in the same folder.
+3. Rename the copy to exactly `.env` — not `.env.txt`.
+4. Open `.env` in Notepad. Remove the `#` from the setting you need and put your key after the `=` sign. For example: `OPENAI_API_KEY=put-your-key-here`.
+5. Save the file and restart Party Harness by closing and reopening **Start Party Harness.cmd**.
+
+On Windows, File Explorer may hide the ending of filenames. If your new file is secretly called `.env.txt`, turn on **View → Show → File name extensions**, then rename it again. Keep `.env` private. It is normally ignored by Git, but you should still check before sharing the folder.
+
+You do not need an API key for Ollama or LM Studio when the model is running on your own computer. Those programs are local providers. You still need to install and start them, download a model there, and enter that model's exact name in Party Harness.
+
 ## Start here
 
 1. Install Node.js 22 or newer. Check it by opening a terminal and running `node --version`.
