@@ -877,3 +877,29 @@ test("malformed JSON is reported as the model's output rather than a bare parser
     /^Error: The model returned malformed roleplay JSON: Expected .+ in JSON at position \d+/);
   assert.equal(vm.runInContext(`parseTurnJson('Sure! {"narration": "The door opens"} Enjoy.').narration`, context), "The door opens");
 });
+
+test(".env values drop a note after a space and #, but keep a quoted or attached #", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const env = { OPENAI_MODEL: "from-the-environment" };
+  const context = vm.createContext({ path, __dirname: path.resolve("fixture-root"), process: { env }, fs: { readFileSync: () => [
+    "# a whole-line comment",
+    "OPENAI_API_KEY=sk-test-123 # my main key",
+    'NOVELAI_API_KEY="pst-abc # inside quotes" # outside them',
+    "COMPATIBLE_API_KEY=abc#def",
+    "GROQ_API_KEY= # fill in later",
+    "export RP_PORT='9123'",
+    "OPENAI_MODEL=from-the-file",
+    "OPENAI_API_KEY=second-entry-loses"
+  ].join("\r\n") } });
+  vm.runInContext(source.slice(source.indexOf("function envValue("), source.indexOf("const ENV_FILE_STATUS = loadEnvFile();")), context);
+  const status = vm.runInContext("loadEnvFile()", context);
+  // A note beside a key used to be sent to the provider as part of the key.
+  assert.equal(env.OPENAI_API_KEY, "sk-test-123");
+  assert.equal(env.NOVELAI_API_KEY, "pst-abc # inside quotes");
+  assert.equal(env.COMPATIBLE_API_KEY, "abc#def");
+  assert.equal(env.GROQ_API_KEY, undefined);
+  assert.equal(env.RP_PORT, "9123");
+  assert.equal(env.OPENAI_MODEL, "from-the-environment");
+  assert.deepEqual(Array.from(status.activeNames).sort(), ["COMPATIBLE_API_KEY", "NOVELAI_API_KEY", "OPENAI_API_KEY", "OPENAI_MODEL", "RP_PORT"]);
+  assert.deepEqual(Array.from(status.malformedLines), []);
+});

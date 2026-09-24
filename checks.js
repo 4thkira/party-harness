@@ -170,6 +170,11 @@ console.log("\nkey persistence");
     /envFileActiveSettings:/.test(SERVER) && /Active settings:/.test(SERVER),
     "the launcher and Settings need to distinguish a present file from a file with usable entries");
   check("commented .env entries are not treated as active", /trimmed\.startsWith\("#"\)/.test(SERVER));
+  // The launcher re-reads .env to agree with the server about the port and model. If the two stop
+  // agreeing on what is a comment or a quote, one of them announces a value the other never uses.
+  check("launcher and server read .env comments and quotes alike",
+    ["(.*?)\\1(?:\\s+#.*)?$", "(?:^|\\s+)#.*$"].every(rule => SERVER.includes(rule) && LAUNCHER.includes(rule)),
+    "server.js envValue() and the launcher's .env reader no longer share the same comment and quote rules");
   check("launcher reports an empty .env clearly", /contains no active settings/.test(LAUNCHER));
 }
 

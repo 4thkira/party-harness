@@ -36,6 +36,16 @@ const ENV_SETTING_NAMES = new Set([
   "RP_PORT"
 ]);
 
+// The value half of a .env line. Quotes are stripped so a pasted key with or without them behaves
+// the same. Text after a space and a # is a comment, as most .env readers treat it: a note typed
+// beside a key used to become part of the key, and the provider answered with nothing more useful
+// than "invalid key". A # inside quotes, or one with no space before it, is kept.
+function envValue(raw) {
+  const text = String(raw).trim();
+  const quoted = /^(['"])(.*?)\1(?:\s+#.*)?$/.exec(text);
+  return quoted ? quoted[2] : text.replace(/(?:^|\s+)#.*$/, "").trim();
+}
+
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
   const status = {
@@ -67,8 +77,7 @@ function loadEnvFile() {
       continue;
     }
     const name = match[1];
-    // Quotes are stripped so a pasted key with or without them behaves the same.
-    const value = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
+    const value = envValue(match[2]);
     if (!value) continue;
     status.activeNames.push(name);
     // A real environment variable is a deliberate override and outranks the file.

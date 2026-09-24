@@ -8,8 +8,9 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 $serverPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "server.js"))
 
 # server.js loads .env itself. The launcher reads it too, only so that it agrees with the server
-# about the port to check and the model to announce, and by the same rules: blank lines and #
-# comments are skipped, matching quotes are stripped, the first entry for a name wins, and a real
+# about the port to check and the model to announce, and by the same rules as envValue() there:
+# blank lines and # comments are skipped, text after a space and a # is a comment unless it is
+# inside quotes, matching quotes are stripped, the first entry for a name wins, and a real
 # environment variable outranks the file. Reading only $env: used to ignore RP_PORT in .env, so the
 # launcher checked 8787 for an old harness while the server went on to listen somewhere else.
 $envFilePath = Join-Path $PSScriptRoot ".env"
@@ -18,7 +19,9 @@ if (Test-Path -LiteralPath $envFilePath -PathType Leaf) {
   foreach ($line in @(Get-Content -LiteralPath $envFilePath -ErrorAction SilentlyContinue)) {
     if ($line -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') {
       $name = $matches[1]
-      $value = $matches[2] -replace '^([''"])(.*)\1$', '$2'
+      $raw = $matches[2]
+      if ($raw -match '^([''"])(.*?)\1(?:\s+#.*)?$') { $value = $matches[2] }
+      else { $value = ($raw -replace '(?:^|\s+)#.*$', '').Trim() }
       if ($value -and -not $envFileSettings.ContainsKey($name)) { $envFileSettings[$name] = $value }
     }
   }
