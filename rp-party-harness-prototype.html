@@ -931,7 +931,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="character-relationships">Relationship notes</label><textarea id="character-relationships" placeholder="One per line: Character — history, trust, tension, attraction, debt, or current dynamic…"></textarea></div>
         </details>
       </div>
-      <div class="modal-actions"><button class="cancel-button" type="button" id="cancel-modal">CLOSE</button><button class="cancel-button" type="button" id="edit-character">EDIT CHARACTER</button><button class="settings-test" type="button" id="export-character">EXPORT CHARACTER</button><label class="settings-test" for="import-character-file" id="import-character-label">IMPORT CHARACTER</label><input class="file-input" id="import-character-file" type="file" accept="application/json,.json"><button class="cancel-button delete-character" type="button" id="delete-character">DELETE CHARACTER</button><button class="save-button" id="save-member" type="submit">SAVE MEMBER</button></div>
+      <div class="modal-actions"><button class="cancel-button" type="button" id="cancel-modal">CLOSE</button><button class="cancel-button" type="button" id="edit-character">EDIT CHARACTER</button><button class="settings-test" type="button" id="export-character">EXPORT CHARACTER</button><label class="settings-test" for="import-character-file" id="import-character-label" data-help="A character exported from Party Harness, or a character card (V1, V2, or V3, as JSON or the PNG it comes in) from SillyTavern, chub, and similar sites.">IMPORT CHARACTER</label><input class="file-input" id="import-character-file" type="file" accept="application/json,.json,image/png,.png"><button class="cancel-button delete-character" type="button" id="delete-character">DELETE CHARACTER</button><button class="save-button" id="save-member" type="submit">SAVE MEMBER</button></div>
     </form>
   </div>
 
@@ -2836,7 +2836,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (!entry || typeof entry !== "object") return null;
         const rawKeys = Array.isArray(entry.keys) ? entry.keys : Array.isArray(entry.key) ? entry.key : String(entry.keys || entry.key || "").split(",");
         const keys = rawKeys.map(key => String(key).trim()).filter(key => {
-          const pattern = /^\/.+\/[a-z]*$/i.test(key);
+          // A V3 card marks pattern keys with use_regex instead of slashes.
+          const pattern = entry.use_regex === true || /^\/.+\/[a-z]*$/i.test(key);
           if (pattern) skippedPatterns += 1;
           return key && !pattern;
         });
@@ -4185,7 +4186,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         return;
       }
       try {
-        await processCharacterProfileWithLLM(pendingCharacterFileContent, pendingCharacterFileName.replace(/^local:\s*/i, "").replace(/\.md$/i, ""));
+        await processCharacterProfileWithLLM(pendingCharacterFileContent, pendingCharacterFileName.replace(/^(?:local|card):\s*/i, "").replace(/\.(?:md|json|png)$/i, ""));
       } catch (error) {
         setCharacterFileStatus("The profile was retained, but the visible fields were not updated: " + error.message);
       }
@@ -4629,6 +4630,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     });
 
     function openModal(index = null) {
+      pendingCardLore = [];
       profileRequestToken += 1;
       portraitRequestToken += 1;
       characterFileLoading = false;
@@ -4685,18 +4687,150 @@ this program. If not, see https://www.gnu.org/licenses/.
       setCharacterFileStatus("Character exported without API keys or session history.");
     }
 
+
+    // CHARACTER CARDS: the V1/V2/V3 format shared by SillyTavern, chub, and other front ends, as JSON
+    // or inside the PNG they usually travel in. A card's text becomes the member's attached reference
+    // profile, which the engine is told to treat as reference data, not instructions: cards come from
+    // strangers. Left out on purpose: the card's own system prompt and post-history instructions,
+    // which would compete with the harness's, and its greetings, which open a one-on-one chat.
+    let pendingCardLore = [];
+    function cardData(source) {
+      if (!source || typeof source !== "object") return null;
+      if (/^chara_card_v[23]$/.test(source.spec) && source.data && typeof source.data === "object") return source.data;
+      // V1 has no envelope: its fields sit at the top level.
+      const v1 = ["description", "personality", "scenario", "first_mes", "mes_example"].some(key => typeof source[key] === "string");
+      return typeof source.name === "string" && v1 ? source : null;
+    }
+    function readPngTextChunks(bytes) {
+      const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+      if (bytes.length < 8 || signature.some((value, index) => bytes[index] !== value)) throw new Error("that file is not a PNG image");
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const chunks = [];
+      for (let offset = 8; offset + 12 <= bytes.length;) {
+        const length = view.getUint32(offset);
+        const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+        const end = offset + 12 + length;
+        if (end > bytes.length) break;
+        if (type === "tEXt" || type === "iTXt" || type === "zTXt") chunks.push({ type, data: bytes.subarray(offset + 8, offset + 8 + length) });
+        if (type === "IEND") break;
+        offset = end;
+      }
+      return chunks;
+    }
+    async function inflate(data) {
+      if (typeof DecompressionStream !== "function") throw new Error("this browser cannot read a compressed card; try a current browser");
+      return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer());
+    }
+    // The card is base64 JSON under the keyword "ccv3" (V3) or "chara" (V1/V2); V3 wins when both exist.
+    async function cardFromPngBytes(bytes) {
+      const found = {};
+      for (const chunk of readPngTextChunks(bytes)) {
+        const zero = chunk.data.indexOf(0);
+        if (zero < 1) continue;
+        const keyword = new TextDecoder("latin1").decode(chunk.data.subarray(0, zero));
+        if (keyword !== "ccv3" && keyword !== "chara") continue;
+        let text;
+        if (chunk.type === "tEXt") text = new TextDecoder("latin1").decode(chunk.data.subarray(zero + 1));
+        else if (chunk.type === "zTXt") text = new TextDecoder("latin1").decode(await inflate(chunk.data.subarray(zero + 2)));
+        else {
+          const compressed = chunk.data[zero + 1] === 1;
+          let cursor = zero + 3;
+          cursor = chunk.data.indexOf(0, cursor) + 1;
+          cursor = chunk.data.indexOf(0, cursor) + 1;
+          if (cursor <= 0) continue;
+          const body = chunk.data.subarray(cursor);
+          text = new TextDecoder("utf-8").decode(compressed ? await inflate(body) : body);
+        }
+        found[keyword] = text;
+      }
+      const encoded = found.ccv3 || found.chara;
+      if (!encoded) throw new Error("that PNG has no character card inside it");
+      const binary = atob(encoded.trim());
+      return JSON.parse(new TextDecoder("utf-8").decode(Uint8Array.from(binary, char => char.charCodeAt(0))));
+    }
+    // {{char}} is the card's character (its nickname when it has one); {{user}} is whoever the
+    // player is in this session.
+    function cardMacros(data) {
+      const character = String(data.nickname || data.name || "the character").trim();
+      const player = state.playerMode === "dm" ? "the player" : (state.party[0] && editingIndex !== 0 ? state.party[0].name : "the player");
+      return text => String(text || "").replace(/\{\{\s*char\s*\}\}|<BOT>/gi, character).replace(/\{\{\s*user\s*\}\}|<USER>/gi, player).trim();
+    }
+    function cardProfile(data, replace) {
+      const section = (title, text) => replace(text) ? "## " + title + "\n\n" + replace(text) + "\n\n" : "";
+      return ("# " + String(data.name).trim() + "\n\n"
+        + section("Description", data.description)
+        + section("Personality", data.personality)
+        + section("Scenario the card was written for", data.scenario)
+        + section("Example dialogue", data.mes_example)).trim();
+    }
+    async function importCharacterCard(data, fileName, portraitData = "") {
+      const replace = cardMacros(data);
+      const name = String(data.name || "").trim().slice(0, 200);
+      if (!name) throw new Error("the card has no character name");
+      ["character-role", "character-pronouns", "character-feeling", "character-appearance", "character-strengths", "character-weaknesses", "character-goals", "character-advanced-personality", "character-dialogue-guidance", "character-relationships"].forEach(id => { $(id).value = ""; });
+      $("character-name").value = name;
+      // Only the card's short personality summary goes straight onto the sheet; everything else is
+      // in the attached profile, where it is sent once rather than twice.
+      $("character-personality").value = replace(data.personality).slice(0, 12000);
+      $("character-stats").value = formatStatsForInput(activeStatDefinitionsForEditor().map(() => 50));
+      if (portraitData) {
+        pendingPortraitData = portraitData;
+        $("character-portrait-url").value = "";
+        if (portraitData.length > PORTRAIT_COMPACT_THRESHOLD) {
+          const token = ++portraitRequestToken, targetIndex = editingIndex, originalLength = portraitData.length;
+          downscalePortrait(portraitData).then(compacted => {
+            if (token === portraitRequestToken && targetIndex === editingIndex && $("modal-backdrop").classList.contains("open") && compacted && compacted.length < originalLength) { pendingPortraitData = compacted; renderPortraitPreview(); }
+          });
+        }
+      }
+      pendingCharacterFileName = "card: " + fileName;
+      pendingCharacterFileContent = cardProfile(data, replace).slice(0, 120000);
+      renderCharacterFileOptions(pendingCharacterFileName);
+      const book = loreEntriesFrom({ character_book: data.character_book });
+      pendingCardLore = book.entries.map(entry => ({ ...entry, title: replace(entry.title), text: replace(entry.text) }));
+      renderPortraitPreview();
+      setModalMode("edit");
+      const left = [data.system_prompt && "its system prompt", data.post_history_instructions && "its post-history instructions"].filter(Boolean);
+      setCharacterFileStatus("Imported the card " + fileName + ". Its description, personality, scenario, and example dialogue are attached below as reference material"
+        + (portraitData ? ", and its image is the portrait" : "") + ". Cards do not record pronouns: add them above. PROCESS WITH LLM can fill the rest of the sheet from the card."
+        + (pendingCardLore.length ? " Its lorebook (" + pendingCardLore.length + " entr" + (pendingCardLore.length === 1 ? "y" : "ies") + ") joins the Lore tab when you save" + (book.skippedPatterns ? "; " + book.skippedPatterns + " regular-expression keyword" + (book.skippedPatterns === 1 ? " was" : "s were") + " skipped" : "") + "." : "")
+        + (left.length ? " Left out: " + left.join(" and ") + ", which would compete with this harness's own instructions." : ""));
+    }
+
     function importCharacterJson(event) {
       const file = event.target.files[0];
       if (!file) return;
       if (file.size > MAX_SESSION_IMPORT_BYTES) {
-        $("modal-mode-note").textContent = "That character file is too large. Choose a JSON file under " + Math.round(MAX_SESSION_IMPORT_BYTES / 1024 / 1024) + " MiB.";
+        $("modal-mode-note").textContent = "That character file is too large. Choose a file under " + Math.round(MAX_SESSION_IMPORT_BYTES / 1024 / 1024) + " MiB.";
         event.target.value = "";
+        return;
+      }
+      pendingCardLore = [];
+      if (file.type === "image/png" || /\.png$/i.test(file.name)) {
+        (async () => {
+          try {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const data = cardData(await cardFromPngBytes(bytes));
+            if (!data) throw new Error("the PNG holds data that is not a character card");
+            const portrait = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("the browser could not read the image")); reader.readAsDataURL(file); });
+            await importCharacterCard(data, file.name, portrait);
+          } catch (error) {
+            $("modal-mode-note").textContent = "Could not import that character: " + error.message + ".";
+          }
+          event.target.value = "";
+        })();
         return;
       }
       const reader = new FileReader();
       reader.onload = () => {
         try {
           const snapshot = JSON.parse(String(reader.result));
+          const card = cardData(snapshot);
+          if (card) {
+            importCharacterCard(card, file.name).catch(error => { $("modal-mode-note").textContent = "Could not import that character: " + error.message + "."; });
+            event.target.value = "";
+            return;
+          }
           const source = snapshot && typeof snapshot === "object" && snapshot.character && typeof snapshot.character === "object" ? snapshot.character : snapshot;
           if (!source || typeof source !== "object") throw new Error("That file does not contain a character object.");
           const fallbackIndex = editingIndex === null ? Math.min(state.party.length, DEFAULT_PARTY.length - 1) : editingIndex;
@@ -6176,6 +6310,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       const member = { id: existing ? existing.id : newPartyId(name), name, role: $("character-role").value.trim() || "unassigned", pronouns: $("character-pronouns").value.trim() || "pronouns unset", feeling: $("character-feeling").value.trim() || "neutral", personality: $("character-personality").value.trim(), appearance: $("character-appearance").value.trim(), strengths: $("character-strengths").value.trim(), weaknesses: $("character-weaknesses").value.trim(), stats: parseStats($("character-stats").value), color: $("character-color").value, portraitUrl: $("character-portrait-url").value.trim(), portraitData: pendingPortraitData, expressions: structuredClone(pendingExpressions), activeExpression: pendingActiveExpression, goals: $("character-goals").value.trim(), advancedPersonality: $("character-advanced-personality").value.trim(), dialogueGuidance: $("character-dialogue-guidance").value.trim(), relationships: $("character-relationships").value.trim(), characterFile: pendingCharacterFileName, characterFileContent: pendingCharacterFileContent.slice(0, 120000), referenceImage: pendingReferenceImage, useAsImageReference: $("character-use-reference").checked, muted: existing ? existing.muted === true : false, initiative: existing ? existing.initiative !== false : true };
       state.bubbles = [];
       if (editingIndex === null) { state.party.push(member); state.selected = state.party.length - 1; } else state.party[editingIndex] = member;
+      // An imported card's lorebook joins the session only with the character it came with.
+      if (pendingCardLore.length) state.lorebook = normalizeLorebook([...state.lorebook, ...pendingCardLore]);
+      pendingCardLore = [];
       markDirty();
       closeModal(); renderAll();
     });
