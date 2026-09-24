@@ -464,7 +464,7 @@ console.log("\nstructured roleplay runtime");
     /function processBeatQueue\(asides = null\)/.test(HTML) && /state\.pendingPause = \{ \.\.\.beat/.test(HTML)
       && /data-pause-continue/.test(HTML));
   check("checks resolve locally before their result returns to the model",
-    /function resolvePendingCheck\(\)/.test(HTML) && /const roll = seededRoll\(seed\);/.test(HTML)
+    /function resolvePendingCheck\(/.test(HTML) && /const roll = seededRoll\(seed\);/.test(HTML)
       && /CHECK RESULT/.test(HTML));
   // The roll used to come from Math.random() at the moment the player clicked, so undoing back to a
   // check and rolling it again silently produced a different number -- the one place in the harness
