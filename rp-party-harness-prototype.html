@@ -243,7 +243,13 @@ this program. If not, see https://www.gnu.org/licenses/.
     #control-tooltip { position: fixed; z-index: 10000; max-width: min(330px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); box-shadow: 3px 3px 0 var(--rust); font: 12px/1.5 var(--mono); pointer-events: none; }
     @keyframes loading-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { #turn-status.working::before, .loading-wheel { animation: none; } }
-    .turn-actions { display: flex; gap: 6px; }
+    /* The auto margin keeps the buttons right-aligned when the reply counter pushes them to a
+       second line; beside it, they would otherwise wrap their own labels. */
+    .turn-actions { display: flex; gap: 6px; margin-left: auto; }
+    .reply-flip { display: inline-flex; align-items: stretch; }
+    .reply-flip[hidden] { display: none; }
+    .reply-flip .turn-action { padding: 4px 8px; }
+    #reply-position { display: grid; place-items: center; min-width: 50px; padding: 0 6px; color: var(--paper-3); border-block: 1px solid var(--paper-3); font-family: var(--mono); font-size: 10px; letter-spacing: .08em; white-space: nowrap; }
     .turn-action { padding: 4px 9px; color: var(--muted); background: none; border: 1px solid var(--paper-3); font-family: var(--mono); font-size: 10px; letter-spacing: .08em; cursor: pointer; }
     .turn-action:hover:not(:disabled) { color: var(--ink); border-color: var(--rust); }
     .turn-action:disabled { opacity: .35; cursor: not-allowed; }
@@ -672,12 +678,13 @@ this program. If not, see https://www.gnu.org/licenses/.
 
         <div class="turn-bar">
           <span id="turn-status" aria-live="polite"></span>
+          <span class="reply-flip" id="reply-flip" role="group" aria-label="Replies to the last action" hidden><button class="turn-action" type="button" id="previous-reply" aria-label="Previous reply" title="Show the previous reply">‹</button><span id="reply-position">1 / 2</span><button class="turn-action" type="button" id="next-reply" aria-label="Next reply" title="Show the next reply">›</button></span>
           <div class="turn-actions">
             <button class="turn-action" type="button" id="cancel-turn" hidden>CANCEL TURN</button>
             <button class="turn-action" type="button" id="bookmark-scene">☆ BOOKMARK</button>
             <button class="turn-action" type="button" id="party-banter">PARTY BANTER</button>
-            <button class="turn-action" type="button" id="regenerate-turn" title="Discard the last turn and generate a new one from the same action">↻ REGENERATE</button>
-            <button class="turn-action" type="button" id="undo-turn" title="Remove the last turn and put the action back in the box">↩ UNDO TURN</button>
+            <button class="turn-action" type="button" id="regenerate-turn" title="Generate another reply to the same action. The reply on screen is kept; ‹ › flips between them.">↻ REGENERATE</button>
+            <button class="turn-action" type="button" id="undo-turn" title="Remove the last turn, with every reply to it, and put the action back in the box">↩ UNDO TURN</button>
           </div>
         </div>
 
@@ -906,7 +913,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       <div style="padding:20px;line-height:1.65">
         <p>Party Harness is a story space for you and a party of AI-controlled characters. Write an action, let the scene respond, and decide what happens next. You can browse and edit without a key; generating text needs a hosted provider or a running local model server; art uses a hosted image provider or a compatible local server.</p>
         <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
-        <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
+        <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request; the reply it replaces is kept, and ‹ › beside the turn buttons flips between the replies, each with its own consequences. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
         <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. The <strong>relationship web</strong> at the top of the World tab shows how each character feels toward each of the others: rows feel, columns receive. Pick a square to edit it. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
         <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser, and are also kept as files in the saves folder beside server.js, so clearing site data or changing the port does not lose them: an empty browser restores your last workspace from there by itself. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
         <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
@@ -1518,12 +1525,17 @@ this program. If not, see https://www.gnu.org/licenses/.
         renderAll();
         return;
       }
-      if (state.turnCheckpoints.at(-1) === request.checkpoint) state.turnCheckpoints.pop();
       const editDraft = state.narrativeEdit;
-      restoreTurnCheckpoint(request.checkpoint);
+      // Cancelling a regenerate returns to the reply it would have replaced; the turn stays.
+      if (restoreKeptReply(request)) {
+        stopTurnStatus("REGENERATE CANCELLED / PREVIOUS REPLY KEPT");
+      } else {
+        if (state.turnCheckpoints.at(-1) === request.checkpoint) state.turnCheckpoints.pop();
+        restoreTurnCheckpoint(request.checkpoint);
+        if (!$("response-input").value.trim()) $("response-input").value = request.action;
+        stopTurnStatus("TURN CANCELLED / ACTION RESTORED");
+      }
       if (editDraft && state.narrative.some(line => line.id === editDraft.lineId)) state.narrativeEdit = editDraft;
-      if (!$("response-input").value.trim()) $("response-input").value = request.action;
-      stopTurnStatus("TURN CANCELLED / ACTION RESTORED");
       updateGenerationTitle("Text", "cancelled");
       $("send-button").disabled = false;
       markDirty();
@@ -1921,6 +1933,16 @@ this program. If not, see https://www.gnu.org/licenses/.
       const hasTurn = state.turnCheckpoints.length > 0 || state.narrative.some(line => line.kind === "choice");
       $("regenerate-turn").disabled = turnInFlight || !hasTurn;
       $("undo-turn").disabled = turnInFlight || !hasTurn;
+      // Shown once a turn has a second reply. "–" is an attempt that failed or was interrupted
+      // (a reload mid-reply): the kept replies are still there to flip back to.
+      const replies = turnReplies();
+      const live = replies ? replies.indexOf(null) : -1;
+      $("reply-flip").hidden = !replies || (live >= 0 && replies.length < 2);
+      if (replies) {
+        $("reply-position").textContent = (live >= 0 ? live + 1 : turnInFlight ? "…" : "–") + " / " + replies.length;
+        $("previous-reply").disabled = turnInFlight || live === 0;
+        $("next-reply").disabled = turnInFlight || live < 0 || live === replies.length - 1;
+      }
       $("cancel-turn").hidden = !turnInFlight;
       $("party-banter").disabled = turnInFlight;
     }
@@ -3435,6 +3457,86 @@ this program. If not, see https://www.gnu.org/licenses/.
       return true;
     }
 
+    // Alternate replies ("swipes"). REGENERATE keeps the reply it replaces on that turn's
+    // checkpoint, and ‹ › flips between them. A kept reply is the whole state after it — transcript,
+    // world, feelings, unrevealed beats — so flipping restores exactly what that reply had revealed
+    // and applies nothing it had not. In checkpoint.replies the reply on screen is a null slot.
+    const MAX_REPLIES = 10;
+    // What a reply shares with the turn before it is stored once, on the checkpoint.
+    const REPLY_LISTS = ["narrative", "archive", "relationshipTimeline"];
+    const sameEntry = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
+    function keepReply(checkpoint) {
+      const reply = captureTurnCheckpoint(checkpoint.action);
+      // A failed attempt's error line belongs to no reply.
+      while (reply.narrative.length && reply.narrative.at(-1).kind === "error") reply.narrative.pop();
+      const kept = { ...reply };
+      REPLY_LISTS.forEach(key => {
+        const base = Array.isArray(checkpoint[key]) ? checkpoint[key] : [];
+        let shared = 0;
+        while (shared < base.length && shared < reply[key].length && sameEntry(base[shared], reply[key][shared])) shared += 1;
+        kept[key] = { shared, tail: reply[key].slice(shared) };
+      });
+      if (reply.storySummary === checkpoint.storySummary) delete kept.storySummary;
+      return kept;
+    }
+    function expandReply(checkpoint, kept) {
+      const reply = { ...kept, storySummary: Object.hasOwn(kept, "storySummary") ? kept.storySummary : checkpoint.storySummary };
+      REPLY_LISTS.forEach(key => {
+        const base = Array.isArray(checkpoint[key]) ? checkpoint[key] : [];
+        const part = kept[key] && typeof kept[key] === "object" ? kept[key] : {};
+        reply[key] = base.slice(0, boundedInteger(part.shared, 0, base.length)).concat(Array.isArray(part.tail) ? part.tail : []);
+      });
+      return reply;
+    }
+    // The latest turn's replies, or null. Anything malformed (a hand-edited save) is ignored rather
+    // than trusted: there is at most one on-screen slot, and every other entry is a kept reply.
+    function turnReplies() {
+      const replies = state.turnCheckpoints.at(-1)?.replies;
+      if (!Array.isArray(replies) || !replies.length || replies.length > MAX_REPLIES) return null;
+      if (replies.filter(reply => reply === null).length > 1 || replies.some(reply => reply !== null && (!reply || typeof reply !== "object"))) return null;
+      return replies;
+    }
+    // Before this feature a checkpoint had no replies list; a finished turn then ends in reply text,
+    // while a failed or interrupted one ends in its error line or the action itself.
+    function liveReplyIndex(checkpoint) {
+      if (Array.isArray(checkpoint.replies)) return checkpoint.replies.indexOf(null);
+      const last = state.narrative.at(-1);
+      return last && last.kind !== "error" && last.kind !== "choice" ? 0 : -1;
+    }
+    // After a regenerate fails or is cancelled: bring back the reply that was on screen (or, for an
+    // attempt started after an interrupted one, the newest kept reply). False when nothing is kept.
+    function restoreKeptReply(request) {
+      const replies = request.checkpoint.replies;
+      if (!Array.isArray(replies) || !replies.length || replies.includes(null)) return false;
+      const index = request.previousReply >= 0 && request.previousReply < replies.length ? request.previousReply : replies.length - 1;
+      const reply = replies[index];
+      replies[index] = null;
+      restoreTurnCheckpoint(expandReply(request.checkpoint, reply));
+      return true;
+    }
+    function showReply(offset) {
+      if (turnInFlight) return;
+      const checkpoint = state.turnCheckpoints.at(-1);
+      const replies = turnReplies();
+      if (!replies) return;
+      if (state.narrativeEdit) { stopTurnStatus("SAVE OR CANCEL THE LINE EDIT FIRST"); return; }
+      const live = replies.indexOf(null);
+      const target = (live < 0 ? replies.length : live) + offset;
+      if (target < 0 || target >= replies.length || target === live) return;
+      const reply = replies[target];
+      const pressed = document.activeElement && ["previous-reply", "next-reply"].includes(document.activeElement.id) ? document.activeElement.id : "";
+      // The on-screen reply is kept in its slot. An attempt that failed or was interrupted is not
+      // a reply, so flipping away from it discards it.
+      if (live >= 0) replies[live] = keepReply(checkpoint);
+      replies[target] = null;
+      restoreTurnCheckpoint(expandReply(checkpoint, reply));
+      markDirty();
+      stopTurnStatus("REPLY " + (target + 1) + " OF " + replies.length);
+      renderAll();
+      // Reaching either end disables the arrow just pressed, which would drop keyboard focus.
+      if (pressed && $(pressed).disabled) $(pressed === "previous-reply" ? "next-reply" : "previous-reply").focus();
+    }
+
     function rewindLastTurn() {
       memoryRevision += 1;
       state.summaryStatus = "";
@@ -3470,13 +3572,31 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     function regenerateLastTurn() {
       if (turnInFlight) return;
-      const checkpoint = state.turnCheckpoints.pop();
+      const checkpoint = state.turnCheckpoints.at(-1);
+      // Keep the reply on screen, and any kept before it, for the new attempt's checkpoint.
+      let replies = null, previousReply = -1;
+      if (checkpoint && String(checkpoint.action || "").trim()) {
+        replies = (turnReplies() || []).slice();
+        previousReply = liveReplyIndex(checkpoint);
+        if (previousReply >= 0) {
+          const kept = keepReply(checkpoint);
+          if (replies[previousReply] === null) replies[previousReply] = kept;
+          else { replies.push(kept); previousReply = replies.length - 1; }
+        }
+        // Room for the new reply: the oldest kept reply gives way, never the one just on screen.
+        while (replies.length >= MAX_REPLIES) {
+          const oldest = previousReply === 0 ? 1 : 0;
+          replies.splice(oldest, 1);
+          if (oldest < previousReply) previousReply -= 1;
+        }
+      }
+      state.turnCheckpoints.pop();
       const restoredAction = checkpoint && restoreTurnCheckpoint(checkpoint) ? checkpoint.action : "";
       const action = restoredAction || rewindLastTurn();
       if (!action.trim()) { stopTurnStatus("NOTHING TO REGENERATE"); return; }
       if (!checkpoint) state.turn = Math.max(1, state.turn - 1);
       renderAll();
-      handleTurn(action, { regenerated: true });
+      handleTurn(action, { regenerated: true, replies: replies && replies.length ? replies : null, previousReply });
     }
 
     async function handleTurn(action, options = {}) {
@@ -3487,6 +3607,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       turnInFlight = true;
       $("send-button").disabled = true;
       const request = { controller: new AbortController(), checkpoint: captureTurnCheckpoint(action), action: action.trim() };
+      // A regenerate carries the turn's kept replies onto its checkpoint, and remembers which one
+      // was on screen so a failure or CANCEL can put it back.
+      if (options.replies) { request.checkpoint.replies = options.replies; request.previousReply = options.previousReply; }
+      let finalStatus = "";
       activeTurnRequest = request;
       updateGenerationTitle("Text", "loading…");
       state.turnCheckpoints.push(request.checkpoint);
@@ -3541,6 +3665,10 @@ this program. If not, see https://www.gnu.org/licenses/.
           beatCount: sourceBeats.length || displayedBeats.length, applied: stateReport.applied, rejected: stateReport.rejected
         });
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES);
+        // This attempt is a reply now: it takes the on-screen slot, after any kept ones.
+        request.checkpoint.replies = [...(request.checkpoint.replies || []), null];
+        const replyCount = request.checkpoint.replies.length;
+        if (replyCount > 1) finalStatus = "REPLY " + replyCount + " OF " + replyCount + " / ‹ › FLIPS BETWEEN THEM";
         updateGenerationTitle("Text", "ready ✓");
         maybeSummarize();
       } catch (error) {
@@ -3548,22 +3676,28 @@ this program. If not, see https://www.gnu.org/licenses/.
         // present an infrastructure failure as something that happened in the fiction.
         if (epoch !== sessionEpoch || activeTurnRequest !== request) return;
         updateGenerationTitle("Text", "failed");
-        state.narrative.push({ kind: "error", text: error.message });
-        state.bubbles = [];
-        // These fill the input box when clicked, so they have to be things worth sending. "Retry
-        // the last action" used to be one of them, which typed that sentence at the engine; the
-        // real retry is the REGENERATE button, and the failed action is still in the transcript.
-        state.suggestions = [];
         state.turnTraces.push({ turn: state.turn, action: action.trim().slice(0, 500), status: "failed", durationMs: Math.round(performance.now() - startedAt), requestBytes, beatCount: 0, applied: [], rejected: [error.message] });
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES);
         announceTurn("Harness error: " + error.message, []);
-        if (epoch === sessionEpoch) stopTurnStatus("TURN FAILED / USE ↻ REGENERATE TO RETRY");
+        // A failed regenerate costs nothing: the reply that was on screen comes back.
+        if (restoreKeptReply(request)) {
+          state.narrative.push({ kind: "error", text: "Regenerating failed, so the previous reply is back. " + error.message });
+          finalStatus = "REGENERATE FAILED / PREVIOUS REPLY KEPT";
+        } else {
+          state.narrative.push({ kind: "error", text: error.message });
+          state.bubbles = [];
+          // These fill the input box when clicked, so they have to be things worth sending. "Retry
+          // the last action" used to be one of them, which typed that sentence at the engine; the
+          // real retry is the REGENERATE button, and the failed action is still in the transcript.
+          state.suggestions = [];
+          finalStatus = "TURN FAILED / USE ↻ REGENERATE TO RETRY";
+        }
       } finally {
         if (activeTurnRequest !== request) return;
         activeTurnRequest = null;
         turnInFlight = false;
         if (epoch === sessionEpoch) {
-          if (!$("turn-status").textContent.startsWith("TURN FAILED")) stopTurnStatus("");
+          stopTurnStatus(finalStatus);
           renderAll();
         } else {
           stopTurnStatus("");
@@ -5288,6 +5422,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("world-editor-backdrop").addEventListener("click", event => { if (event.target.id === "world-editor-backdrop") requestCloseModal("world-editor-backdrop"); });
     $("cancel-turn").addEventListener("click", cancelTurn);
     $("regenerate-turn").addEventListener("click", regenerateLastTurn);
+    $("previous-reply").addEventListener("click", () => showReply(-1));
+    $("next-reply").addEventListener("click", () => showReply(1));
     $("undo-turn").addEventListener("click", undoLastTurn);
     document.querySelectorAll("[data-sidebar-tab]").forEach(button => {
       button.addEventListener("click", () => setSidebarTab(button.dataset.sidebarTab));

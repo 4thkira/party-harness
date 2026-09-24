@@ -1195,3 +1195,161 @@ test("web labels stay distinct when two characters share a first name", () => {
   assert.match(markup, /<th scope="col" title="Ash Cole">.*?<span aria-hidden="true">AC<\/span>/);
   assert.match(markup, /<th scope="row" title="Cy">.*?<span aria-hidden="true">Cy<\/span>/);
 });
+
+// Each reply sets the same fact differently, so a flipped-to reply shows its own consequences.
+function swipeFixture() {
+  const h = harness();
+  h.run(`
+    requestLiveTurn = () => new Promise((resolve, reject) => { globalThis.turnReply = resolve; globalThis.turnFail = reject; });
+    maybeSummarize = () => {};
+    state.narrative = [{kind: 'body', text: 'The gate is shut.'}];
+    state.worldState.flags = {};
+  `);
+  h.answer = async (pending, name) => {
+    h.context.turnReply({ result: { narration: "Reply " + name, beats: [{ kind: "narration", text: "Reply " + name, stateChanges: { flagChanges: [{ key: "gate", value: name }] } }] }, requestBytes: 1 });
+    await pending;
+  };
+  h.shown = () => h.run("state.narrative.filter(line => line.kind === 'body').at(-1).text + ' / ' + state.worldState.flags.gate");
+  return h;
+}
+
+test("regenerate keeps the reply it replaces, and ‹ › flips between replies with their own consequences", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  assert.equal(h.shown(), "Reply A / A");
+  assert.equal(h.element("reply-flip").hidden, true, "one reply has nothing to flip to");
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  assert.equal(h.shown(), "Reply B / B");
+  assert.equal(h.run("state.turnCheckpoints.length"), 1, "still one turn");
+  assert.equal(h.element("reply-flip").hidden, false);
+  assert.equal(h.element("reply-position").textContent, "2 / 2");
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply A / A");
+  assert.equal(h.run("state.narrative.filter(line => line.kind === 'choice').length"), 1, "the action appears once");
+  h.run("renderTurnControls()");
+  assert.equal(h.element("reply-position").textContent, "1 / 2");
+  assert.equal(h.element("previous-reply").disabled, true);
+  await h.answer(h.run("regenerateLastTurn()"), "C");
+  assert.equal(h.element("reply-position").textContent, "3 / 3");
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply B / B");
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply A / A");
+  // Undo removes the turn with every reply to it.
+  h.run("undoLastTurn()");
+  assert.equal(h.run("state.turnCheckpoints.length"), 0);
+  assert.equal(h.run("state.narrative.length"), 1);
+  assert.equal(h.run("state.worldState.flags.gate"), undefined);
+});
+
+test("a failed or cancelled regenerate brings back the reply it would have replaced", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  const failed = h.run("regenerateLastTurn()");
+  h.context.turnFail(new Error("Nothing is answering."));
+  await failed;
+  assert.equal(h.shown(), "Reply A / A");
+  assert.match(h.run("state.narrative.at(-1).text"), /^Regenerating failed, so the previous reply is back\. Nothing is answering\./);
+  assert.equal(h.run("state.turnTraces.at(-1).status"), "failed");
+  h.element("response-input").value = "";
+  h.run("regenerateLastTurn(); cancelTurn();");
+  assert.equal(h.shown(), "Reply A / A");
+  assert.equal(h.run("state.turnCheckpoints.length"), 1, "cancelling a regenerate keeps the turn");
+  assert.equal(h.element("response-input").value, "", "the reply is back, so the action is not");
+  // The earlier error line is not part of the kept reply.
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  h.run("showReply(-1)");
+  assert.equal(h.run("state.narrative.at(-1).kind"), "body");
+  // A first attempt that fails still leaves the action to regenerate, as before.
+  const fresh = swipeFixture();
+  const first = fresh.run("handleTurn('open the gate')");
+  fresh.context.turnFail(new Error("Nothing is answering."));
+  await first;
+  assert.equal(fresh.run("state.narrative.at(-1).text"), "Nothing is answering.");
+  await fresh.answer(fresh.run("regenerateLastTurn()"), "A");
+  assert.equal(fresh.element("reply-flip").hidden, true, "a failed attempt is not a reply");
+});
+
+test("kept replies store only what differs from the turn, and survive a trusted save round trip", async () => {
+  const h = swipeFixture();
+  h.run("state.archive = Array.from({length: 40}, (_, i) => ({kind: 'body', text: 'older line ' + i}));");
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  const kept = JSON.parse(h.run("JSON.stringify(state.turnCheckpoints.at(-1).replies[0])"));
+  assert.equal(kept.archive.shared, 40);
+  assert.equal(kept.archive.tail.length, 0);
+  assert.equal(kept.narrative.shared, 1);
+  assert.deepEqual(kept.narrative.tail.map(line => line.text), ["open the gate", "Reply A"]);
+  assert.equal("storySummary" in kept, false);
+  const saved = h.run("JSON.stringify(HarnessStorage.pack(sessionSnapshot()))");
+  const loaded = swipeFixture();
+  loaded.run("applySessionSnapshot(JSON.parse(" + JSON.stringify(saved) + "), {trusted: true}); renderTurnControls();");
+  assert.equal(loaded.element("reply-position").textContent, "2 / 2");
+  loaded.run("showReply(-1)");
+  assert.equal(loaded.shown(), "Reply A / A");
+  assert.equal(loaded.run("state.archive.length"), 40);
+});
+
+test("a regenerate interrupted by a reload can still flip back, and its replacement keeps the replies", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  h.run("regenerateLastTurn()");
+  // Saved mid-request: the transcript ends in the action, with reply A kept on the checkpoint.
+  const saved = h.run("JSON.stringify(HarnessStorage.pack(sessionSnapshot()))");
+  const loaded = swipeFixture();
+  loaded.run("applySessionSnapshot(JSON.parse(" + JSON.stringify(saved) + "), {trusted: true}); renderTurnControls();");
+  assert.equal(loaded.element("reply-flip").hidden, false);
+  assert.equal(loaded.element("reply-position").textContent, "– / 1");
+  assert.equal(loaded.element("next-reply").disabled, true);
+  // Regenerating from here keeps A and does not keep the half-finished attempt.
+  await loaded.answer(loaded.run("regenerateLastTurn()"), "B");
+  assert.equal(loaded.element("reply-position").textContent, "2 / 2");
+  loaded.run("showReply(-1)");
+  assert.equal(loaded.shown(), "Reply A / A");
+});
+
+test("a turn from before swipes keeps its reply when regenerated", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  h.run("delete state.turnCheckpoints.at(-1).replies;");
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  assert.equal(h.element("reply-position").textContent, "2 / 2");
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply A / A");
+});
+
+test("at the reply limit the oldest kept reply gives way, never the one on screen", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "R1");
+  for (let n = 2; n <= 10; n += 1) await h.answer(h.run("regenerateLastTurn()"), "R" + n);
+  assert.equal(h.element("reply-position").textContent, "10 / 10");
+  for (let n = 0; n < 9; n += 1) h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply R1 / R1");
+  await h.answer(h.run("regenerateLastTurn()"), "R11");
+  assert.equal(h.element("reply-position").textContent, "10 / 10");
+  const kept = JSON.parse(h.run("JSON.stringify(state.turnCheckpoints.at(-1).replies.slice(0, -1).map(reply => reply.worldState.flags.gate))"));
+  assert.deepEqual(kept, ["R1", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10"]);
+});
+
+test("flipping waits for an open line edit", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  h.run("state.narrativeEdit = { lineId: state.narrative.at(-1).id, text: 'half-typed' }; showReply(-1);");
+  assert.equal(h.shown(), "Reply B / B");
+  assert.equal(h.run("state.narrativeEdit.text"), "half-typed");
+});
+
+test("undoing the next turn brings back the replies of the turn before it", async () => {
+  const h = swipeFixture();
+  await h.answer(h.run("handleTurn('open the gate')"), "A");
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  await h.answer(h.run("handleTurn('walk through')"), "C");
+  assert.equal(h.element("reply-flip").hidden, true, "the new turn has one reply");
+  h.run("undoLastTurn(); renderTurnControls();");
+  assert.equal(h.shown(), "Reply B / B");
+  assert.equal(h.element("reply-flip").hidden, false);
+  assert.equal(h.element("reply-position").textContent, "2 / 2");
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply A / A");
+});
