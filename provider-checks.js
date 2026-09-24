@@ -214,10 +214,10 @@ test('model lists come from each provider\'s own route and hide models that cann
   assert.equal(routed.hidden, 1);
 });
 
-async function startHarness(t, env = {}) {
+async function startHarness(t, env = {}, dir = __dirname, baseEnv = process.env) {
   const probe = http.createServer(); probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
   const port = probe.address().port; await new Promise(resolve => probe.close(resolve));
-  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], { cwd: __dirname, env: { ...process.env, ...env, RP_PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [path.join(dir, 'server.js')], { cwd: dir, env: { ...baseEnv, ...env, RP_PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   t.after(() => child.kill());
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(Error('Server startup timed out')), 5000);
@@ -261,4 +261,70 @@ test('CHECK CONNECTION lists local models and explains keys, missing routes, and
   const turn = await ask('turn', { action: 'Look around', party: [{ id: 'a', name: 'A' }], settings: { provider: 'ollama', model: 'fixture-model', apiBaseUrl: `http://127.0.0.1:${closedPort}/v1` } });
   assert.equal(turn.status, 502);
   assert.match(turn.body.error, /^Nothing is answering at .+ Start Ollama, check the address in Settings, and try again\.$/);
+});
+
+test('SAVE KEY TO .ENV writes only provider keys, keeps the file intact, and takes effect without a restart', { timeout: 20000 }, async t => {
+  const fs = require('node:fs'), os = require('node:os');
+  // A scratch copy, so the test never touches a real .env.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'party-harness-env-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const file of ['server.js', 'text-providers.js', 'image-providers.js', 'harness-storage.js', 'rp-party-harness-prototype.html', '.env.example']) fs.copyFileSync(path.join(__dirname, file), path.join(dir, file));
+  // What Notepad makes of ".env" when Windows hides extensions.
+  fs.writeFileSync(path.join(dir, '.env.txt'), 'OPENROUTER_API_KEY=or-typed-into-txt\n');
+  const quiet = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/_API_KEY$|^OPENAI_MODEL$|^RP_PORT$/.test(name)));
+  const port = await startHarness(t, { GROQ_API_KEY: 'from-the-real-environment' }, dir, quiet);
+  const url = route => `http://127.0.0.1:${port}/api/${route}`;
+  const save = async (body, headers = {}) => {
+    const response = await fetch(url('env-key'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json() };
+  };
+  const health = async () => (await fetch(url('health'))).json();
+  const envFile = () => fs.readFileSync(path.join(dir, '.env'), 'utf8');
+  let status = await health();
+  assert.equal(status.envFileMisnamed, '.env.txt');
+  assert.equal(status.envKeyNames.text.openai, 'OPENAI_API_KEY');
+  assert.equal(status.envKeyNames.image.stability, 'STABILITY_API_KEY');
+  assert.equal(status.envKeyNames.text.ollama, undefined);
+  assert.equal(status.serverKeys.openrouter, false);
+
+  const first = await save({ kind: 'text', provider: 'openai', value: 'sk-saved-1' });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  assert.equal(first.body.copiedFrom, '.env.txt');
+  assert.match(envFile(), /^OPENROUTER_API_KEY=or-typed-into-txt\nOPENAI_API_KEY=sk-saved-1\n$/);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, '.env')).mode & 0o777, 0o600);
+  status = await health();
+  assert.equal(status.serverKeys.openai, true);
+  assert.equal(status.serverKeys.openrouter, true, 'the .env.txt key did not load once it was copied into .env');
+  assert.equal(status.envFileMisnamed, '');
+
+  await save({ kind: 'text', provider: 'openai', value: 'sk-saved-2' });
+  assert.equal((envFile().match(/OPENAI_API_KEY=/g) || []).length, 1);
+  assert.match(envFile(), /OPENAI_API_KEY=sk-saved-2/);
+  // A real environment variable still outranks the file, and the answer says so.
+  const shadowed = await save({ kind: 'text', provider: 'groq', value: 'groq-in-file' });
+  assert.equal(shadowed.body.shadowed, true);
+  assert.match(envFile(), /GROQ_API_KEY=groq-in-file/);
+  await save({ kind: 'image', provider: 'stability', value: 'stability-key' });
+  assert.equal((await health()).serverImageKeys.stability, true);
+
+  const forgot = await save({ kind: 'text', provider: 'openai', value: '' });
+  assert.equal(forgot.body.saved, false);
+  assert.doesNotMatch(envFile(), /OPENAI_API_KEY/);
+  assert.equal((await health()).serverKeys.openai, false);
+
+  for (const [body, pattern] of [
+    [{ kind: 'text', provider: 'ollama', value: 'x' }, /does not take a key/],
+    [{ kind: 'text', provider: 'NODE_OPTIONS', value: '--require evil.js' }, /does not take a key/],
+    [{ kind: 'text', provider: 'openai', value: 'two words' }, /no spaces or quotation marks/],
+    [{ kind: 'text', provider: 'openai', value: 'sk-"quoted"' }, /no spaces or quotation marks/]
+  ]) {
+    const refused = await save(body);
+    assert.equal(refused.status, 400, JSON.stringify(body));
+    assert.match(refused.body.error, pattern);
+  }
+  // Another origin cannot write keys, and neither can a form post.
+  assert.equal((await save({ kind: 'text', provider: 'openai', value: 'sk-evil' }, { Origin: 'http://evil.example' })).status, 403);
+  const form = await fetch(url('env-key'), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'kind=text&provider=openai&value=sk-evil' });
+  assert.equal(form.status, 415);
+  assert.doesNotMatch(envFile(), /sk-evil/);
 });

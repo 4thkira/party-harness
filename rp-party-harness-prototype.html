@@ -530,6 +530,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     .image-direction { min-height: 84px !important; resize: vertical; }
     .settings-test { justify-self: start; padding: 8px 10px; border: 1px solid var(--rust); color: var(--rust); background: transparent; font-size: 10px; letter-spacing: .08em; }
     .settings-test:hover { color: var(--paper); background: var(--rust); }
+    .settings-test:disabled, .settings-test:disabled:hover { opacity: .45; color: var(--rust); background: transparent; cursor: default; }
+    .key-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
     .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 13px; border-top: 1px solid #a3937d; }
     .settings-footer span { color: var(--muted); font-size: 10px; }
 
@@ -916,7 +918,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="settings-image-provider">Image provider</label><select id="settings-image-provider" data-help="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; AUTOMATIC1111, Forge, Fooocus, and ComfyUI connect to local servers." aria-description="Choose where scene art is generated. OpenAI supports style and character references; Stability supports aspect ratios; AUTOMATIC1111, Forge, Fooocus, and ComfyUI connect to local servers."><option value="openai">OpenAI Images API</option><option value="novelai">NovelAI Image API</option><option value="stability">Stability AI</option><option value="automatic1111">AUTOMATIC1111 / Forge API</option><option value="fooocus">Fooocus API</option><option value="comfyui">ComfyUI workflow API</option><option value="compatible">Custom OpenAI-compatible images</option></select></div>
           <div class="field full" id="image-api-base-field"><label for="settings-image-api-base">Image API base URL</label><input id="settings-image-api-base" data-help="Base address for a local image UI. The harness appends that UI's API route. Use HTTP only for a server on this computer; use HTTPS for a remote server." aria-description="Base address for a local image UI. The harness appends that UI's API route. Use HTTP only for a server on this computer; use HTTPS for a remote server." placeholder="http://127.0.0.1:1234/v1"><p class="settings-note" id="image-api-base-note">For a local or compatible image server. The route is selected automatically; do not append it yourself. HTTP is allowed only on this computer.</p></div>
           <div class="field full" id="image-workflow-field"><label for="settings-image-workflow">ComfyUI API workflow JSON</label><textarea id="settings-image-workflow" class="system-prompt" data-help="Export a workflow from ComfyUI in API format, then replace the positive text node with {{prompt}} and the negative text node with {{negative_prompt}}. The harness submits it and downloads the first image output." aria-description="Export a workflow from ComfyUI in API format, then replace the positive text node with {{prompt}} and the negative text node with {{negative_prompt}}. The harness submits it and downloads the first image output." spellcheck="false" placeholder="Paste an API-format workflow containing {{prompt}}"></textarea><p class="settings-note">ComfyUI is workflow-driven, so the harness needs your exported API-format workflow. Use the literal placeholders <code>{{prompt}}</code> and optionally <code>{{negative_prompt}}</code> in the text nodes you want replaced.</p></div>
-          <div class="field full"><label for="settings-image-api-key">Image API key / token</label><input id="settings-image-api-key" data-help="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." aria-description="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." type="password" autocomplete="new-password" placeholder="Optional — uses text key only for the same provider"></div>
+          <div class="field full"><label for="settings-image-api-key">Image API key / token</label><input id="settings-image-api-key" data-help="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." aria-description="Optional separate key for the selected image provider. If blank, OpenAI and NovelAI reuse the text key only when the same provider is selected. Local UIs usually do not need one unless you enabled a gateway or authentication." type="password" autocomplete="new-password" placeholder="Optional — uses text key only for the same provider"><div class="key-actions"><button class="settings-test" type="button" id="save-image-key">SAVE IMAGE KEY TO .ENV</button><button class="settings-test" type="button" id="forget-image-key">FORGET SAVED KEY</button></div><p class="generation-status" id="image-key-status" aria-live="polite"></p></div>
           <div class="field"><label for="settings-image-model">Image model</label><input id="settings-image-model" data-help="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name. ComfyUI takes its checkpoint from the workflow instead." aria-description="Exact model ID accepted by the selected image provider. The suggested value changes when you switch providers; replace it when your account or local server uses a different name. ComfyUI takes its checkpoint from the workflow instead." value="gpt-image-2" placeholder="gpt-image-2 or nai-diffusion-5-full"><p class="settings-note" id="image-model-note"></p></div>
           <div class="field"><label for="settings-image-size">Image shape</label><select id="settings-image-size"><option value="1536x1024">Landscape — 3:2</option><option value="1024x1024">Square — 1:1</option><option value="1024x1536">Portrait — 2:3</option></select></div>
           <div class="field"><label for="settings-image-quality">Image quality</label><select id="settings-image-quality" data-help="Requests a quality level where the selected provider supports it. Some providers may ignore this setting or map it to their own quality controls." aria-description="Requests a quality level where the selected provider supports it. Some providers may ignore this setting or map it to their own quality controls."><option value="auto">Auto</option><option value="low">Low — faster / cheaper</option><option value="medium">Medium</option><option value="high">High — slower / more detailed</option></select></div>
@@ -950,8 +952,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           <p class="settings-note full">For local text: start Ollama or the LM Studio server and download or load a model there, then use CHECK CONNECTION below to pick its exact model ID. A key is optional for local servers. Images use their separate provider settings.</p>
           <div class="field"><label for="settings-model">Model <span class="hint">(type an ID, or pick one after CHECK CONNECTION)</span></label><input id="settings-model" list="model-options" autocomplete="off" spellcheck="false" placeholder="e.g. your chosen model"><datalist id="model-options"></datalist></div>
           <div class="field full"><label for="settings-endpoint">Custom roleplay backend URL (advanced, optional)</label><input id="settings-endpoint" data-help="Leave blank for the included server. A custom URL must accept the harness roleplay format; this is not a provider API base URL." aria-description="Leave blank for the included server. A custom URL must accept the harness roleplay format; this is not a provider API base URL." placeholder="Leave blank to use the included local server"></div>
-          <div class="field full"><label for="settings-api-key">API key / token</label><input id="settings-api-key" type="password" autocomplete="new-password" placeholder="Used for this browser session only"></div>
-          <p class="settings-note">Choose your provider and a model available to your account. Enter its API key here, or set it in the optional .env file and restart the server. Both OpenAI and NovelAI support either method; NovelAI uses a Persistent API token. Keys entered here disappear on refresh. CHECK CONNECTION + LIST MODELS asks the provider for its model list: nothing is generated or billed, and it confirms that the key and address work. Generation uses your provider account and may incur charges. Leave the backend URL blank for normal use: it expects the harness response format, not a provider API base URL. With a custom backend, story requests go there without your browser key.</p>
+          <div class="field full"><label for="settings-api-key">API key / token</label><input id="settings-api-key" type="password" autocomplete="new-password" placeholder="Used for this browser session only"><div class="key-actions"><button class="settings-test" type="button" id="save-text-key">SAVE KEY TO .ENV</button><button class="settings-test" type="button" id="forget-text-key">FORGET SAVED KEY</button></div><p class="generation-status" id="text-key-status" aria-live="polite"></p></div>
+          <p class="settings-note">Choose your provider and a model available to your account. Enter its API key here, or set it in the optional .env file and restart the server. Both OpenAI and NovelAI support either method; NovelAI uses a Persistent API token. Keys entered here disappear on refresh, unless you press SAVE KEY TO .ENV: that writes the key into .env beside server.js, where it loads automatically from then on. It is plain text there, readable by anyone who can open that folder. CHECK CONNECTION + LIST MODELS asks the provider for its model list: nothing is generated or billed, and it confirms that the key and address work. Generation uses your provider account and may incur charges. Leave the backend URL blank for normal use: it expects the harness response format, not a provider API base URL. With a custom backend, story requests go there without your browser key.</p>
           <button class="settings-test" type="button" id="test-connection">CHECK CONNECTION + LIST MODELS</button>
           <p class="generation-status" id="provider-check-status" aria-live="polite"></p>
         </section>
@@ -1271,6 +1273,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       serverEnvFileReadable: false,
       serverEnvActiveSettings: [],
       serverEnvFileError: "",
+      serverEnvFileMisnamed: "",
+      // Which .env variable holds each provider's key, as /api/health reports it.
+      envKeyNames: { text: {}, image: {} },
       serverHealthError: "",
       // Canon the player has fixed permanently. Sent verbatim every turn and handed to the
       // summarizer as material it must stay consistent with, so it survives every fold.
@@ -1732,6 +1737,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       setControlValue("settings-endpoint", state.endpoint);
       setControlValue("settings-api-key", state.apiKey);
       $("settings-remember-art").checked = state.rememberArt;
+      renderKeyActions();
     }
 
     // Cheap redraw for the fields that only feed the prompt preview, so typing in Settings does
@@ -5120,6 +5126,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.imageApiKey = "";
       state.imageApiBaseUrl = "";
       state.imageWorkflow = "";
+      $("image-key-status").textContent = "";
       state.imageModel = state.imageProvider === "novelai" ? "nai-diffusion-5-full"
         : state.imageProvider === "openai" ? "gpt-image-2"
           : state.imageProvider === "stability" ? "stable-image-core"
@@ -5152,6 +5159,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       providerModelList = [];
       renderModelOptions();
       $("provider-check-status").textContent = "";
+      $("text-key-status").textContent = "";
       markDirty();
       renderAll();
     });
@@ -5161,8 +5169,12 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("settings-endpoint").addEventListener("input", event => { state.endpoint = event.target.value; refreshConnectionLabel(); renderPromptPreview(); });
     // The key itself appears nowhere in the rendered output, but whether one exists decides
     // whether the header says a turn can be sent.
-    $("settings-api-key").addEventListener("input", event => { state.apiKey = event.target.value; connectionChanged(); refreshConnectionLabel(); });
-    $("settings-image-api-key").addEventListener("input", event => { state.imageApiKey = event.target.value; });
+    $("settings-api-key").addEventListener("input", event => { state.apiKey = event.target.value; connectionChanged(); refreshConnectionLabel(); renderKeyActions(); });
+    $("settings-image-api-key").addEventListener("input", event => { state.imageApiKey = event.target.value; renderKeyActions(); });
+    $("save-text-key").addEventListener("click", () => saveKeyToEnv("text"));
+    $("forget-text-key").addEventListener("click", () => saveKeyToEnv("text", true));
+    $("save-image-key").addEventListener("click", () => saveKeyToEnv("image"));
+    $("forget-image-key").addEventListener("click", () => saveKeyToEnv("image", true));
     $("clear-autosaved-state").addEventListener("click", async () => {
       if (currentStateSaveTimer) clearTimeout(currentStateSaveTimer);
       autosaveEnabled = false;
@@ -5221,6 +5233,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.serverEnvFileReadable = Boolean(result.envFileReadable);
       state.serverEnvActiveSettings = Array.isArray(result.envFileActiveSettings) ? result.envFileActiveSettings : [];
       state.serverEnvFileError = typeof result.envFileError === "string" ? result.envFileError : "";
+      state.serverEnvFileMisnamed = typeof result.envFileMisnamed === "string" ? result.envFileMisnamed.slice(0, 40) : "";
+      const names = result.envKeyNames && typeof result.envKeyNames === "object" ? result.envKeyNames : {};
+      state.envKeyNames = Object.fromEntries(["text", "image"].map(kind => [kind, Object.fromEntries(Object.entries(names[kind] && typeof names[kind] === "object" ? names[kind] : {})
+        .filter(([provider, name]) => /^[a-z0-9]{1,32}$/.test(provider) && typeof name === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(name)))]));
       if (state.provider === "openai" && state.model === "gpt-5.6-luna" && typeof result.model === "string" && result.model.trim()) state.model = result.model.trim().slice(0, 120);
       if (state.imageModel === "gpt-image-2" && typeof result.imageModel === "string" && result.imageModel.trim()) state.imageModel = result.imageModel.trim().slice(0, 120);
     }
@@ -5237,6 +5253,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     // Why a turn cannot start when there is no key yet, using what /api/health reported about .env.
     function missingKeyAdvice(health, label) {
       const ready = TEXT_PROVIDER_IDS.filter(name => state.serverKeys[name]).map(name => PROVIDER_NAMES[name] || name);
+      if (state.serverEnvFileMisnamed) return "The harness is running, but it found " + state.serverEnvFileMisnamed + " instead of .env: Windows added .txt to the name, so it is not read. Enter your key above and press SAVE KEY TO .ENV (your .env.txt settings are copied over), or rename the file to .env.";
       if (ready.length) return "The harness is running, but its .env key is for " + ready.join(" and ") + ", not " + label + ". Enter a " + label + " key above, or add one to .env.";
       if (health.envFilePresent && health.envFileError) return "The harness is running, but its .env file could not be read: " + health.envFileError;
       if (health.envFilePresent && !health.envFileActiveSettings?.length) return "The harness is running and found .env, but every line in it is still commented out. Remove the # in front of your key's line.";
@@ -5266,6 +5283,64 @@ this program. If not, see https://www.gnu.org/licenses/.
         parts.push("The current model \u201c" + model + "\u201d is available.");
       }
       return parts.join(" ");
+    }
+
+    function envKeyNameFor(kind, provider) { return (state.envKeyNames[kind] || {})[provider] || ""; }
+
+    // SAVE KEY writes the typed key into .env through the local server; FORGET removes the one there.
+    // Neither is offered for a provider that takes no key from .env, such as Ollama.
+    function renderKeyActions() {
+      for (const kind of ["text", "image"]) {
+        const provider = kind === "text" ? state.provider : state.imageProvider;
+        const name = envKeyNameFor(kind, provider);
+        const typed = (kind === "text" ? state.apiKey : state.imageApiKey).trim();
+        const save = $("save-" + kind + "-key"), forget = $("forget-" + kind + "-key");
+        if (!save || !forget) continue;
+        save.disabled = !name || !typed;
+        forget.disabled = !name || !state.serverEnvActiveSettings.includes(name);
+        save.title = name ? "Write the key typed above into .env as " + name + ", so it loads automatically" : "This provider does not take a key from .env";
+        // Say when a key is already waiting on this computer, so nobody pastes it again for nothing.
+        const field = $(kind === "text" ? "settings-api-key" : "settings-image-api-key");
+        const serverHasKey = kind === "text" ? state.serverKeys[provider] : state.serverImageKeys[provider];
+        field.placeholder = serverHasKey ? "A key is saved on this computer. Leave blank to use it."
+          : kind === "text" ? "Paste a key. It lasts until refresh unless you save it." : "Optional. Uses the text key only for the same provider.";
+        forget.title = name ? "Remove " + name + " from .env" : "This provider does not take a key from .env";
+      }
+    }
+
+    async function saveKeyToEnv(kind, forget = false) {
+      const provider = kind === "text" ? state.provider : state.imageProvider;
+      const name = envKeyNameFor(kind, provider);
+      const status = $(kind + "-key-status");
+      const setStatus = (message, isError = false) => { status.textContent = message; status.classList.toggle("error", isError); };
+      const value = forget ? "" : (kind === "text" ? state.apiKey : state.imageApiKey).trim();
+      if (!name || (!forget && !value)) return;
+      if (forget && !window.confirm("Remove " + name + " from .env? You will need to enter or save the key again to use it.")) return;
+      setStatus(forget ? "Removing " + name + " from .env…" : "Saving to .env…");
+      try {
+        const response = await fetchWithTimeout("/api/env-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, provider, value })
+        }, TIMEOUTS.files, "key save");
+        const result = await readApiJson(response, "key save");
+        if (!response.ok) throw new Error(result.error || "The key could not be saved (HTTP " + response.status + ").");
+        // The server holds it now. Keeping the browser copy too would make it the one actually used.
+        if (!forget && kind === "text") state.apiKey = "";
+        if (!forget && kind === "image") state.imageApiKey = "";
+        try {
+          const health = await fetchWithTimeout("/api/health", { cache: "no-store" }, TIMEOUTS.files, "health check");
+          applyHealth(await readApiJson(health, "health check"));
+        } catch { /* the save itself succeeded; the next check will catch up */ }
+        const shadowed = result.shadowed ? " Note: a " + name + " environment variable is also set on this computer, and it takes precedence over .env." : "";
+        setStatus(forget
+          ? "Removed " + name + " from .env." + shadowed
+          : "Saved to .env as " + name + ". It loads automatically from now on, so you will not need to paste it again."
+            + (result.copiedFrom ? " Your settings from " + result.copiedFrom + " were copied into .env too; you can delete " + result.copiedFrom + "." : "") + shadowed);
+        renderAll();
+      } catch (error) {
+        setStatus(error.message, true);
+      }
     }
 
     // One button for the three things a first turn silently depends on: the harness answering, the

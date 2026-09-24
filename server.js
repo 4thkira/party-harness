@@ -46,6 +46,55 @@ function envValue(raw) {
   return quoted ? quoted[2] : text.replace(/(?:^|\s+)#.*$/, "").trim();
 }
 
+// Names that had a value in the real environment when the server started. They outrank .env at
+// boot and every time Settings rewrites the file, so a deliberate override never loses to it.
+const REAL_ENVIRONMENT = new Set(Object.keys(process.env).filter(name => process.env[name]));
+
+// The settings a .env text holds, as the loader reads them: the first entry for a name wins.
+function parseEnvText(raw) {
+  const entries = new Map();
+  const malformedLines = [];
+  for (const [index, line] of String(raw).replace(/^\uFEFF/, "").split(/\r?\n/).entries()) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match) {
+      malformedLines.push(index + 1);
+      continue;
+    }
+    const value = envValue(match[2]);
+    if (value && !entries.has(match[1])) entries.set(match[1], value);
+  }
+  return { entries, malformedLines };
+}
+
+// Puts a .env text's settings into process.env beneath the real environment. It runs at boot, and
+// again after Settings rewrites the file so a saved key works without a restart; a name the file
+// set earlier but no longer holds is taken back out, which is what makes forgetting a key immediate.
+const envFileAppliedNames = new Set();
+function applyEnvText(raw, status) {
+  const { entries, malformedLines } = parseEnvText(raw);
+  for (const name of envFileAppliedNames) {
+    if (!entries.has(name)) { delete process.env[name]; envFileAppliedNames.delete(name); }
+  }
+  for (const [name, value] of entries) {
+    // A real environment variable is a deliberate override and outranks the file.
+    if (REAL_ENVIRONMENT.has(name)) continue;
+    process.env[name] = value;
+    envFileAppliedNames.add(name);
+  }
+  status.activeNames = [...entries.keys()];
+  status.loadedNames = [...envFileAppliedNames];
+  status.malformedLines = malformedLines;
+  return status;
+}
+
+// Windows hides file extensions by default, so a .env made in Notepad is easily .env.txt in truth.
+// Nothing reads that name, and without this the keys in it simply never load, with no reason given.
+function misnamedEnvFile() {
+  try { return fs.statSync(path.join(__dirname, ".env.txt")).isFile() ? ".env.txt" : ""; } catch { return ""; }
+}
+
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
   const status = {
@@ -54,7 +103,8 @@ function loadEnvFile() {
     activeNames: [],
     loadedNames: [],
     malformedLines: [],
-    error: ""
+    error: "",
+    misnamed: ""
   };
   let raw;
   try {
@@ -65,33 +115,14 @@ function loadEnvFile() {
     if (error && error.code !== "ENOENT") {
       status.exists = true;
       status.error = "The .env file could not be read: " + (error.message || error);
+    } else {
+      status.misnamed = misnamedEnvFile();
     }
     return status;
   }
-  for (const [index, line] of raw.replace(/^\uFEFF/, "").split(/\r?\n/).entries()) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (!match) {
-      status.malformedLines.push(index + 1);
-      continue;
-    }
-    const name = match[1];
-    const value = envValue(match[2]);
-    if (!value) continue;
-    status.activeNames.push(name);
-    // A real environment variable is a deliberate override and outranks the file.
-    if (!process.env[name]) {
-      process.env[name] = value;
-      status.loadedNames.push(name);
-    }
-  }
-  status.activeNames = Array.from(new Set(status.activeNames));
-  status.loadedNames = Array.from(new Set(status.loadedNames));
-  return status;
+  return applyEnvText(raw, status);
 }
 const ENV_FILE_STATUS = loadEnvFile();
-const ENV_FILE_LOADED = ENV_FILE_STATUS.exists && ENV_FILE_STATUS.readable;
 
 // A port the listener cannot use used to fail as a raw Node stack trace, and 0 was worse: the OS
 // picked a random port, the startup line printed :0, and the Host check refused every request.
@@ -118,17 +149,28 @@ const DEFAULT_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 // Per provider, and per purpose. Only OpenAI text had a server-side key before, so a NovelAI user
 // re-entered their token on every refresh with no way to avoid it. An image-specific key falls back
 // to that provider's general key, mirroring how the browser's two key fields already behave.
-const SERVER_KEYS = {
-  openai: process.env.OPENAI_API_KEY || "",
-  novelai: process.env.NOVELAI_API_KEY || "",
-  ...Object.fromEntries(Object.entries(textProviders.PRESETS).filter(([,preset]) => preset.key).map(([name,preset]) => [name,process.env[preset.key] || ""]))
-};
-const SERVER_IMAGE_KEYS = {
-  openai: process.env.OPENAI_IMAGE_API_KEY || SERVER_KEYS.openai,
-  novelai: process.env.NOVELAI_IMAGE_API_KEY || SERVER_KEYS.novelai,
-  stability: process.env.STABILITY_API_KEY || "",
-  compatible: process.env.COMPATIBLE_IMAGE_API_KEY || ""
-};
+function serverKeysFromEnvironment() {
+  return {
+    openai: process.env.OPENAI_API_KEY || "",
+    novelai: process.env.NOVELAI_API_KEY || "",
+    ...Object.fromEntries(Object.entries(textProviders.PRESETS).filter(([,preset]) => preset.key).map(([name,preset]) => [name,process.env[preset.key] || ""]))
+  };
+}
+function serverImageKeysFromEnvironment(keys) {
+  return {
+    openai: process.env.OPENAI_IMAGE_API_KEY || keys.openai,
+    novelai: process.env.NOVELAI_IMAGE_API_KEY || keys.novelai,
+    stability: process.env.STABILITY_API_KEY || "",
+    compatible: process.env.COMPATIBLE_IMAGE_API_KEY || ""
+  };
+}
+const SERVER_KEYS = serverKeysFromEnvironment();
+const SERVER_IMAGE_KEYS = serverImageKeysFromEnvironment(SERVER_KEYS);
+// Updated in place after Settings rewrites .env: every handler reads these objects.
+function refreshServerKeys() {
+  Object.assign(SERVER_KEYS, serverKeysFromEnvironment());
+  Object.assign(SERVER_IMAGE_KEYS, serverImageKeysFromEnvironment(SERVER_KEYS));
+}
 const HTML_PATH = path.join(__dirname, "rp-party-harness-prototype.html");
 const CHARACTER_FILE_MAX_BYTES = 256 * 1024;
 // This has to clear what the client's own field caps allow it to send, or a legitimately configured
@@ -2249,6 +2291,102 @@ async function handleSummary(req, res) {
   }
 }
 
+// SAVE KEY TO .ENV. A beginner can keep a key between launches without creating, renaming, or
+// editing a text file. Only a known provider's key can be written -- never a URL, a port, or an
+// arbitrary variable such as NODE_OPTIONS -- and only as one printable token.
+function envKeyName(kind, provider) {
+  if (kind === "text") {
+    if (provider === "openai") return "OPENAI_API_KEY";
+    if (provider === "novelai") return "NOVELAI_API_KEY";
+    return (Object.hasOwn(textProviders.PRESETS, provider) && textProviders.PRESETS[provider].key) || "";
+  }
+  if (kind === "image") return (Object.hasOwn(imageProviders.IMAGE_PRESETS, provider) && imageProviders.IMAGE_PRESETS[provider].key) || "";
+  return "";
+}
+
+// The browser learns this mapping from /api/health rather than keeping a copy that could drift.
+function envKeyNames() {
+  const table = (kind, providers) => Object.fromEntries(providers.map(provider => [provider, envKeyName(kind, provider)]).filter(([, name]) => name));
+  return { text: table("text", ["openai", "novelai", ...Object.keys(textProviders.PRESETS)]), image: table("image", Object.keys(imageProviders.IMAGE_PRESETS)) };
+}
+
+// Rewrites one setting and leaves every other line -- comments, blank lines, the user's own notes,
+// CRLF endings, a BOM -- as it was. The loader reads the first active line for a name, so that one
+// is replaced, and any later duplicate is removed rather than left to take over afterwards. With no
+// active line, a commented-out template line ("# NAME=...") is taken over; otherwise the setting is
+// appended. An empty value removes the setting.
+function upsertEnvText(raw, name, value) {
+  const bom = raw.startsWith("﻿") ? "﻿" : "";
+  const newline = /\r\n/.test(raw) ? "\r\n" : "\n";
+  const active = new RegExp("^\\s*(?:export\\s+)?" + name + "\\s*=");
+  const template = new RegExp("^\\s*#\\s*(?:export\\s+)?" + name + "\\s*=");
+  // A leading # would read as a comment; in quotes it is kept.
+  const entry = name + "=" + (value.startsWith("#") ? '"' + value + '"' : value);
+  let lines = raw.replace(/^﻿/, "").split(/\r?\n/);
+  const first = lines.findIndex(line => active.test(line));
+  lines = lines.flatMap((line, index) => !active.test(line) ? [line] : value && index === first ? [entry] : []);
+  if (value && first < 0) {
+    const slot = lines.findIndex(line => template.test(line));
+    if (slot >= 0) lines[slot] = entry;
+    else {
+      while (lines.length && lines[lines.length - 1] === "") lines.pop();
+      lines.push(entry);
+    }
+  }
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  return bom + lines.join(newline) + (lines.length ? newline : "");
+}
+
+// What a new .env starts from: the file being replaced; else a misnamed .env.txt, so keys a
+// beginner already typed there come along; else the documented template; else one comment line.
+function envFileBase() {
+  for (const name of [".env", ".env.txt", ".env.example"]) {
+    try { return { raw: fs.readFileSync(path.join(__dirname, name), "utf8"), from: name }; }
+    catch (error) { if (!error || error.code !== "ENOENT") throw error; }
+  }
+  return { raw: "# Party Harness local key file, written by Settings. .env.example lists every setting.\n", from: "" };
+}
+
+function writeEnvFile(content) {
+  const target = path.join(__dirname, ".env");
+  const temporary = path.join(__dirname, ".env." + crypto.randomBytes(6).toString("hex") + ".tmp");
+  // Written beside the target and renamed over it, so a crash mid-write cannot leave half a file.
+  fs.writeFileSync(temporary, content, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  try { fs.renameSync(temporary, target); }
+  catch (error) { try { fs.unlinkSync(temporary); } catch { /* already gone */ } throw error; }
+}
+
+async function handleEnvKey(req, res) {
+  let input;
+  try {
+    input = JSON.parse(await readBody(req, 8 * 1024, "Key request is too large."));
+  } catch (error) {
+    writeJson(res, error.statusCode || 400, { error: error.statusCode ? error.message : "Key request must be valid JSON." });
+    return;
+  }
+  const kind = input && input.kind === "image" ? "image" : "text";
+  const name = envKeyName(kind, input && typeof input.provider === "string" ? input.provider : "");
+  if (!name) { writeJson(res, 400, { error: "That provider does not take a key from .env." }); return; }
+  const value = input && typeof input.value === "string" ? input.value.trim() : "";
+  if (value && (value.length > 1000 || !/^[\x21-\x7e]+$/.test(value) || /["']/.test(value))) {
+    writeJson(res, 400, { error: "That does not look like an API key: a key is one piece of text, with no spaces or quotation marks." });
+    return;
+  }
+  let base;
+  try { base = envFileBase(); }
+  catch (error) { writeJson(res, 500, { error: "The existing .env could not be read, so it was left alone: " + (error.message || error) }); return; }
+  // Forgetting a key that no .env holds changes nothing, and must not create a file to do it.
+  if (!value && base.from !== ".env") { writeJson(res, 200, { ok: true, name, saved: false, shadowed: REAL_ENVIRONMENT.has(name), copiedFrom: "" }); return; }
+  const content = upsertEnvText(base.raw, name, value);
+  try { writeEnvFile(content); }
+  catch (error) { writeJson(res, 500, { error: "Could not write .env beside server.js: " + (error.message || error) }); return; }
+  Object.assign(ENV_FILE_STATUS, { exists: true, readable: true, error: "", misnamed: "" });
+  applyEnvText(content, ENV_FILE_STATUS);
+  refreshServerKeys();
+  console.log((value ? "Saved " + name + " to" : "Removed " + name + " from") + " .env from Settings. Values are hidden.");
+  writeJson(res, 200, { ok: true, name, saved: Boolean(value), shadowed: REAL_ENVIRONMENT.has(name), copiedFrom: base.from === ".env.txt" ? ".env.txt" : "" });
+}
+
 // CHECK CONNECTION + LIST MODELS. Asking a provider for its models is the cheapest request that
 // proves the key and address work -- nothing is generated or billed -- and the answer is the list of
 // exact model IDs a beginner otherwise has to find and type by hand.
@@ -2496,12 +2634,14 @@ async function handleRequest(req, res) {
       // Booleans only. Which providers are ready is useful to the UI; the keys themselves never leave.
       serverKeys: { openai: Boolean(SERVER_KEYS.openai), novelai: Boolean(SERVER_KEYS.novelai), ...Object.fromEntries(Object.keys(textProviders.PRESETS).map(name => [name, Boolean(SERVER_KEYS[name])])) },
       serverImageKeys: { openai: Boolean(SERVER_IMAGE_KEYS.openai), novelai: Boolean(SERVER_IMAGE_KEYS.novelai), stability: Boolean(SERVER_IMAGE_KEYS.stability), automatic1111: false, fooocus: false, comfyui: false, compatible: Boolean(SERVER_IMAGE_KEYS.compatible) },
-      envFile: ENV_FILE_LOADED,
+      envFile: ENV_FILE_STATUS.exists && ENV_FILE_STATUS.readable,
+      envFileMisnamed: ENV_FILE_STATUS.misnamed,
       envFilePresent: ENV_FILE_STATUS.exists,
       envFileReadable: ENV_FILE_STATUS.readable,
       envFileActiveSettings: ENV_FILE_STATUS.activeNames.filter(name => ENV_SETTING_NAMES.has(name)),
       envFileMalformedLines: ENV_FILE_STATUS.malformedLines,
       envFileError: ENV_FILE_STATUS.error,
+      envKeyNames: envKeyNames(),
       model: DEFAULT_MODEL,
       imageModel: DEFAULT_IMAGE_MODEL,
       port: PORT,
@@ -2579,6 +2719,12 @@ async function handleRequest(req, res) {
   if (req.method === "POST" && req.url === "/api/summarize") {
     if (!jsonRequest(req)) { writeJson(res, 415, { error: "JSON request body required." }); return; }
     await handleSummary(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/api/env-key") {
+    if (!jsonRequest(req)) { writeJson(res, 415, { error: "JSON request body required." }); return; }
+    await handleEnvKey(req, res);
     return;
   }
 
@@ -2664,7 +2810,10 @@ server.on("error", error => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log("Party Harness server listening at http://127.0.0.1:" + PORT);
   const ready = Object.keys(SERVER_KEYS).filter(name => SERVER_KEYS[name]);
-  if (!ENV_FILE_STATUS.exists) {
+  if (!ENV_FILE_STATUS.exists && ENV_FILE_STATUS.misnamed) {
+    console.warn("Found " + ENV_FILE_STATUS.misnamed + " beside server.js but no .env. Windows added .txt to the name, so it is not read."
+      + " Rename it to .env (in File Explorer, View > Show > File name extensions shows the full name), or save your key from Settings.");
+  } else if (!ENV_FILE_STATUS.exists) {
     console.log("No .env file found beside server.js; using environment variables only.");
   } else if (ENV_FILE_STATUS.error) {
     console.error(ENV_FILE_STATUS.error);

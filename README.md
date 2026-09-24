@@ -52,13 +52,15 @@ Never post an API key in a screenshot, chat message, GitHub issue, or public fil
 
 If you do not want to paste your key every time, you can save it in a file named `.env`. This is just a small plain-text settings file placed beside `server.js`. It is not a program and you do not open it in the browser.
 
+The simplest way to make one is to paste your key in **SETTINGS** and press **SAVE KEY TO .ENV**; Party Harness creates the file for you. The steps below are for doing it by hand.
+
 1. In the Party Harness folder, find `.env.example`.
 2. Make a copy of it in the same folder.
 3. Rename the copy to exactly `.env` — not `.env.txt`.
 4. Open `.env` in Notepad. Remove the `#` from the setting you need and put your key after the `=` sign. For example: `OPENAI_API_KEY=put-your-key-here`.
 5. Save the file and restart Party Harness by closing and reopening **Start Party Harness.cmd**.
 
-On Windows, File Explorer may hide the ending of filenames. If your new file is secretly called `.env.txt`, turn on **View → Show → File name extensions**, then rename it again. Keep `.env` private. It is normally ignored by Git, but you should still check before sharing the folder.
+On Windows, File Explorer may hide the ending of filenames. If your new file is secretly called `.env.txt`, Party Harness notices and says so in its black window and in Settings. Turn on **View → Show → File name extensions**, then rename it, or paste your key in Settings and press **SAVE KEY TO .ENV**, which copies what you wrote in `.env.txt` into a proper `.env`. Keep `.env` private. It is normally ignored by Git, but you should still check before sharing the folder.
 
 You do not need an API key for Ollama or LM Studio when the model is running on your own computer. Those programs are local providers. You still need to install and start them, download a model there, and enter that model's exact name in Party Harness.
 
@@ -179,7 +181,9 @@ To stop the app, press Ctrl+C in its terminal. Use the launcher again next time.
 
 ## Keep your key between launches (optional)
 
-Keys typed in Settings disappear when you refresh. To avoid retyping them:
+Keys typed in Settings disappear when you refresh. The easy way to keep one is to paste it into the API key box and press **SAVE KEY TO .ENV**. Party Harness writes it into a `.env` file beside `server.js`, where it loads automatically from then on, even after a restart. **FORGET SAVED KEY** removes it again. Image keys have their own **SAVE IMAGE KEY TO .ENV** button.
+
+To edit the file yourself instead:
 
 1. Copy `.env.example` to a file named exactly `.env`, beside `server.js`.
 2. Remove the leading `#` from the setting you need and replace its placeholder, for example `OPENAI_API_KEY=your-key-here`.

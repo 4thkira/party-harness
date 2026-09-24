@@ -25,6 +25,8 @@ const SERVER = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
 const LAUNCHER = fs.readFileSync(path.join(__dirname, "start-party-harness.ps1"), "utf8");
 const RELEASE = fs.readFileSync(path.join(__dirname, "prepare-release.js"), "utf8");
 const README = fs.readFileSync(path.join(__dirname, "README.md"), "utf8");
+const TEXT_PROVIDERS = fs.readFileSync(path.join(__dirname, "text-providers.js"), "utf8");
+const IMAGE_PROVIDERS = fs.readFileSync(path.join(__dirname, "image-providers.js"), "utf8");
 
 let failures = 0;
 let checks = 0;
@@ -162,7 +164,7 @@ console.log("\nkey persistence");
 {
   check(".env loader exists", /function loadEnvFile\(\)/.test(SERVER));
   // A real environment variable has to win, or the file silently overrides a deliberate override.
-  check("environment variables outrank the file", /if \(!process\.env\[name\]\)\s*\{\s*process\.env\[name\] = value;/.test(SERVER));
+  check("environment variables outrank the file", /if \(REAL_ENVIRONMENT\.has\(name\)\) continue;\s*process\.env\[name\] = value;/.test(SERVER));
   check("both providers can hold a server-side key",
     /novelai: process\.env\.NOVELAI_API_KEY/.test(SERVER),
     "only OpenAI had one, so NovelAI users re-entered a token on every refresh");
@@ -170,6 +172,14 @@ console.log("\nkey persistence");
     /envFileActiveSettings:/.test(SERVER) && /Active settings:/.test(SERVER),
     "the launcher and Settings need to distinguish a present file from a file with usable entries");
   check("commented .env entries are not treated as active", /trimmed\.startsWith\("#"\)/.test(SERVER));
+  // Settings can save any preset's key into .env, but /api/health only reports names listed in
+  // ENV_SETTING_NAMES. A preset whose key variable is missing there saves fine and then never shows
+  // up as saved, so FORGET SAVED KEY stays disabled with nothing to say why.
+  const presetKeys = [TEXT_PROVIDERS, IMAGE_PROVIDERS].flatMap(source => Array.from(source.matchAll(/key: ['"]([A-Z0-9_]+)['"]/g), match => match[1]));
+  const reported = (SERVER.match(/const ENV_SETTING_NAMES = new Set\(\[([\s\S]*?)\]\)/) || [, ""])[1];
+  const unreported = presetKeys.filter(name => !reported.includes('"' + name + '"'));
+  check("every provider key Settings can save is one /api/health reports (" + presetKeys.length + " keys)",
+    presetKeys.length >= 10 && unreported.length === 0, "missing from ENV_SETTING_NAMES: " + unreported.join(", "));
   // The launcher re-reads .env to agree with the server about the port and model. If the two stop
   // agreeing on what is a comment or a quote, one of them announces a value the other never uses.
   check("launcher and server read .env comments and quotes alike",

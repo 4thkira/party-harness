@@ -959,3 +959,58 @@ test("CHECK CONNECTION explains a missing key, a stopped harness, and ignores an
   assert.equal(h.run("state.model"), "");
   assert.ok(!h.element("model-options").innerHTML, "a list about the old provider was offered");
 });
+
+test("saving a key edits one .env line and leaves the rest of the file as the player wrote it", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(source.indexOf("function upsertEnvText("), source.indexOf("// What a new .env starts from")), context);
+  const upsert = (raw, name, value) => vm.runInContext("upsertEnvText(" + JSON.stringify(raw) + ", " + JSON.stringify(name) + ", " + JSON.stringify(value) + ")", context);
+  // The template's commented line is taken over, in place, with every comment around it kept.
+  const example = fs.readFileSync(path.join(__dirname, ".env.example"), "utf8");
+  const fromTemplate = upsert(example, "OPENAI_API_KEY", "sk-new");
+  assert.match(fromTemplate, /^OPENAI_API_KEY=sk-new$/m);
+  assert.doesNotMatch(fromTemplate, /^# OPENAI_API_KEY=/m);
+  assert.equal(fromTemplate.split("\n").length, example.trimEnd().split("\n").length + 1);
+  assert.match(fromTemplate, /# NOVELAI_API_KEY=pst-\.\.\./);
+  // Windows line endings and a byte-order mark survive; a later duplicate cannot take over later.
+  const windows = "﻿# mine\r\nOPENAI_API_KEY=old\r\nOPENAI_MODEL=m\r\nOPENAI_API_KEY=duplicate\r\n";
+  assert.equal(upsert(windows, "OPENAI_API_KEY", "sk-new"), "﻿# mine\r\nOPENAI_API_KEY=sk-new\r\nOPENAI_MODEL=m\r\n");
+  assert.equal(upsert(windows, "OPENAI_API_KEY", ""), "﻿# mine\r\nOPENAI_MODEL=m\r\n");
+  // Appended when there is no line to reuse; quoted when a leading # would read as a comment.
+  assert.equal(upsert("A=1", "GROQ_API_KEY", "#hash"), 'A=1\nGROQ_API_KEY="#hash"\n');
+  assert.equal(upsert("", "GROQ_API_KEY", "gsk"), "GROQ_API_KEY=gsk\n");
+  // Whatever is written reads back as exactly the value that was saved.
+  vm.runInContext(source.slice(source.indexOf("function envValue("), source.indexOf("// Names that had a value in the real environment")), context);
+  assert.equal(vm.runInContext("envValue(" + JSON.stringify("\"#hash\"") + ")", context), "#hash");
+});
+
+test("SAVE KEY hands the key to the server, clears the browser copy, and FORGET needs a saved key", async () => {
+  const h = harness();
+  const calls = [];
+  h.context.window.confirm = () => true;
+  h.run(`state.provider = 'openai'; state.apiKey = 'sk-typed';
+    state.envKeyNames = { text: { openai: 'OPENAI_API_KEY' }, image: { stability: 'STABILITY_API_KEY' } };
+    state.serverEnvActiveSettings = [];`);
+  h.context.recordCall = (url, body) => calls.push([url, body ? JSON.parse(body) : null]);
+  h.run(`fetchWithTimeout = async (url, options) => {
+    recordCall(url, options && options.body);
+    return url === '/api/health'
+      ? { ok: true, status: 200, json: async () => ({ ok: true, serverKeys: { openai: true }, envFileActiveSettings: ['OPENAI_API_KEY'], envKeyNames: { text: { openai: 'OPENAI_API_KEY' }, image: {} } }) }
+      : { ok: true, status: 200, json: async () => ({ ok: true, name: 'OPENAI_API_KEY', saved: true, shadowed: false, copiedFrom: '.env.txt' }) };
+  };`);
+  h.run("renderKeyActions()");
+  assert.equal(h.element("save-text-key").disabled, false);
+  assert.equal(h.element("forget-text-key").disabled, true);
+  await h.run("saveKeyToEnv('text')");
+  assert.deepEqual(calls[0], ["/api/env-key", { kind: "text", provider: "openai", value: "sk-typed" }]);
+  assert.equal(h.run("state.apiKey"), "");
+  assert.equal(h.run("state.serverKeys.openai"), true);
+  assert.match(h.element("text-key-status").textContent, /^Saved to \.env as OPENAI_API_KEY\. .*copied into \.env too; you can delete \.env\.txt\.$/);
+  h.run("renderKeyActions()");
+  assert.equal(h.element("save-text-key").disabled, true, "nothing is typed any more");
+  assert.equal(h.element("forget-text-key").disabled, false);
+  // Ollama takes no key from .env, so neither button is offered.
+  h.run("state.provider = 'ollama'; state.apiKey = 'anything'; renderKeyActions();");
+  assert.equal(h.element("save-text-key").disabled, true);
+  assert.equal(h.element("forget-text-key").disabled, true);
+});
