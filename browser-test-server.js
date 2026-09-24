@@ -52,6 +52,8 @@ http.createServer(async (req, res) => {
   } else if (req.url === "/api/health") json({ok:true,serverKeys:{openai:true,novelai:false},model:"fixture-provider"});
   else if (req.url === "/api/defaults") json({});
   else if (req.url === "/api/character-files") json({files:[]});
+  // Empty, like a fresh download. Without this route every fixture page load logged a 404.
+  else if (req.url === "/api/local-library") json({music:[],ambience:[],skins:[]});
   else if (req.url === "/api/turn") {
     let raw="";for await (const part of req) raw+=part;
     const input=JSON.parse(raw);const changes=empty();

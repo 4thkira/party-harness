@@ -488,7 +488,8 @@ console.log("\nstructured roleplay runtime");
       && /step = Math\.min\(Math\.round\(step \* 1\.2\), DICE_ROLL_MS - elapsed\);/.test(HTML)
       && /elapsed \+= step;\s*\n\s*if \(elapsed >= DICE_ROLL_MS\)/.test(HTML));
   check("state proposals pass through a bounded reducer",
-    /function applyStateChanges\(result\)/.test(HTML) && /boundedInteger\(member\.stats\[index\] \+ delta, 0, 100\)/.test(HTML));
+    /function applyStateChanges\(result\)/.test(HTML)
+      && /boundedInteger\(boundedInteger\(member\.stats\[index\], 0, 100, 50\) \+ delta, 0, 100\)/.test(HTML));
   check("undo checkpoints include prose and mechanical state",
     /function captureTurnCheckpoint\(action\)/.test(HTML) && /worldState: structuredClone\(state\.worldState\)/.test(HTML)
       && /restoreTurnCheckpoint\(checkpoint\)/.test(HTML));
@@ -552,6 +553,29 @@ console.log("\ndefault model");
     "server " + serverDefault + " vs client " + clientDefault);
   check("launcher default agrees (" + launcherDefault + ")", launcherDefault === serverDefault,
     "launcher " + launcherDefault + " vs server " + serverDefault);
+  // server.js lets a real environment variable outrank .env. A launcher that fills in OPENAI_MODEL
+  // makes its default a real environment variable, so an OPENAI_MODEL set in .env never applies.
+  check("launcher announces the default without assigning it", !/\$env:OPENAI_MODEL\s*=/i.test(LAUNCHER),
+    "the launcher's default would silently outrank OPENAI_MODEL in .env");
+  check("launcher reads RP_PORT the way the server does, .env included",
+    /Get-HarnessSetting 'RP_PORT'/.test(LAUNCHER) && /\$envFileSettings\[\$Name\]/.test(LAUNCHER),
+    "the launcher would check one port for an old harness while the server listens on another");
+}
+
+console.log("\ninterface palettes");
+{
+  // applyPalette() writes each key to the custom property of the same name, and nothing complains
+  // when the stylesheet never reads it. paper2, paper3, and void were written while the stylesheet
+  // read --paper-2 and --paper-3 and hard-coded the backdrop, so three of the four palettes only
+  // half applied.
+  const declared = new Set(Array.from((HTML.match(/:root \{([^}]*)\}/) || [, ""])[1].matchAll(/--([a-z0-9-]+):/g), match => match[1]));
+  const palettes = HTML.slice(HTML.indexOf("const PALETTES = {"), HTML.indexOf("const FONTS = {"));
+  const keys = new Set(Array.from(palettes.matchAll(/(?:\{ |, )"?([a-z0-9-]+)"?: "#/g), match => match[1]));
+  const undeclared = [...keys].filter(key => !declared.has(key));
+  check("every palette key is a custom property the stylesheet declares (" + keys.size + " keys)",
+    keys.size > 0 && undeclared.length === 0, "written but never declared: " + undeclared.map(key => "--" + key).join(", "));
+  check("the backdrop follows the palette", /--void:/.test(HTML) && /background: var\(--void\);/.test(HTML),
+    "the page background is hard-coded again, so no palette can change it");
 }
 
 console.log("\nregex guards");

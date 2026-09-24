@@ -84,7 +84,16 @@ function loadEnvFile() {
 const ENV_FILE_STATUS = loadEnvFile();
 const ENV_FILE_LOADED = ENV_FILE_STATUS.exists && ENV_FILE_STATUS.readable;
 
-const PORT = Number(process.env.RP_PORT || 8787);
+// A port the listener cannot use used to fail as a raw Node stack trace, and 0 was worse: the OS
+// picked a random port, the startup line printed :0, and the Host check refused every request.
+const PORT_SETTING = String(process.env.RP_PORT || "").trim();
+const PORT = PORT_SETTING ? Number(PORT_SETTING) : 8787;
+if (PORT_SETTING && (!/^\d{1,5}$/.test(PORT_SETTING) || PORT < 1 || PORT > 65535)) {
+  const portSource = ENV_FILE_STATUS.loadedNames.includes("RP_PORT") ? ".env" : "your environment";
+  console.error("RP_PORT in " + portSource + " must be a whole number from 1 to 65535, not " + JSON.stringify(PORT_SETTING)
+    + ". Fix or remove it (the default is 8787), then start the harness again.");
+  process.exit(1);
+}
 // Keep this in step with the client's default model and the launcher's OPENAI_MODEL, so a
 // diagnostic request that omits settings.model does not quietly use a different model than the UI.
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-luna";
@@ -465,6 +474,7 @@ function readBody(req, limit = 1024 * 1024, tooLargeMessage = "Request body is t
       return;
     }
     let body = "";
+    let bytes = 0;
     let overflowed = false;
     req.setEncoding("utf8");
     req.on("data", chunk => {
@@ -472,7 +482,12 @@ function readBody(req, limit = 1024 * 1024, tooLargeMessage = "Request body is t
       // would kill the connection before the handler could send its explanation.
       if (overflowed) return;
       body += chunk;
-      if (Buffer.byteLength(body) > limit) {
+      // Counted a chunk at a time. Re-measuring the whole accumulated body on every chunk was
+      // quadratic: a 12 MiB image request with reference images blocked the server for about two
+      // seconds just counting its own bytes. The decoder never splits a character across chunks,
+      // so the per-chunk sum is the same number.
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > limit) {
         overflowed = true;
         body = "";
         reject(bodyTooLargeError(tooLargeMessage));
@@ -862,11 +877,16 @@ function watchClientDisconnect(clientResponse, request) {
 
 function extractNovelAIZipImage(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 30) return null;
-  let centralOffset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  // The central directory is located through the end-of-central-directory record that closes the
+  // archive. Searching forward for the first PK\x01\x02 could land inside the image data itself --
+  // compressed bytes can hold any four-byte sequence -- and then read garbage offsets and reject an
+  // image that was fine. Without a usable record, the single entry's local header at 0 still works.
+  const endOffset = buffer.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  const centralOffset = endOffset >= 0 && endOffset + 22 <= buffer.length ? buffer.readUInt32LE(endOffset + 16) : -1;
   let localOffset = 0;
   let compression;
   let compressedSize;
-  if (centralOffset >= 0 && centralOffset + 46 <= buffer.length) {
+  if (centralOffset >= 0 && centralOffset + 46 <= buffer.length && buffer.readUInt32LE(centralOffset) === 0x02014b50) {
     compression = buffer.readUInt16LE(centralOffset + 10);
     compressedSize = buffer.readUInt32LE(centralOffset + 20);
     localOffset = buffer.readUInt32LE(centralOffset + 42);
@@ -989,6 +1009,14 @@ function providerError(response, fallback) {
   return fallback;
 }
 
+// The provider name comes from the request body, and an unknown one (a hand-built request, or a
+// save from a build with a provider this one lacks) is the caller's mistake. providerName() throws
+// for it, and that throw used to escape each handler as a generic 500 that named nothing.
+function requestedTextProvider(settings, res) {
+  try { return textProviders.providerName(settings); }
+  catch (error) { writeJson(res, 400, { error: error.message }); return ""; }
+}
+
 function missingApiKeyMessage(provider) {
   if (textProviders.PRESETS[provider]) return "No " + provider + " API key is configured. Enter one in Settings or set " + textProviders.PRESETS[provider].key + " in .env and restart.";
   const variable = provider === "novelai" ? "NOVELAI_API_KEY" : "OPENAI_API_KEY";
@@ -1005,7 +1033,10 @@ function parseTurnJson(text) {
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     if (start < 0 || end <= start) throw new Error("The model returned text that was not valid roleplay JSON.");
-    return JSON.parse(cleaned.slice(start, end + 1));
+    // Say whose output failed. The parser's own message alone ("Expected ',' or '}' after property
+    // value...") reached the player reading like a fault in the harness.
+    try { return JSON.parse(cleaned.slice(start, end + 1)); }
+    catch (error) { throw new Error("The model returned malformed roleplay JSON: " + error.message); }
   }
 }
 
@@ -1443,7 +1474,8 @@ async function handleCharacterProfile(req, res) {
     return;
   }
   const settings = input.settings || {};
-  const provider = textProviders.providerName(settings);
+  const provider = requestedTextProvider(settings, res);
+  if (!provider) return;
   const apiKey = typeof input.apiKey === "string" && input.apiKey.trim()
     ? input.apiKey.trim()
     : SERVER_KEYS[provider] || "";
@@ -1585,7 +1617,8 @@ async function handleSessionSetup(req, res) {
     return;
   }
   const settings = input.settings || {};
-  const provider = textProviders.providerName(settings);
+  const provider = requestedTextProvider(settings, res);
+  if (!provider) return;
   const apiKey = typeof input.apiKey === "string" && input.apiKey.trim() ? input.apiKey.trim() : SERVER_KEYS[provider] || "";
   if (!apiKey && !textProviders.PRESETS[provider]?.local) {
     writeJson(res, 503, { error: missingApiKeyMessage(provider) });
@@ -1701,7 +1734,8 @@ async function handleTurn(req, res) {
   }
 
   const settings = input.settings || {};
-  const provider = textProviders.providerName(settings);
+  const provider = requestedTextProvider(settings, res);
+  if (!provider) return;
   const apiKey = typeof input.apiKey === "string" && input.apiKey.trim()
     ? input.apiKey.trim()
     : SERVER_KEYS[provider] || "";
@@ -2078,7 +2112,8 @@ async function handleSummary(req, res) {
   }
 
   const settings = input.settings || {};
-  const provider = textProviders.providerName(settings);
+  const provider = requestedTextProvider(settings, res);
+  if (!provider) return;
   const apiKey = typeof input.apiKey === "string" && input.apiKey.trim()
     ? input.apiKey.trim()
     : SERVER_KEYS[provider] || "";
@@ -2256,25 +2291,32 @@ async function listLocalLibrary(kind) {
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b));
 }
 
+// One byte range, resolved against the file size: { start, end } to serve, null when there is no
+// usable Range header (serve it all), or false when it cannot be satisfied (416). "-n" is a suffix
+// range, the LAST n bytes; it used to be read as "0-n", which served the wrong n + 1 bytes.
+function byteRange(header, size) {
+  const range = /^bytes=(\d*)-(\d*)$/i.exec(String(header || ""));
+  if (!range || (!range[1] && !range[2])) return null;
+  const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+  const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+  return Number.isSafeInteger(start) && Number.isSafeInteger(end) && start <= end && start < size ? { start, end } : false;
+}
+
 function serveLocalLibraryFile(req, res, kind, name) {
   const filePath = localLibraryPath(kind, name);
   if (!filePath) { writeJson(res, 404, { error: "Local library file not found." }); return; }
   const info = fs.statSync(filePath);
   const contentType = LOCAL_MEDIA_TYPES[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-  const range = /^bytes=(\d*)-(\d*)$/i.exec(String(req.headers.range || ""));
-  let start = 0, end = info.size - 1, status = 200;
-  if (range && kind !== "skins") {
-    start = range[1] ? Number(range[1]) : 0;
-    end = range[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= info.size) {
-      res.writeHead(416, { "Content-Range": "bytes */" + info.size }); res.end(); return;
-    }
-    status = 206;
-  }
+  const range = kind === "skins" ? null : byteRange(req.headers.range, info.size);
+  if (range === false) { res.writeHead(416, { "Content-Range": "bytes */" + info.size }); res.end(); return; }
+  const start = range ? range.start : 0, end = range ? range.end : info.size - 1, status = range ? 206 : 200;
   const headers = { "Content-Type": contentType, "Content-Length": end - start + 1, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
   if (kind !== "skins") headers["Accept-Ranges"] = "bytes";
   if (status === 206) headers["Content-Range"] = "bytes " + start + "-" + end + "/" + info.size;
   res.writeHead(status, headers);
+  // createReadStream refuses end -1. An empty file -- a skin created but not yet written -- used to
+  // throw here after the headers had gone out, and the request hung with nothing left to answer it.
+  if (!info.size) { res.end(); return; }
   fs.createReadStream(filePath, { start, end }).on("error", () => res.destroy()).pipe(res);
 }
 

@@ -693,3 +693,187 @@ test("column proportions reject broken saved values and retain valid priorities"
   assert.ok(Math.abs(custom[1] - .5) < 0.000001);
   assert.ok(Math.abs(custom[2] - .2) < 0.000001);
 });
+
+test("cancelling party banter leaves the action box, transcript, and undo history alone", async () => {
+  const h = harness();
+  h.run("requestLiveTurn = () => new Promise(resolve => { globalThis.turnReply = resolve; }); state.narrative = [{kind:'body',text:'Before'}]; state.turnCheckpoints = [captureTurnCheckpoint('earlier turn')];");
+  const pending = h.run("handleBanter()");
+  h.run("cancelTurn()");
+  // Banter is not a typed action, so there is nothing to put back; "Party banter" in the box would
+  // be sent to the engine as a real action by the next Enter.
+  assert.equal(h.element("response-input").value, "");
+  assert.equal(h.run("turnInFlight"), false);
+  assert.equal(h.run("state.turnCheckpoints.length"), 1);
+  h.context.turnReply({result:{narration:"late",beats:[{kind:"dialogue",characterId:"spierce",text:"Too late."}]},requestBytes:10});
+  await pending;
+  assert.equal(h.run("state.narrative.length"), 1);
+});
+
+test("a failed LLM pass on a folder profile is reported instead of leaving the sheet waiting", async () => {
+  const h = harness();
+  h.run(`editingIndex = 0; modalMode = 'edit';
+    fetchWithTimeout = async url => url.startsWith('/api/character-files/')
+      ? { ok: true, status: 200, json: async () => ({ name: 'characters/ellis.md', content: '# Ellis' }) }
+      : { ok: false, status: 401, json: async () => ({ error: 'Incorrect API key provided.' }) };`);
+  await h.run("loadCharacterFile('characters/ellis.md')");
+  assert.match(h.element("character-file-status").textContent, /not updated: Incorrect API key provided/);
+  assert.equal(h.run("pendingCharacterFileContent"), "# Ellis");
+  assert.equal(h.run("characterFileLoading"), false);
+  assert.equal(h.element("save-member").disabled, false);
+});
+
+test("a proposal for a full world-state list is refused visibly, and existing entries still update", () => {
+  const h = harness();
+  h.run(`state.worldState.objectives = Array.from({length: WORLD_LIMITS.objectives}, (_, i) => ({objectiveId:'old-' + i,label:'Old ' + i,status:'completed',ownerId:'',progress:100,reason:''}));
+    state.worldState.flags = Object.fromEntries(Array.from({length: WORLD_LIMITS.flags}, (_, i) => ['fact-' + i, 'yes']));`);
+  const report = h.run(`applyStateChanges({stateChanges:{
+    objectiveChanges:[{objectiveId:'new-quest',label:'Find the keeper',status:'active',progress:0},{objectiveId:'old-3',label:'Old 3',status:'failed',progress:100}],
+    flagChanges:[{key:'new-fact',value:'yes'},{key:'fact-2',value:'changed'}]}})`);
+  // normalizeWorldState keeps the first entries of a full list, so these used to be reported as
+  // applied and then silently cut.
+  assert.equal(h.run("state.worldState.objectives.some(entry => entry.objectiveId === 'new-quest')"), false);
+  assert.equal(h.run("'new-fact' in state.worldState.flags"), false);
+  assert.ok(report.applied.every(entry => !/Find the keeper|new-fact/.test(entry)));
+  assert.match(report.rejected.join("; "), /objectives list is full \(30\); Find the keeper was not added/);
+  assert.match(report.rejected.join("; "), /world facts list is full \(80\); new-fact was not added/);
+  assert.equal(h.run("state.worldState.objectives.find(entry => entry.objectiveId === 'old-3').status"), "failed");
+  assert.equal(h.run("state.worldState.flags['fact-2']"), "changed");
+});
+
+test("a stat label with a digit is not read as a stat value", () => {
+  const h = harness();
+  // + ADD STAT labels a new stat S4 and focuses its name, so the label is easy to leave as it is.
+  h.run("state.statDefinitions = normalizeStatDefinitions([...DEFAULT_STAT_DEFINITIONS, {id:'stat-4',label:'S4',name:'Charm',description:'Winning people over.'}]);");
+  const field = h.run("formatStatsForInput([72, 84, 45, 50])");
+  assert.equal(field, "RES 72 / INS 84 / FOR 45 / S4 50");
+  assert.deepEqual(Array.from(h.run("parseStats(" + JSON.stringify(field) + ")")), [72, 84, 45, 50]);
+  // Hand-typed shapes that already parsed keep parsing.
+  assert.deepEqual(Array.from(h.run("parseStats('70 60 50 40')")), [70, 60, 50, 40]);
+  assert.deepEqual(Array.from(h.run("parseStats('res70 / ins60 / for50 / s4 40')")), [70, 60, 50, 40]);
+});
+
+test("an untouched character sheet is not unsaved work, new or existing", () => {
+  const h = harness();
+  for (const id of h.run("MODAL_IDS")) h.element(id).classList.contains = () => false;
+  // A new sheet opens with a default feeling and colour; compared against empty fields, that alone
+  // made Escape ask to discard a sheet nobody had touched.
+  h.run("openModal(null)");
+  assert.equal(h.run("characterFormDirty()"), false);
+  h.element("character-name").value = "Wren";
+  assert.equal(h.run("characterFormDirty()"), true);
+  h.run("state.statDefinitions = normalizeStatDefinitions([...DEFAULT_STAT_DEFINITIONS, {id:'stat-4',label:'S4',name:'Charm',description:'x'}]); state.party[0].stats = [72, 84, 45, 50]; openModal(0);");
+  assert.equal(h.run("characterFormDirty()"), false);
+});
+
+test("a stat delta on a missing value starts from the 50 every other view shows", () => {
+  const h = harness();
+  h.run("state.party[0].stats = [60, 70];");
+  h.run("applyStateChanges({stateChanges:{statDeltas:[{characterId:state.party[0].id,stat:'fortune',delta:5,reason:'lucky break'}]}})");
+  assert.equal(h.run("state.party[0].stats[2]"), 55);
+});
+
+test("a check result is not recalled by ArrowUp as if the player had typed it", async () => {
+  const h = harness();
+  h.run(`requestLiveTurn = () => new Promise(resolve => { globalThis.turnReply = resolve; }); maybeSummarize = () => {}; showDiceResult = () => {};
+    state.narrative = []; state.actionHistory = ['Force the door'];
+    state.pendingPause = {pauseType:'check',characterId:state.party[0].id,checkStat:'resolve',checkStatRequested:'',checkLabel:'Force the door',difficulty:50,choices:[],checkSeed:12345};`);
+  const pending = h.run("resolvePendingCheck()");
+  assert.equal(h.run("state.actionHistory[0]"), "Force the door");
+  // The engine still receives it, as the latest action in the transcript.
+  assert.match(h.run("state.narrative.at(-1).text"), /^CHECK RESULT — /);
+  h.context.turnReply({result:{narration:"The door gives way."},requestBytes:10});
+  await pending;
+});
+
+test("local media answers a suffix range with the final bytes, and an empty file still answers", () => {
+  const server = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const streams = [];
+  const context = vm.createContext({ path, __dirname: path.resolve("fixture-root"), writeJson() {}, fs: {
+    statSync: file => ({ isFile: () => true, isDirectory: () => true, size: file.endsWith("empty.css") ? 0 : 1000 }),
+    realpathSync: file => file,
+    // Node refuses end -1 the same way, synchronously.
+    createReadStream: (file, options) => {
+      if (options.end < 0) throw new RangeError('The value of "end" is out of range.');
+      streams.push(options);
+      return { on() { return this; }, pipe() {} };
+    }
+  }});
+  vm.runInContext(server.slice(server.indexOf("const CHARACTER_DIR ="), server.indexOf("function characterFileNameFromUrl(")), context);
+  const answer = (kind, name, headers = {}) => {
+    const res = { status: 0, headers: null, ended: false, writeHead(status, sent) { this.status = status; this.headers = sent; }, end() { this.ended = true; } };
+    vm.runInContext("serveLocalLibraryFile", context)({ headers }, res, kind, name);
+    return res;
+  };
+  // "-100" is the LAST 100 bytes. It was read as "0-100": the wrong bytes, and 101 of them.
+  const suffix = answer("music", "theme.mp3", { range: "bytes=-100" });
+  assert.equal(suffix.status, 206);
+  assert.equal(suffix.headers["Content-Range"], "bytes 900-999/1000");
+  assert.equal(suffix.headers["Content-Length"], 100);
+  assert.deepEqual({ ...streams.at(-1) }, { start: 900, end: 999 });
+  assert.equal(answer("music", "theme.mp3", { range: "bytes=990-" }).headers["Content-Range"], "bytes 990-999/1000");
+  assert.equal(answer("music", "theme.mp3", { range: "bytes=-0" }).status, 416);
+  assert.equal(answer("music", "theme.mp3", { range: "bytes=1000-" }).status, 416);
+  assert.equal(answer("music", "theme.mp3").status, 200);
+  // A skin created but not yet written used to throw after the headers went out and hang.
+  const empty = answer("skins", "empty.css");
+  assert.equal(empty.status, 200);
+  assert.equal(empty.headers["Content-Length"], 0);
+  assert.equal(empty.ended, true);
+});
+
+test("a NovelAI image ZIP is read through its end record, not the first signature-shaped bytes", () => {
+  const zlib = require("node:zlib");
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const context = vm.createContext({ Buffer, zlib, MAX_DECOMPRESSED_IMAGE_BYTES: 16 * 1024 * 1024 });
+  vm.runInContext(source.slice(source.indexOf("function extractNovelAIZipImage("), source.indexOf("function extractOutputText(")), context);
+  const extract = vm.runInContext("extractNovelAIZipImage", context);
+  const archive = (stored, method, size) => {
+    const name = Buffer.from("image_0.png");
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(method, 8); local.writeUInt32LE(stored.length, 18); local.writeUInt32LE(size, 22); local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(method, 10); central.writeUInt32LE(stored.length, 20); central.writeUInt32LE(size, 24); central.writeUInt16LE(name.length, 28);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10); end.writeUInt32LE(central.length + name.length, 12); end.writeUInt32LE(local.length + name.length + stored.length, 16);
+    return Buffer.concat([local, name, stored, central, name, end]);
+  };
+  // Image bytes can contain anything, including the central-directory signature PK\x01\x02.
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("pixels PK\x01\x02 more pixels", "latin1")]);
+  assert.ok(extract(archive(png, 0, png.length))?.equals(png), "a stored image with a stray signature was rejected");
+  assert.ok(extract(archive(zlib.deflateRawSync(png), 8, png.length))?.equals(png), "a deflated image was rejected");
+});
+
+test("request bodies are measured as they arrive, and the size limit still holds", async () => {
+  const { PassThrough } = require("node:stream");
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const context = vm.createContext({ Buffer });
+  vm.runInContext(source.slice(source.indexOf("function bodyTooLargeError("), source.indexOf("// Every provider call shares one implementation.")), context);
+  const readBody = vm.runInContext("readBody", context);
+  const send = (chunks, limit) => {
+    const req = new PassThrough();
+    req.headers = {};
+    const pending = readBody(req, limit);
+    for (const chunk of chunks) req.write(chunk);
+    req.end();
+    return pending;
+  };
+  // A character split across two writes is decoded, and counted, once.
+  const euro = Buffer.from("€");
+  assert.equal(await send([euro.subarray(0, 1), euro.subarray(1)], 3), "€");
+  await assert.rejects(send([euro, "x"], 3), error => error.statusCode === 413);
+  // Re-measuring the whole body on every chunk was quadratic: this took several seconds, and an
+  // image request with reference images blocked the server for about two. The bound is generous.
+  const started = Date.now();
+  const body = await send(Array.from({ length: 2048 }, () => "x".repeat(4096)), 16 * 1024 * 1024);
+  assert.equal(body.length, 8 * 1024 * 1024);
+  assert.ok(Date.now() - started < 2000, "reading an 8 MiB body took " + (Date.now() - started) + " ms");
+});
+
+test("malformed JSON is reported as the model's output rather than a bare parser error", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(source.indexOf("function parseTurnJson("), source.indexOf("function stripNovelAIReasoning(")), context);
+  assert.throws(() => vm.runInContext(`parseTurnJson('Here you go: {"narration": "The door opens" "bubbles": []}')`, context),
+    /^Error: The model returned malformed roleplay JSON: Expected .+ in JSON at position \d+/);
+  assert.equal(vm.runInContext(`parseTurnJson('Sure! {"narration": "The door opens"} Enjoy.').narration`, context), "The door opens");
+});

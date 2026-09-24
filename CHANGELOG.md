@@ -4,6 +4,21 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
+- Fixed character stats changing when a sheet was saved in a session with a digit in a stat label. **+ ADD STAT** labels a new stat S4, and the sheet read that label's digit as a value, so a fourth stat of 50 was saved as 4 — even when only the personality had been edited.
+- Fixed the Midnight, Ember, and Violet palettes only partly applying. Two of their colors were written under names the stylesheet never read, and the backdrop color was never used at all, so secondary surfaces and the page background stayed neutral grey. Neutral looks exactly as it did.
+- Fixed the Windows launcher replacing an `OPENAI_MODEL` set in `.env` with its own default, and ignoring an `RP_PORT` set in `.env` when it announced the port and looked for an older harness to replace.
+- Stopped model-proposed objectives, clocks, conditions, items, relationships, and facts from vanishing once their list was full. They were reported as applied and then discarded; they are now refused and listed under Rejected in the Trace tab, the way a manual addition to a full list already was. Changes to existing entries still apply.
+- Fixed **CANCEL TURN** during Party Banter typing "Party banter" into the action box, where the next Enter would have sent it as a turn.
+- Fixed a folder character profile hiding a failed LLM pass: the sheet was left with its fields cleared under a status that still said the profile was being sent. The error is now shown, and the profile stays attached.
+- Kept stat-check results out of the ↑ previous-action list, so the first ↑ after a roll recalls what you typed rather than the harness's CHECK RESULT message.
+- Stopped Escape from asking to discard an untouched new character sheet.
+- Made a proposed stat change for a stat with no stored value start from the 50 shown on the character's card instead of 0.
+- Fixed local music and ambience answering a request for a file's last bytes with its first bytes, and an empty skin file leaving its request hanging.
+- Made image requests with reference images stop blocking the server while they upload. The request size was re-measured on every chunk, which cost about two seconds for a 12 MiB request.
+- Fixed a NovelAI image occasionally failing to extract when its image data happened to contain a ZIP directory signature.
+- Made an unknown text provider return a clear error instead of a generic server failure, an unusable `RP_PORT` stop with a plain message instead of a stack trace (0 no longer starts an unreachable server), and malformed JSON from the model say that it came from the model.
+- Added regression coverage for each of the fixes above, plus static checks that palette colors match the stylesheet and that the launcher leaves `OPENAI_MODEL` to `.env`.
+
 ## [0.6.0] — 2026-09-06
 
 - Documented that Party Harness is not an online service and has no hosted version, account, sign-in, or telemetry, so a session stays as private as the person running it wants — including for explicit material. The same section is equally clear that the privacy boundary is the text provider: a model running on your computer keeps everything local, while a hosted provider receives your prompts and applies its own policies.

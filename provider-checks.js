@@ -62,6 +62,17 @@ test('local compatibility modes, URL validation, and truncated outputs', () => {
   assert.throws(()=>adapter.normalizeResponse({choices:[]},'groq'),/no usable text/);
 });
 
+test('an unusable RP_PORT stops the server with a message instead of a stack trace or port 0', () => {
+  const { spawnSync } = require('node:child_process');
+  for (const value of ['abc', '0', '70000']) {
+    // The timeout only matters if validation regresses and the server starts listening.
+    const result = spawnSync(process.execPath, [path.join(__dirname, 'server.js')], { cwd: __dirname, env: { ...process.env, RP_PORT: value }, encoding: 'utf8', timeout: 5000 });
+    assert.equal(result.status, 1, 'RP_PORT=' + value + ' did not exit cleanly');
+    assert.match(result.stderr, /RP_PORT in your environment must be a whole number from 1 to 65535/);
+    assert.doesNotMatch(result.stderr, /node:internal|\n\s+at /);
+  }
+});
+
 test('real local HTTP adapter covers turns, summaries, profiles, and scenarios without credentials', {timeout:20000}, async t => {
   const captured = [];
   const fixture = http.createServer(async (req,res) => {
@@ -125,6 +136,13 @@ test('real local HTTP adapter covers turns, summaries, profiles, and scenarios w
     const result=await response.json();
     assert.equal(response.status,200,JSON.stringify(result));
     assert.equal(result[key],value);
+  }
+  // An unknown provider is the caller's mistake: a 400 that names it, not a generic 500.
+  for(const route of ['turn','summarize','character-profile','session-setup']){
+    const [input]=cases.find(entry=>entry[0]===route).slice(1);
+    const response=await fetch(`http://127.0.0.1:${port}/api/${route}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...input,settings:{provider:'no-such-provider'}})});
+    assert.equal(response.status,400,route);
+    assert.match((await response.json()).error,/Unknown text provider/);
   }
   const imageResponse=await fetch(`http://127.0.0.1:${port}/api/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'compatible',apiBaseUrl:`http://127.0.0.1:${fixture.address().port}/v1`,apiKey:'image-test-key',model:'fixture-image-model',prompt:'A test image',size:'1024x1024',quality:'low'})});
   const imageResult=await imageResponse.json();

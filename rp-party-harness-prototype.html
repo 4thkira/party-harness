@@ -16,6 +16,7 @@ this program. If not, see https://www.gnu.org/licenses/.
   <link id="custom-skin" rel="stylesheet" disabled>
   <style>
     :root {
+      --void: #10110f;
       --ink: #1f201d;
       --paper: #f1efe8;
       --paper-2: #dfddd5;
@@ -36,7 +37,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     body {
       margin: 0;
       color: var(--ink);
-      background: #10110f;
+      background: var(--void);
       font-family: var(--mono);
       font-size: 13px;
     }
@@ -49,7 +50,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       grid-template-rows: 54px 1fr;
       background:
         linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-        #10110f;
+        var(--void);
       background-size: 100% 4px;
     }
     .topbar {
@@ -117,7 +118,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       background: color-mix(in srgb, var(--orange) 48%, transparent);
     }
     .column-resizer:hover::before, .column-resizer:focus-visible::before, .column-resizer.dragging::before {
-      background: var(--orange); box-shadow: 0 0 0 1px #10110f;
+      background: var(--orange); box-shadow: 0 0 0 1px var(--void);
     }
     .column-resizer:focus-visible { outline: 1px solid var(--paper); outline-offset: 1px; }
     body.resizing-columns { cursor: col-resize; user-select: none; }
@@ -1080,11 +1081,15 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
     };
 
+    // Each key is written to the CSS custom property of the same name, so it has to match what the
+    // stylesheet declares in :root. paper2 and paper3 never did (the stylesheet reads --paper-2 and
+    // --paper-3), and --void was never read at all, so every palette but neutral left its secondary
+    // surfaces and the backdrop in neutral grey. checks.js asserts the names still line up.
     const PALETTES = {
-      neutral: { void: "#10110f", ink: "#1f201d", paper: "#f1efe8", paper2: "#dfddd5", paper3: "#cbc9c0", rust: "#5b625c", orange: "#879087", yellow: "#b8b9ad", sage: "#6e766e", muted: "#6a6962" },
-      midnight: { void: "#0d1115", ink: "#172027", paper: "#e9edf0", paper2: "#cfd8de", paper3: "#b5c2ca", rust: "#536d7c", orange: "#7c9aaa", yellow: "#afbfc5", sage: "#607a78", muted: "#63717a" },
-      ember: { void: "#171310", ink: "#241a16", paper: "#f5eee4", paper2: "#e8d9c8", paper3: "#d5c0ab", rust: "#985f46", orange: "#c7835c", yellow: "#d7ae79", sage: "#7f8471", muted: "#796b60" },
-      violet: { void: "#141217", ink: "#211c26", paper: "#f1edf1", paper2: "#ddd5df", paper3: "#c9bdcc", rust: "#76677b", orange: "#a08ca7", yellow: "#c4b8c1", sage: "#6f7b78", muted: "#716975" }
+      neutral: { void: "#10110f", ink: "#1f201d", paper: "#f1efe8", "paper-2": "#dfddd5", "paper-3": "#cbc9c0", rust: "#5b625c", orange: "#879087", yellow: "#b8b9ad", sage: "#6e766e", muted: "#6a6962" },
+      midnight: { void: "#0d1115", ink: "#172027", paper: "#e9edf0", "paper-2": "#cfd8de", "paper-3": "#b5c2ca", rust: "#536d7c", orange: "#7c9aaa", yellow: "#afbfc5", sage: "#607a78", muted: "#63717a" },
+      ember: { void: "#171310", ink: "#241a16", paper: "#f5eee4", "paper-2": "#e8d9c8", "paper-3": "#d5c0ab", rust: "#985f46", orange: "#c7835c", yellow: "#d7ae79", sage: "#7f8471", muted: "#796b60" },
+      violet: { void: "#141217", ink: "#211c26", paper: "#f1edf1", "paper-2": "#ddd5df", "paper-3": "#c9bdcc", rust: "#76677b", orange: "#a08ca7", yellow: "#c4b8c1", sage: "#6f7b78", muted: "#716975" }
     };
     const FONTS = {
       classic: 'Georgia, "Times New Roman", serif',
@@ -1454,6 +1459,15 @@ this program. If not, see https://www.gnu.org/licenses/.
       activeTurnRequest = null;
       request.controller.abort();
       turnInFlight = false;
+      // Banter writes nothing until its reply lands, and its action is a label, not something the
+      // player typed. Treating it as a turn put "Party banter" in the action box, where the next
+      // Enter would have sent it to the engine as a real action.
+      if (request.banter) {
+        stopTurnStatus("BANTER CANCELLED");
+        $("send-button").disabled = false;
+        renderAll();
+        return;
+      }
       if (state.turnCheckpoints.at(-1) === request.checkpoint) state.turnCheckpoints.pop();
       const editDraft = state.narrativeEdit;
       restoreTurnCheckpoint(request.checkpoint);
@@ -2848,6 +2862,16 @@ this program. If not, see https://www.gnu.org/licenses/.
       const applied = [];
       const rejected = [];
       const reject = message => { if (rejected.length < 20) rejected.push(message); };
+      // normalizeWorldState below keeps the first WORLD_LIMITS entries of each list, so an addition
+      // to a full list used to be reported as applied and then cut: a long campaign's thirty-first
+      // objective never existed. Refuse it visibly instead, as the manual editor does. Changes to
+      // entries that already exist still apply.
+      const full = (group, name) => {
+        const count = group === "flags" ? Object.keys(state.worldState.flags).length : state.worldState[group].length;
+        if (count < WORLD_LIMITS[group]) return false;
+        reject(WORLD_LABELS[group].toLowerCase() + " list is full (" + WORLD_LIMITS[group] + "); " + name + " was not added");
+        return true;
+      };
       (Array.isArray(changes.feelingUpdates) ? changes.feelingUpdates : []).slice(0, 8).forEach(update => {
         const member = findPartyMember(update);
         const feeling = String(update && update.feeling || "").trim().slice(0, 200);
@@ -2860,7 +2884,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         const index = statIndexById(change && change.stat);
         const delta = boundedInteger(change && change.delta, -25, 25);
         if (!member || index < 0 || !delta) return reject("invalid stat delta");
-        member.stats[index] = boundedInteger(member.stats[index] + delta, 0, 100);
+        // A missing value reads as 50 on the card, the sheet, and a check, so a delta starts there
+        // too. undefined + delta is NaN, which boundedInteger turned into 0.
+        member.stats[index] = boundedInteger(boundedInteger(member.stats[index], 0, 100, 50) + delta, 0, 100);
         applied.push(member.name + " " + state.statDefinitions[index].label + " " + (delta > 0 ? "+" : "") + delta);
       });
       (Array.isArray(changes.relationshipDeltas) ? changes.relationshipDeltas : []).slice(0, 12).forEach(change => {
@@ -2871,6 +2897,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (!source || !target || source.id === target.id || !RELATIONSHIP_DIMENSIONS.includes(dimension) || !delta) return reject("invalid relationship delta");
         let relation = state.worldState.relationships.find(entry => entry.sourceId === source.id && entry.targetId === target.id);
         if (!relation) {
+          if (full("relationships", source.name + " → " + target.name)) return;
           relation = { sourceId: source.id, targetId: target.id, lastReason: "" };
           RELATIONSHIP_DIMENSIONS.forEach(key => { relation[key] = 0; });
           state.worldState.relationships.push(relation);
@@ -2904,6 +2931,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           existing.holderId = holder ? holder.id : "";
           existing.note = String(change.note || existing.note || "").slice(0, 300);
         } else if (quantity) {
+          if (full("inventory", name)) return;
           state.worldState.inventory.push({ itemId, name, quantity, holderId: holder ? holder.id : "", note: String(change.note || "").slice(0, 300) });
         }
         applied.push((operation === "set" ? "set " : "added ") + quantity + " " + name);
@@ -2923,12 +2951,15 @@ this program. If not, see https://www.gnu.org/licenses/.
         const label = String(change.label || "").trim().slice(0, 120);
         if (!label) return reject("condition has no label");
         const next = { conditionId, characterId: member.id, label, intensity: boundedInteger(change.intensity, 0, 100, 50), reason: String(change.reason || "").slice(0, 300) };
-        if (existing) Object.assign(existing, next); else state.worldState.conditions.push(next);
+        if (existing) Object.assign(existing, next);
+        else if (full("conditions", label)) return;
+        else state.worldState.conditions.push(next);
         applied.push(member.name + " condition → " + label);
       });
       (Array.isArray(changes.flagChanges) ? changes.flagChanges : []).slice(0, 12).forEach(change => {
         const key = runtimeId(change && change.key);
         if (!key) return reject("invalid flag key");
+        if (!Object.hasOwn(state.worldState.flags, key) && full("flags", key)) return;
         state.worldState.flags[key] = String(change.value || "").slice(0, 300);
         applied.push("flag " + key + " → " + state.worldState.flags[key]);
       });
@@ -2939,6 +2970,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (!clockId || !label || !delta) return reject("invalid clock change");
         let clock = state.worldState.clocks.find(entry => entry.clockId === clockId);
         if (!clock) {
+          if (full("clocks", label)) return;
           clock = { clockId, label, value: 0, max: boundedInteger(change.max, 1, 100, 6), reason: "" };
           state.worldState.clocks.push(clock);
         }
@@ -2955,7 +2987,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         const owner = findPartyMember({ characterId: change.ownerId });
         const next = { objectiveId, label, status: ["active", "completed", "failed", "abandoned"].includes(change.status) ? change.status : "active", ownerId: owner ? owner.id : "", progress: boundedInteger(change.progress, 0, 100), reason: String(change.reason || "").slice(0, 300) };
         const existing = state.worldState.objectives.find(entry => entry.objectiveId === objectiveId);
-        if (existing) Object.assign(existing, next); else state.worldState.objectives.push(next);
+        if (existing) Object.assign(existing, next);
+        else if (full("objectives", label)) return;
+        else state.worldState.objectives.push(next);
         applied.push("objective " + label + " → " + next.status);
       });
       (Array.isArray(changes.memoryCandidates) ? changes.memoryCandidates : []).slice(0, 8).forEach(change => {
@@ -3316,8 +3350,12 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.lastAction = action.trim();
       // Clear only the submitted draft now; never erase typing when the reply arrives.
       if ($("response-input").value.trim() === action.trim()) $("response-input").value = "";
-      // Most recent first, de-duplicated, so ArrowUp walks back through distinct actions.
-      state.actionHistory = [action.trim()].concat(state.actionHistory.filter(entry => entry !== action.trim())).slice(0, 25);
+      // Most recent first, de-duplicated, so ArrowUp walks back through distinct actions. A CHECK
+      // RESULT is the harness reporting a roll, not something the player typed, so it stays out;
+      // otherwise the first ArrowUp after every check recalled the engine message.
+      if (!action.trim().startsWith("CHECK RESULT — ")) {
+        state.actionHistory = [action.trim()].concat(state.actionHistory.filter(entry => entry !== action.trim())).slice(0, 25);
+      }
       actionHistoryCursor = -1;
       state.narrative.push({ kind: "choice", text: action.trim() });
       state.bubbles = [];
@@ -3391,7 +3429,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (turnInFlight) return;
       const epoch = sessionEpoch, startedAt = performance.now();
       turnInFlight = true; $("send-button").disabled = true;
-      const request = { controller: new AbortController(), action: "Party banter" };
+      const request = { controller: new AbortController(), action: "Party banter", banter: true };
       activeTurnRequest = request; startTurnStatus("LISTENING FOR BANTER…"); renderTurnControls();
       try {
         const packet = await requestLiveTurn("Let the available party members exchange a brief, in-character bit of spontaneous banter about the present situation.", request.controller.signal, { banter: true });
@@ -3548,7 +3586,14 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (requestToken !== profileRequestToken) return;
         pendingCharacterFileName = result.name || filename;
         pendingCharacterFileContent = result.content.slice(0, 120000);
-        await processCharacterProfileWithLLM(pendingCharacterFileContent, filename.replace(/\.md$/i, ""), true);
+        // The LLM pass takes a newer request token of its own, so the catch below sees a stale token
+        // and would drop its failure: the sheet sat with cleared fields under a status still saying
+        // the profile was being sent. It only throws while it is still the current request.
+        try {
+          await processCharacterProfileWithLLM(pendingCharacterFileContent, filename.replace(/\.md$/i, ""), true);
+        } catch (error) {
+          setCharacterFileStatus("The profile was retained, but the visible fields were not updated: " + error.message);
+        }
         renderPortraitPreview();
       } catch (error) {
         if (requestToken === profileRequestToken) setCharacterFileStatus("Could not load " + filename + ": " + error.message);
@@ -3829,17 +3874,25 @@ this program. If not, see https://www.gnu.org/licenses/.
       ["character-relationships", "relationships"], ["character-portrait-url", "portraitUrl"], ["character-color", "color"]
     ];
 
+    // What an ADD PARTY MEMBER sheet opens with. A new sheet is compared against this rather than
+    // against empty fields: its default feeling and colour alone made every untouched new sheet
+    // look edited, so Escape asked to discard work that did not exist.
+    function blankMember() {
+      return { id: "", name: "", role: "", pronouns: "", feeling: "neutral", personality: "", strengths: "", weaknesses: "", stats: activeStatDefinitionsForEditor().map(() => 50), color: "#5b625c", portraitUrl: "", portraitData: "", expressions: [], activeExpression: "", goals: "", advancedPersonality: "", dialogueGuidance: "", relationships: "" };
+    }
+
     // Compared against the saved member rather than a snapshot taken when editing began, so an
     // imported character that has not been saved yet still counts as unsaved work.
     function characterFormDirty() {
-      const saved = editingIndex === null ? null : state.party[editingIndex];
+      const saved = editingIndex === null ? blankMember() : state.party[editingIndex];
       for (const [id, key] of CHARACTER_FORM_FIELDS) {
         const current = $(id).value.trim();
         const original = String((saved && saved[key]) || "").trim();
         if (current !== original) return true;
       }
-      const savedStats = saved ? saved.stats : [50, 50, 50];
-      if (parseStats($("character-stats").value).join() !== savedStats.join()) return true;
+      // The saved values go through the same format and parse as the field, so a stat count that
+      // differs from the session's, or an imported fraction, is not mistaken for an edit.
+      if (parseStats($("character-stats").value).join() !== parseStats(formatStatsForInput(saved.stats)).join()) return true;
       if (pendingPortraitData !== String((saved && saved.portraitData) || "")) return true;
       if (JSON.stringify(pendingExpressions) !== JSON.stringify((saved && saved.expressions) || [])) return true;
       if (pendingActiveExpression !== String((saved && saved.activeExpression) || "")) return true;
@@ -3952,7 +4005,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       portraitRequestToken += 1;
       characterFileLoading = false;
       editingIndex = index;
-      const member = index === null ? { id: "", name: "", role: "", pronouns: "", feeling: "neutral", personality: "", strengths: "", weaknesses: "", stats: activeStatDefinitionsForEditor().map(() => 50), color: "#5b625c", portraitUrl: "", portraitData: "", expressions: [], activeExpression: "", goals: "", advancedPersonality: "", dialogueGuidance: "", relationships: "" } : state.party[index];
+      const member = index === null ? blankMember() : state.party[index];
       pendingPortraitData = member.portraitData || "";
       pendingExpressions = structuredClone(Array.isArray(member.expressions) ? member.expressions : []);
       pendingActiveExpression = member.activeExpression || "";
@@ -4116,8 +4169,16 @@ this program. If not, see https://www.gnu.org/licenses/.
       openModal(index);
     }
     function parseStats(value, definitions = activeStatDefinitionsForEditor()) {
-      const nums = String(value || "").match(/\d+/g) || [];
-      return normalizeStatDefinitions(definitions).map((_, index) => Math.max(0, Math.min(100, Number(nums[index] || 50))));
+      const stats = normalizeStatDefinitions(definitions);
+      // The field is prefilled as "LABEL value / LABEL value", and a label can carry a digit: + ADD
+      // STAT names a new stat S4. Reading every digit run took that 4 as a value, so saving any sheet
+      // in such a session shifted the numbers along and stored the fourth stat as 4. Labels are
+      // dropped before the values are read; a label that is only digits is left alone.
+      const text = stats.reduce((source, stat) => /\d/.test(stat.label) && /[A-Z]/.test(stat.label)
+        ? source.replace(new RegExp("(^|[^A-Za-z0-9])" + stat.label + "(?!\\d)", "gi"), "$1")
+        : source, String(value || ""));
+      const nums = text.match(/\d+/g) || [];
+      return stats.map((_, index) => Math.max(0, Math.min(100, Number(nums[index] || 50))));
     }
 
     function readStoredSessions() {
