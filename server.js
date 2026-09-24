@@ -1018,6 +1018,53 @@ function providerError(response, fallback) {
   return fallback;
 }
 
+const PROVIDER_LABELS = {
+  openai: "OpenAI", novelai: "NovelAI", anthropic: "Anthropic", gemini: "Google Gemini", openrouter: "OpenRouter",
+  deepseek: "DeepSeek", groq: "Groq", ollama: "Ollama", lmstudio: "LM Studio", compatible: "The custom server",
+  stability: "Stability AI", automatic1111: "AUTOMATIC1111 / Forge", fooocus: "Fooocus", comfyui: "ComfyUI"
+};
+// What to start when a local server is not answering, for the providers that run on this computer.
+const LOCAL_SERVER_STARTS = {
+  ollama: "Start Ollama", lmstudio: "Start LM Studio's local server", automatic1111: "Start AUTOMATIC1111 or Forge with its API enabled",
+  fooocus: "Start the Fooocus API", comfyui: "Start ComfyUI"
+};
+
+// Node reports an unreachable provider as "connect ECONNREFUSED 127.0.0.1:11434", which tells a
+// beginner nothing about what to do next. These are the network failures worth translating; any
+// other error, including every message this file writes itself, passes through unchanged.
+function friendlyConnectionError(error, provider, url, fallback = "Unable to reach the provider.") {
+  const code = String((error && error.code) || "");
+  const where = url ? url.origin : "the provider";
+  if (code === "ECONNREFUSED") {
+    return "Nothing is answering at " + where + ". " + (LOCAL_SERVER_STARTS[provider]
+      ? LOCAL_SERVER_STARTS[provider] + ", check the address in Settings, and try again."
+      : "Check that the server is running and that the address in Settings is right.");
+  }
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "Could not find " + (url ? url.hostname : "the provider") + ". Check the address in Settings and your internet connection.";
+  if (code === "ECONNRESET" || code === "EPIPE") return "The connection to " + where + " was cut off. Try again in a moment.";
+  if (["ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH"].includes(code)) return "Could not reach " + where + " (" + code + "). Check your internet connection or the address in Settings.";
+  if (/CERT|SSL|TLS/i.test(code)) return "The secure connection to " + where + " failed (" + code + ").";
+  return (error && error.message) || fallback;
+}
+
+// The address a text request goes to, for naming it in an error. Never throws.
+function textProviderOrigin(provider, settings) {
+  try {
+    if (provider === "openai") return new URL("https://api.openai.com");
+    if (provider === "novelai") return new URL("https://text.novelai.net");
+    return textProviders.baseUrlFor(provider, settings);
+  } catch { return null; }
+}
+
+function imageProviderOrigin(provider, apiBaseUrl) {
+  try {
+    if (provider === "openai") return new URL("https://api.openai.com");
+    if (provider === "novelai") return new URL("https://image.novelai.net");
+    if (provider === "stability") return new URL("https://api.stability.ai");
+    return provider === "compatible" ? imageProviders.compatibleUrl(apiBaseUrl) : imageProviders.localProviderUrl(provider, apiBaseUrl, "");
+  } catch { return null; }
+}
+
 // The provider name comes from the request body, and an unknown one (a hand-built request, or a
 // save from a build with a provider this one lacks) is the caller's mistake. providerName() throws
 // for it, and that throw used to escape each handler as a generic 500 that named nothing.
@@ -1554,7 +1601,7 @@ async function handleCharacterProfile(req, res) {
     }
     writeJson(res, 200, normalizeCharacterProfile(parseTurnJson(provider === "novelai" ? stripNovelAIReasoning(generatedText) : generatedText), fallbackName));
   } catch (error) {
-    writeJson(res, 502, { error: error.message || "Unable to process the character profile." });
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to process the character profile.") });
   }
 }
 
@@ -1704,7 +1751,7 @@ async function handleSessionSetup(req, res) {
     }
     writeJson(res, 200, normalizeSessionSetup(parseTurnJson(provider === "novelai" ? stripNovelAIReasoning(generatedText) : generatedText)));
   } catch (error) {
-    writeJson(res, 502, { error: error.message || "Unable to generate a session setup." });
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to generate a session setup.") });
   }
 }
 
@@ -1874,7 +1921,7 @@ async function handleTurn(req, res) {
     const parsed = provider === "novelai" ? parseNovelAITurn(generatedText) : parseTurnJson(generatedText);
     writeJson(res, 200, normalizeTurn(parsed, party, mode.limit, context.scenario && context.scenario.statDefinitions));
   } catch (error) {
-    writeJson(res, 502, { error: error.message || "Unable to reach the text provider." });
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to reach the text provider.") });
   }
 }
 
@@ -2088,7 +2135,7 @@ async function handleImage(req, res) {
     }
     writeJson(res, 502, { error: "The image provider returned an image without usable image data." });
   } catch (error) {
-    writeJson(res, 502, { error: error.message || "Unable to reach the image provider." });
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, imageProviderOrigin(provider, input.apiBaseUrl), "Unable to reach the image provider.") });
   }
 }
 
@@ -2198,7 +2245,75 @@ async function handleSummary(req, res) {
     }
     writeJson(res, 200, { summary: summary.slice(0, 8000) });
   } catch (error) {
-    writeJson(res, 502, { error: error.message || "Unable to reach the text provider." });
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to reach the text provider.") });
+  }
+}
+
+// CHECK CONNECTION + LIST MODELS. Asking a provider for its models is the cheapest request that
+// proves the key and address work -- nothing is generated or billed -- and the answer is the list of
+// exact model IDs a beginner otherwise has to find and type by hand.
+const MODEL_LIST_TIMEOUT_MS = 20000;
+
+function rejectedKeyMessage(provider, status, url) {
+  if (textProviders.PRESETS[provider]?.local) {
+    return "The server at " + (url ? url.origin : "that address") + " asked for a key (HTTP " + status + "). Enter the key you set up for it in Settings.";
+  }
+  const label = PROVIDER_LABELS[provider] || provider;
+  return label + " rejected this key (HTTP " + status + "). Check that you copied the whole key, that it is a " + label + " key, and that it has not been revoked.";
+}
+
+async function handleModels(req, res) {
+  let input;
+  try {
+    input = JSON.parse(await readBody(req, 64 * 1024, "Model list request is too large."));
+  } catch (error) {
+    writeJson(res, error.statusCode || 400, { error: error.statusCode ? error.message : "Model list request must be valid JSON." });
+    return;
+  }
+  const settings = input && input.settings && typeof input.settings === "object" ? input.settings : {};
+  const provider = requestedTextProvider(settings, res);
+  if (!provider) return;
+  const browserKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
+  const apiKey = browserKey || SERVER_KEYS[provider] || "";
+  if (!apiKey && !textProviders.PRESETS[provider]?.local) {
+    writeJson(res, 503, { error: missingApiKeyMessage(provider) });
+    return;
+  }
+  let request;
+  try { request = textProviders.modelsRequest(settings, apiKey); } catch (error) { writeJson(res, 400, { error: error.message }); return; }
+  const label = PROVIDER_LABELS[provider] || provider;
+  const fetchJson = async url => {
+    const result = await upstreamRequest({
+      label: label + " model list", protocol: url.protocol, hostname: url.hostname.replace(/^\[|\]$/g, ""), port: url.port || undefined,
+      path: url.pathname + url.search, timeout: MODEL_LIST_TIMEOUT_MS, maxBytes: 8 * 1024 * 1024,
+      tooLarge: "The model list was too large to read.", authHeaders: request.headers
+    }, null, apiKey, res, { method: "GET" });
+    let body = null;
+    try { body = JSON.parse(result.body); } catch { body = null; }
+    return { status: result.status, body };
+  };
+  try {
+    let freeTier = false;
+    if (request.keyCheck) {
+      const check = await fetchJson(request.keyCheck);
+      if (check.status === 401 || check.status === 403) { writeJson(res, check.status, { error: rejectedKeyMessage(provider, check.status, request.keyCheck) }); return; }
+      freeTier = check.body?.data?.is_free_tier === true;
+    }
+    const listed = await fetchJson(request.url);
+    if (listed.status === 401 || listed.status === 403) { writeJson(res, listed.status, { error: rejectedKeyMessage(provider, listed.status, request.url) }); return; }
+    if (listed.status === 404) {
+      writeJson(res, 404, { error: label + " does not list its models at " + request.url.pathname + ". The connection works; type the model ID by hand." });
+      return;
+    }
+    if (listed.status < 200 || listed.status >= 300) {
+      writeJson(res, listed.status, { error: providerError(listed.body || {}, label + " could not list its models (HTTP " + listed.status + ").") });
+      return;
+    }
+    if (!listed.body || typeof listed.body !== "object") { writeJson(res, 502, { error: label + " answered, but not with a model list." }); return; }
+    const { models, hidden } = textProviders.normalizeModels(listed.body, provider);
+    writeJson(res, 200, { ok: true, provider, models: models.slice(0, 2000), hidden, freeTier, keySource: browserKey ? "browser" : apiKey ? "server" : "none" });
+  } catch (error) {
+    writeJson(res, 502, { error: friendlyConnectionError(error, provider, request.url, "Unable to reach " + label + ".") });
   }
 }
 
@@ -2464,6 +2579,12 @@ async function handleRequest(req, res) {
   if (req.method === "POST" && req.url === "/api/summarize") {
     if (!jsonRequest(req)) { writeJson(res, 415, { error: "JSON request body required." }); return; }
     await handleSummary(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/api/models") {
+    if (!jsonRequest(req)) { writeJson(res, 415, { error: "JSON request body required." }); return; }
+    await handleModels(req, res);
     return;
   }
 

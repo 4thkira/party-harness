@@ -4,6 +4,8 @@ Versioned public releases are listed here. Entries describe user-visible changes
 
 ## Unreleased
 
+- Replaced TEST LOCAL CONNECTION with **CHECK CONNECTION + LIST MODELS**. It asks the selected provider for its model list, which proves the key and address work without generating or billing anything, and fills the Model box with the models you can use (free OpenRouter models are marked). Embedding, speech, and image models are left out. The connection dot turns green once a provider has accepted the key, and resets when the provider, address, or key changes.
+- Explained unreachable providers in plain language. A stopped Ollama now reads "Nothing is answering at http://127.0.0.1:11434. Start Ollama, check the address in Settings, and try again." instead of `connect ECONNREFUSED 127.0.0.1:11434`, for turns, summaries, profiles, session setup, and images alike.
 - Fixed character stats changing when a sheet was saved in a session with a digit in a stat label. **+ ADD STAT** labels a new stat S4, and the sheet read that label's digit as a value, so a fourth stat of 50 was saved as 4 — even when only the personality had been edited.
 - Fixed the Midnight, Ember, and Violet palettes only partly applying. Two of their colors were written under names the stylesheet never read, and the backdrop color was never used at all, so secondary surfaces and the page background stayed neutral grey. Neutral looks exactly as it did.
 - Fixed the Windows launcher replacing an `OPENAI_MODEL` set in `.env` with its own default, and ignoring an `RP_PORT` set in `.env` when it announced the port and looked for an older harness to replace.

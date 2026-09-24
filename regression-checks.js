@@ -903,3 +903,59 @@ test(".env values drop a note after a space and #, but keep a quoted or attached
   assert.deepEqual(Array.from(status.activeNames).sort(), ["COMPATIBLE_API_KEY", "NOVELAI_API_KEY", "OPENAI_API_KEY", "OPENAI_MODEL", "RP_PORT"]);
   assert.deepEqual(Array.from(status.malformedLines), []);
 });
+
+function connectionIndicator(h) {
+  const classes = new Set();
+  const indicator = h.element("connection-indicator");
+  indicator.classList = { toggle: (name, on) => { if (on) classes.add(name); else classes.delete(name); }, add() {}, remove() {} };
+  indicator.setAttribute = () => {};
+  h.context.document.querySelector = () => indicator;
+  return classes;
+}
+
+test("CHECK CONNECTION fills the model list, and its green dot does not outlive the key it checked", async () => {
+  const h = harness();
+  const classes = connectionIndicator(h);
+  h.run(`state.provider = 'openrouter'; state.apiKey = 'sk-or-fixture'; state.model = 'vendor/gone'; state.endpoint = '';
+    fetchWithTimeout = async url => url === '/api/health'
+      ? { ok: true, status: 200, json: async () => ({ ok: true, serverKeys: {} }) }
+      : { ok: true, status: 200, json: async () => ({ ok: true, provider: 'openrouter', hidden: 2, freeTier: true, keySource: 'browser',
+          models: [{ id: 'vendor/model:free', name: 'Model', free: true }, { id: 'vendor/paid', name: 'Paid', free: false }] }) };`);
+  await h.run("checkProviderConnection()");
+  assert.match(h.element("model-options").innerHTML, /<option value="vendor\/model:free">\(free\) Model<\/option>/);
+  const status = h.element("provider-check-status").textContent;
+  assert.match(status, /^OpenRouter accepted the key and lists 2 models\./);
+  assert.match(status, /1 of them are free and marked \(free\)\./);
+  assert.match(status, /free tier/);
+  assert.match(status, /The current model “vendor\/gone” is not in that list/);
+  assert.equal(classes.has("verified"), true);
+  h.run("state.apiKey = 'a-different-key'; connectionChanged(); refreshConnectionLabel();");
+  assert.equal(classes.has("verified"), false);
+  // Another provider's IDs are not offered as suggestions.
+  h.run("state.provider = 'groq'; renderModelOptions();");
+  assert.equal(h.element("model-options").innerHTML, "");
+});
+
+test("CHECK CONNECTION explains a missing key, a stopped harness, and ignores answers about old settings", async () => {
+  const h = harness();
+  connectionIndicator(h);
+  h.run(`state.provider = 'anthropic'; state.apiKey = ''; state.endpoint = '';
+    fetchWithTimeout = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, serverKeys: { openai: true }, envFilePresent: true, envFileActiveSettings: ['OPENAI_API_KEY'] }) });`);
+  await h.run("checkProviderConnection()");
+  assert.match(h.element("provider-check-status").textContent, /its \.env key is for OpenAI, not Anthropic/);
+  h.run("fetchWithTimeout = async () => { throw new Error('The health check could not connect.'); };");
+  await h.run("checkProviderConnection()");
+  assert.match(h.element("provider-check-status").textContent, /^The harness server did not answer/);
+  // The player switches providers while the list is on its way: that list is about the old one.
+  h.run(`state.provider = 'ollama'; state.model = '';
+    fetchWithTimeout = async url => url === '/api/health'
+      ? { ok: true, status: 200, json: async () => ({ ok: true, serverKeys: {} }) }
+      : new Promise(resolve => { globalThis.listReply = resolve; });`);
+  const pending = h.run("checkProviderConnection()");
+  await new Promise(resolve => setImmediate(resolve));
+  h.run("state.provider = 'lmstudio'; connectionChanged();");
+  h.context.listReply({ ok: true, status: 200, json: async () => ({ ok: true, models: [{ id: 'only-model' }] }) });
+  await pending;
+  assert.equal(h.run("state.model"), "");
+  assert.ok(!h.element("model-options").innerHTML, "a list about the old provider was offered");
+});

@@ -84,6 +84,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     /* The dot carries the connection state on its own, which is what the narrow layout falls back
        to once there is no room for the label beside it. */
     .connection.needs-key .dot { background: #c7835c; box-shadow: 0 0 8px #c7835c; }
+    /* Green only after the provider itself accepted the key, not merely because one was entered. */
+    .connection.verified .dot { background: #8fb386; box-shadow: 0 0 8px #8fb386; }
     .top-button, .small-button {
       border: 1px solid var(--paper);
       color: var(--paper);
@@ -480,7 +482,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     .settings-group.wide-settings-row > .settings-group-title,
     .settings-group.wide-settings-row > .settings-note,
     .settings-group.wide-settings-row > .check-field,
-    .settings-group.wide-settings-row > .settings-test { grid-column: 1 / -1; }
+    .settings-group.wide-settings-row > .settings-test,
+    .settings-group.wide-settings-row > .generation-status { grid-column: 1 / -1; }
     .settings-group-title { margin-bottom: 2px; color: var(--rust); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
     .settings-group .field { gap: 4px; }
     .settings-group .field input, .settings-group .field textarea, .settings-group .field select { padding: 8px; }
@@ -871,11 +874,11 @@ this program. If not, see https://www.gnu.org/licenses/.
       <div class="settings-header"><div><p class="eyebrow">START HERE</p><h2 id="help-title">Your first scene</h2></div><button class="settings-close" type="button" id="close-help" aria-label="Close help">×</button></div>
       <div style="padding:20px;line-height:1.65">
         <p>Party Harness is a story space for you and a party of AI-controlled characters. Write an action, let the scene respond, and decide what happens next. You can browse and edit without a key; generating text needs a hosted provider or a running local model server; art uses a hosted image provider or a compatible local server.</p>
-        <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider and model, and enter its API key if required. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
+        <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
         <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
         <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
         <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser on this computer. Use the same address and port to find them again. Clearing browser site data can remove them. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
-        <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. A ready indicator confirms configuration, not provider account access. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
+        <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
       </div>
     </section>
   </div>
@@ -944,12 +947,13 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="settings-provider">Text provider</label><select id="settings-provider"><option value="openai">OpenAI</option><option value="novelai">NovelAI text API</option><option value="anthropic">Anthropic / Claude</option><option value="gemini">Google Gemini</option><option value="openrouter">OpenRouter</option><option value="deepseek">DeepSeek</option><option value="groq">Groq</option><option value="ollama">Ollama (local)</option><option value="lmstudio">LM Studio (local)</option><option value="compatible">Custom OpenAI-compatible</option></select></div>
           <div class="field full" id="api-base-field"><label for="settings-api-base">Provider API base URL</label><input id="settings-api-base" placeholder="http://127.0.0.1:1234/v1"><p class="settings-note">For Ollama, LM Studio, or a custom compatible server. Include /v1 when your server requires it; do not append /chat/completions. Hosted presets use their official address.</p></div>
           <div class="field" id="structured-output-field"><label for="settings-structured-output">Structured output compatibility</label><select id="settings-structured-output"><option value="">Provider default</option><option value="schema">JSON schema (model/server must support it)</option><option value="json">JSON mode</option><option value="prompt">Prompt only (less reliable)</option></select><p class="settings-note">If a compatible server rejects response_format, try Prompt only. The harness still needs valid story JSON.</p></div>
-          <p class="settings-note full">For local text: start Ollama or the LM Studio server, load a model, and enter its exact model ID below. A key is optional for local servers. Images use their separate provider settings.</p>
-          <div class="field"><label for="settings-model">Model</label><input id="settings-model" placeholder="e.g. your chosen model"></div>
+          <p class="settings-note full">For local text: start Ollama or the LM Studio server and download or load a model there, then use CHECK CONNECTION below to pick its exact model ID. A key is optional for local servers. Images use their separate provider settings.</p>
+          <div class="field"><label for="settings-model">Model <span class="hint">(type an ID, or pick one after CHECK CONNECTION)</span></label><input id="settings-model" list="model-options" autocomplete="off" spellcheck="false" placeholder="e.g. your chosen model"><datalist id="model-options"></datalist></div>
           <div class="field full"><label for="settings-endpoint">Custom roleplay backend URL (advanced, optional)</label><input id="settings-endpoint" data-help="Leave blank for the included server. A custom URL must accept the harness roleplay format; this is not a provider API base URL." aria-description="Leave blank for the included server. A custom URL must accept the harness roleplay format; this is not a provider API base URL." placeholder="Leave blank to use the included local server"></div>
           <div class="field full"><label for="settings-api-key">API key / token</label><input id="settings-api-key" type="password" autocomplete="new-password" placeholder="Used for this browser session only"></div>
-          <p class="settings-note">Choose your provider and a model available to your account. Enter its API key here, or set it in the optional .env file and restart the server. Both OpenAI and NovelAI support either method; NovelAI uses a Persistent API token. Keys entered here disappear on refresh. TEST LOCAL CONNECTION checks the local server and configuration; it does not prove that a provider will accept your key. Generation uses your provider account and may incur charges. Leave the backend URL blank for normal use: it expects the harness response format, not a provider API base URL. With a custom backend, story requests go there without your browser key.</p>
-          <button class="settings-test" type="button" id="test-connection">TEST LOCAL CONNECTION</button>
+          <p class="settings-note">Choose your provider and a model available to your account. Enter its API key here, or set it in the optional .env file and restart the server. Both OpenAI and NovelAI support either method; NovelAI uses a Persistent API token. Keys entered here disappear on refresh. CHECK CONNECTION + LIST MODELS asks the provider for its model list: nothing is generated or billed, and it confirms that the key and address work. Generation uses your provider account and may incur charges. Leave the backend URL blank for normal use: it expects the harness response format, not a provider API base URL. With a custom backend, story requests go there without your browser key.</p>
+          <button class="settings-test" type="button" id="test-connection">CHECK CONNECTION + LIST MODELS</button>
+          <p class="generation-status" id="provider-check-status" aria-live="polite"></p>
         </section>
         <section class="settings-group full">
           <div class="settings-group-title">Harness system prompt</div>
@@ -1128,7 +1132,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     const NARRATIVE_CONTEXT_LINES = SUMMARY_TRIGGER + 4;
     // Requests have no natural end if the connection stalls, and a hung turn leaves SEND TURN
     // disabled with no way back except a refresh.
-    const TIMEOUTS = { turn: 180000, image: 300000, summary: 120000, profile: 180000, setup: 180000, files: 15000 };
+    const TIMEOUTS = { turn: 180000, image: 300000, summary: 120000, profile: 180000, setup: 180000, files: 15000, models: 45000 };
     const MAX_PORTRAIT_FILE_BYTES = 6 * 1024 * 1024;
     // Reference images are resized before they are stored or sent. Keep a larger source ceiling
     // than portraits so a high-resolution style sheet has a chance to become a usable 1024px image.
@@ -1514,6 +1518,14 @@ this program. If not, see https://www.gnu.org/licenses/.
     function hasUsableTextKey() {
       return Boolean(LOCAL_TEXT_PROVIDERS.includes(state.provider) || state.apiKey.trim() || state.serverKeys[state.provider]);
     }
+    const PROVIDER_NAMES = { openai: "OpenAI", novelai: "NovelAI", anthropic: "Anthropic", gemini: "Google Gemini", openrouter: "OpenRouter", deepseek: "DeepSeek", groq: "Groq", ollama: "Ollama", lmstudio: "LM Studio", compatible: "your custom server" };
+    // A successful CHECK CONNECTION vouches for one provider, address, and key. Anything that could
+    // change the answer bumps the revision, so the green dot never outlives what it checked.
+    let connectionRevision = 0;
+    let verifiedConnectionRevision = -1;
+    let providerModelList = [];
+    let providerModelListFor = "";
+    function connectionChanged() { connectionRevision += 1; }
 
     function getCustomEndpoint() {
       const raw = state.endpoint.trim();
@@ -1738,8 +1750,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       const indicator = document.querySelector(".connection");
       // Also carried by the dot's colour and the tooltip, because the narrow layout hides the text.
       indicator.classList.toggle("needs-key", !state.endpoint.trim() && !hasUsableTextKey());
-      indicator.title = text;
-      indicator.setAttribute("aria-label", "Connection: " + text);
+      const verified = !state.endpoint.trim() && verifiedConnectionRevision === connectionRevision;
+      indicator.classList.toggle("verified", verified);
+      indicator.title = text + (verified ? " — checked with the provider" : "");
+      indicator.setAttribute("aria-label", "Connection: " + text + (verified ? ", checked with the provider" : ""));
     }
 
     function connectionLabel() {
@@ -4522,6 +4536,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
       state.apiKey = "";
       state.imageApiKey = "";
+      connectionChanged();
+      renderModelOptions();
       state.generatedImage = "";
       state.generatedImagePrompt = "";
       state.imageStatus = "";
@@ -5131,16 +5147,21 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.apiBaseUrl = state.provider === "ollama" ? "http://127.0.0.1:11434/v1" : state.provider === "lmstudio" ? "http://127.0.0.1:1234/v1" : "";
       state.structuredOutput = "";
       state.endpoint = "";
+      // The last check and its model list belonged to the previous provider.
+      connectionChanged();
+      providerModelList = [];
+      renderModelOptions();
+      $("provider-check-status").textContent = "";
       markDirty();
       renderAll();
     });
-    $("settings-api-base").addEventListener("input", event => { state.apiBaseUrl = event.target.value; markDirty(); });
+    $("settings-api-base").addEventListener("input", event => { state.apiBaseUrl = event.target.value; connectionChanged(); refreshConnectionLabel(); markDirty(); });
     $("settings-structured-output").addEventListener("change", event => { state.structuredOutput = event.target.value; markDirty(); });
     $("settings-model").addEventListener("input", event => { state.model = event.target.value; refreshConnectionLabel(); renderPromptPreview(); });
     $("settings-endpoint").addEventListener("input", event => { state.endpoint = event.target.value; refreshConnectionLabel(); renderPromptPreview(); });
     // The key itself appears nowhere in the rendered output, but whether one exists decides
     // whether the header says a turn can be sent.
-    $("settings-api-key").addEventListener("input", event => { state.apiKey = event.target.value; refreshConnectionLabel(); });
+    $("settings-api-key").addEventListener("input", event => { state.apiKey = event.target.value; connectionChanged(); refreshConnectionLabel(); });
     $("settings-image-api-key").addEventListener("input", event => { state.imageApiKey = event.target.value; });
     $("clear-autosaved-state").addEventListener("click", async () => {
       if (currentStateSaveTimer) clearTimeout(currentStateSaveTimer);
@@ -5204,36 +5225,106 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (state.imageModel === "gpt-image-2" && typeof result.imageModel === "string" && result.imageModel.trim()) state.imageModel = result.imageModel.trim().slice(0, 120);
     }
 
-    $("test-connection").addEventListener("click", async () => {
+    function renderModelOptions() {
+      const list = $("model-options");
+      if (!list) return;
+      // Another provider's IDs would only be wrong suggestions.
+      const models = providerModelListFor === state.provider ? providerModelList : [];
+      list.innerHTML = models.map(model => '<option value="' + escapeHtml(model.id) + '">'
+        + escapeHtml([model.free ? "(free)" : "", model.name].filter(Boolean).join(" ")) + '</option>').join("");
+    }
+
+    // Why a turn cannot start when there is no key yet, using what /api/health reported about .env.
+    function missingKeyAdvice(health, label) {
+      const ready = TEXT_PROVIDER_IDS.filter(name => state.serverKeys[name]).map(name => PROVIDER_NAMES[name] || name);
+      if (ready.length) return "The harness is running, but its .env key is for " + ready.join(" and ") + ", not " + label + ". Enter a " + label + " key above, or add one to .env.";
+      if (health.envFilePresent && health.envFileError) return "The harness is running, but its .env file could not be read: " + health.envFileError;
+      if (health.envFilePresent && !health.envFileActiveSettings?.length) return "The harness is running and found .env, but every line in it is still commented out. Remove the # in front of your key's line.";
+      return "The harness is running. Enter your " + label + " API key above (or save one in .env), then check again.";
+    }
+
+    function describeModelCheck(result, label, provider) {
+      const count = providerModelList.length;
+      const local = LOCAL_TEXT_PROVIDERS.includes(provider);
+      if (!count) {
+        return local ? label + " is running but has no models to offer yet. Download or load one there, then check again."
+          : label + " accepted the key but listed no text models. Type the model ID by hand.";
+      }
+      const parts = [(local ? label + " is running" : label + " accepted the " + (result.keySource === "server" ? "key from .env" : "key"))
+        + " and lists " + count + " model" + (count === 1 ? "" : "s") + ". Pick one in the Model box: click it, or start typing to narrow the list."];
+      const free = providerModelList.filter(model => model.free).length;
+      if (free) parts.push(free + " of them are free and marked (free).");
+      if (result.freeTier) parts.push("This key is on OpenRouter's free tier, so choose a free model.");
+      if (result.hidden) parts.push("(" + result.hidden + (result.hidden === 1 ? " embedding, speech, or image model is" : " embedding, speech, and image models are") + " hidden.)");
+      const model = state.model.trim();
+      if (!model && count === 1) {
+        state.model = providerModelList[0].id;
+        parts.push("It is the only one, so it has been selected.");
+      } else if (model && !providerModelList.some(entry => entry.id === model)) {
+        parts.push("The current model \u201c" + model + "\u201d is not in that list; check its spelling.");
+      } else if (model) {
+        parts.push("The current model \u201c" + model + "\u201d is available.");
+      }
+      return parts.join(" ");
+    }
+
+    // One button for the three things a first turn silently depends on: the harness answering, the
+    // provider accepting the key, and a model ID that provider actually has. Listing models proves
+    // the second and supplies the third without generating (or billing) anything.
+    async function checkProviderConnection() {
       const button = $("test-connection");
-      const status = $("settings-status");
+      const status = $("provider-check-status");
+      const setStatus = (message, isError = false) => { status.textContent = message; status.classList.toggle("error", isError); };
+      const revision = connectionRevision;
+      const provider = state.provider;
+      const label = PROVIDER_NAMES[provider] || provider;
       button.disabled = true;
-      status.textContent = "Checking local backend…";
+      setStatus("Checking the local harness…");
       try {
-        const response = await fetchWithTimeout("/api/health", { cache: "no-store" }, TIMEOUTS.files, "health check");
-        const result = await readApiJson(response, "health check");
-        applyHealth(result);
+        let health;
+        try {
+          const response = await fetchWithTimeout("/api/health", { cache: "no-store" }, TIMEOUTS.files, "health check");
+          health = await readApiJson(response, "health check");
+          applyHealth(health);
+        } catch (error) {
+          state.serverHealthError = error.message;
+          refreshConnectionLabel();
+          setStatus("The harness server did not answer: " + error.message + " Keep the window running server.js open.", true);
+          return;
+        }
         refreshConnectionLabel();
-        const ready = TEXT_PROVIDER_IDS.filter(name => state.serverKeys[name]);
-        status.textContent = LOCAL_TEXT_PROVIDERS.includes(state.provider) ? "Harness reachable. Local/custom servers may not need a key. This test does not contact your model server; confirm its address and model ID in Settings." : state.serverKeys[state.provider]
-          ? "Backend reachable; server-side key found for " + state.provider + ". No need to enter one here."
-          : state.apiKey.trim()
-            ? "Backend reachable; session key entered. Ready to test a live turn."
-            : ready.length
-              ? "Backend reachable, but the server key is for " + ready.join(" and ") + ", not " + state.provider + ". Enter a key here or add one to .env."
-              : result.envFilePresent && result.envFileError
-                ? "Backend reachable, but the .env file could not be read: " + result.envFileError
-                : result.envFilePresent && !result.envFileActiveSettings?.length
-                  ? "Backend reachable; .env was found, but it has no active settings. Uncomment and fill the entries you want to use."
-                  : "Backend reachable; enter an API key, or set one in a .env file beside server.js to stop re-entering it.";
+        if (state.endpoint.trim()) {
+          setStatus("The harness is running. A custom roleplay backend is set, so turns go there rather than to " + label + ". Clear that field to check " + label + ".");
+          return;
+        }
+        if (!hasUsableTextKey()) { setStatus(missingKeyAdvice(health, label), true); return; }
+        setStatus("The harness is running. Asking " + label + " for its models…");
+        const response = await fetchWithTimeout("/api/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: state.apiKey.trim(), settings: { provider, apiBaseUrl: state.apiBaseUrl } })
+        }, TIMEOUTS.models, "model list request");
+        const result = await readApiJson(response, "model list request");
+        // The provider, key, or address changed while this was in flight; its answer is about something else.
+        if (revision !== connectionRevision || provider !== state.provider) return;
+        if (!response.ok) throw new Error(result.error || label + " could not be checked (HTTP " + response.status + ").");
+        providerModelList = (Array.isArray(result.models) ? result.models : [])
+          .filter(model => model && typeof model.id === "string" && model.id.trim())
+          .map(model => ({ id: model.id.trim().slice(0, 200), name: String(model.name || "").slice(0, 120), free: model.free === true }))
+          .slice(0, 2000);
+        verifiedConnectionRevision = revision;
+        providerModelListFor = provider;
+        renderModelOptions();
+        setStatus(describeModelCheck(result, label, provider));
+        refreshConnectionLabel();
+        renderAll();
       } catch (error) {
-        state.serverHealthError = error.message;
-        refreshConnectionLabel();
-        status.textContent = "Connection check failed: " + error.message;
+        if (revision === connectionRevision && provider === state.provider) setStatus(error.message, true);
       } finally {
         button.disabled = false;
       }
-    });
+    }
+    $("test-connection").addEventListener("click", checkProviderConnection);
     $("add-member").addEventListener("click", () => { if (state.party.length < 5) openModal(); });
     $("cancel-modal").addEventListener("click", () => requestCloseModal("modal-backdrop"));
     $("modal-backdrop").addEventListener("click", event => { if (event.target.id === "modal-backdrop") requestCloseModal("modal-backdrop"); });

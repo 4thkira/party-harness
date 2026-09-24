@@ -25,7 +25,7 @@ If you have never used a computer program like this before, that is okay. Here i
 3. Install [Node.js](https://nodejs.org/) if you do not already have it. Node.js is the small helper that lets Party Harness run. You only need to install it once.
 4. Open the new folder. On Windows, double-click **Start Party Harness.cmd**. A black window may appear. Leave it open; it is the program's engine.
 5. Open your web browser — Chrome, Edge, Firefox, or another browser — and go to **http://127.0.0.1:8787/**. This address means “the program running on this computer.”
-6. Inside Party Harness, open **SETTINGS**. Choose where the AI's text should come from, then enter that service's model name and API key if it asks for one. An API key is a password-like code from that service; Party Harness does not provide one.
+6. Inside Party Harness, open **SETTINGS**. Choose where the AI's text should come from and enter that service's API key if it asks for one. Then press **CHECK CONNECTION + LIST MODELS** and pick a model from the list. An API key is a password-like code from that service; Party Harness does not provide one.
 7. Click **NEW SESSION**, choose a scenario, type what you want your character or the party to do, and click **SEND TURN**.
 
 If you only want to look around first, you can open the app and edit characters without an API key. You need a working text connection when you want the AI to write a response. When you are finished, close the black window or press **Ctrl+C** in it. Next time, double-click **Start Party Harness.cmd** again.
@@ -41,7 +41,7 @@ An **API key** is a private code that proves to a provider that you are allowed 
 3. Look for a page called **API keys**, **Developer**, or **Your keys**. The exact name and location are different for every provider.
 4. Create a new key, then copy it immediately. Many providers show the full key only once.
 5. Paste it into the matching API key box in **SETTINGS → Text generation connection**. Do not put quotation marks around it.
-6. Enter a model name that your provider says you can use. A model is the particular AI you are asking to write.
+6. Press **CHECK CONNECTION + LIST MODELS**. If the key works, the **Model** box offers the models your provider lets you use; pick one. A model is the particular AI you are asking to write. If the check says the key was rejected, copy it again from the provider's website.
 7. Save or close Settings, then try **SEND TURN**.
 
 Some providers require payment information or charge based on how much text you generate. Some give new accounts a small amount of free use, and some do not. Read the provider's own pricing and usage pages before creating a key. Party Harness cannot tell you whether a key has money or permission behind it.
@@ -70,7 +70,7 @@ OpenRouter is a website that gives you one connection for many different AI mode
 2. Open OpenRouter's [API key page](https://openrouter.ai/settings/keys), create a key, and copy it. Treat this key like a password. Do not paste it into a public post.
 3. In Party Harness, open **SETTINGS → Text generation connection** and choose **OpenRouter**.
 4. Paste the key into the API key box. The provider API base URL should be `https://openrouter.ai/api/v1`; leave **Custom roleplay backend URL** blank.
-5. In the **Model** box, enter the exact model ID shown on OpenRouter's [models page](https://openrouter.ai/models). A model ID looks like `company/model-name`.
+5. Press **CHECK CONNECTION + LIST MODELS**, then pick a model in the **Model** box, or type an exact model ID from OpenRouter's [models page](https://openrouter.ai/models). A model ID looks like `company/model-name`.
 6. Save or close Settings, start a new session, and click **SEND TURN**.
 
 The model name is not your account name, your API key, or the model's friendly title. Copy the model ID exactly. If you change models later, replace only the model ID; you can keep the same OpenRouter key.
@@ -87,11 +87,11 @@ To try it:
 4. Enter exactly `openrouter/free` in the **Model** box.
 5. Try a short, simple turn first. Free models can be busy, slower, less consistent, or temporarily unavailable.
 
-Instead of `openrouter/free`, you can choose a particular model marked **(free)** on OpenRouter's [free-model list](https://openrouter.ai/models?pricing=free), then copy its exact model ID. Some model IDs also accept a `:free` ending. The list changes over time, so do not worry if an example model from an older guide is gone.
+Instead of `openrouter/free`, you can choose a particular free model. After **CHECK CONNECTION + LIST MODELS**, free models are marked **(free)** in the Model box list, or you can copy an exact model ID from OpenRouter's [free-model list](https://openrouter.ai/models?pricing=free). Some model IDs also accept a `:free` ending. The list changes over time, so do not worry if an example model from an older guide is gone.
 
 Free does not mean unlimited. OpenRouter documents lower rate limits and availability for free models, and those limits can change. Free models may also produce less reliable structured responses, which Party Harness needs in order to keep story text, choices, checks, and world-state updates separate. If `openrouter/free` gives an unusable-response error, try a different current free model that lists structured-output support, or switch to a paid model.
 
-The **TEST LOCAL CONNECTION** button only checks Party Harness's own server and whether a key is present. It does not prove that OpenRouter accepts the key, that the model ID exists, or that the free model is currently available. The real test is starting a session and sending a turn.
+**CHECK CONNECTION + LIST MODELS** confirms that OpenRouter accepts your key and shows which models exist right now, and it says so when your key is on OpenRouter's free tier. It cannot promise that a free model has capacity at the moment you play, so the final test is still sending a turn.
 
 ### Image generation for beginners
 
@@ -170,10 +170,10 @@ First check the three simplest things: the black server window is still open, yo
 2. If you did not already download a release above, use **Code → Download ZIP**, then extract it to a folder. Keep the supplied files together.
 3. On Windows, double-click **Start Party Harness.cmd**. On macOS/Linux, open a terminal in the extracted folder and run `node server.js`. There is no `npm install` step.
 4. Keep that terminal open and visit **http://127.0.0.1:8787/** in your browser. Open the address, not the HTML file itself.
-5. Open **SETTINGS → Text generation connection**. Choose a text provider, enter its exact model ID, and enter its API key if needed (NovelAI uses a Persistent API token). For local models, see the connection table below. Leave the custom roleplay backend URL blank.
+5. Open **SETTINGS → Text generation connection**. Choose a text provider and enter its API key if needed (NovelAI uses a Persistent API token). Press **CHECK CONNECTION + LIST MODELS** and pick a model, or type an exact model ID. For local models, see the connection table below. Leave the custom roleplay backend URL blank.
 6. Open **NEW SESSION**, choose a scenario, and review your party. Write an action and use **SEND TURN**. **HELP / START HERE** explains the controls while you play.
 
-The included model name is a configurable default, not a promise of access. Select a model your provider actually supports. **TEST LOCAL CONNECTION** checks the included server/configuration; it does not validate your account or make a full generation request.
+The included model name is a configurable default, not a promise of access. Select a model your provider actually supports. **CHECK CONNECTION + LIST MODELS** asks your provider for its model list: it confirms the key and address without generating anything, and the connection dot turns green when it succeeds. It cannot tell whether your account has credit left.
 
 To stop the app, press Ctrl+C in its terminal. Use the launcher again next time.
 
@@ -373,7 +373,7 @@ All text connections cover story turns, summaries, character-profile processing,
 | LM Studio (local) | http://127.0.0.1:1234/v1 | No key required unless you enabled authentication |
 | Custom OpenAI-compatible | Your server's API base URL | COMPATIBLE_API_KEY, or enter a key in Settings |
 
-Start your local model server and load/download a model there first. Copy its exact model ID into Settings; the harness does not install models or start their servers. A downloaded model served locally can generate text without an external text provider. The model must handle the story context and JSON instructions; model size and context capacity affect reliability. Images and any separately selected hosted services still use network APIs.
+Start your local model server and load/download a model there first, then use **CHECK CONNECTION + LIST MODELS** to pick its exact model ID; the harness does not install models or start their servers. A downloaded model served locally can generate text without an external text provider. The model must handle the story context and JSON instructions; model size and context capacity affect reliability. Images and any separately selected hosted services still use network APIs.
 
 ## Image provider connections
 
@@ -395,6 +395,6 @@ New hosted presets start with an empty model field so you can enter a currently 
 
 **Party asides:** Bubbles are optional short comments beside a character's portrait, separate from the full reply and transcript. A `speech` bubble is an audible aside; a `thought` bubble is an unspoken NPC reaction. They can be dismissed individually, and the prompt asks the model to leave them empty unless they add information rather than repeat the scene.
 
-**TEST LOCAL CONNECTION** checks the harness server and configured-key presence. It does not validate the model server, provider account, model access, or generation quality. These adapters have mock protocol tests and local HTTP integration tests; live hosted calls and actual Ollama/LM Studio model generation have not been validated in this release.
+**CHECK CONNECTION + LIST MODELS** asks the selected provider for its model list, which confirms the harness, the address, and the key without generating anything. Embedding, speech, and image models are left out of the list. It does not test generation quality or account credit. These adapters have mock protocol tests and local HTTP integration tests; live hosted calls and actual Ollama/LM Studio model generation have not been validated in this release.
 
 API references: [Claude](https://platform.claude.com/docs/en/api/http/messages/create), [Gemini](https://ai.google.dev/gemini-api/docs/openai), [OpenRouter](https://openrouter.ai/docs/quickstart), [DeepSeek](https://api-docs.deepseek.com/guides/json_mode/), [Groq](https://console.groq.com/docs/overview), [Ollama](https://docs.ollama.com/api/openai-compatibility), [LM Studio](https://lmstudio.ai/docs/developer/openai-compat), [ComfyUI server routes](https://docs.comfy.org/development/comfyui-server/comms_routes), [AUTOMATIC1111 API](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API), [Fooocus-API](https://github.com/mrhan1993/Fooocus-API/blob/main/docs/api_doc_en.md).
