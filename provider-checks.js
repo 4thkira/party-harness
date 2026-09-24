@@ -341,6 +341,8 @@ test('saves are kept as files, and only the harness\'s own files are trusted as 
   };
   const session = { format: 'party-harness-session', version: 4, id: 'session-abc', savedAt: '2026-09-24T10:00:00.000Z', sessionName: 'The Old Gate', settings: { endpoint: 'http://127.0.0.1:9999/roleplay' }, narrative: [] };
   assert.deepEqual((await call('GET', 'saves')).body, { saves: [] });
+  // Every empty browser asks for the workspace mirror; on a first run that is an empty slot, not a 404.
+  assert.deepEqual(await call('GET', 'saves/autosave'), { status: 200, body: { trusted: false, snapshot: null } });
   assert.equal((await call('PUT', 'saves/session-abc', session)).status, 200);
   assert.ok(fs.existsSync(path.join(dir, 'saves', 'session-abc.json')));
   if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'saves', '.harness-key')).mode & 0o777, 0o600);

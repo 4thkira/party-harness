@@ -56,13 +56,14 @@ http.createServer(async (req, res) => {
   // Empty, like a fresh download. Without this route every fixture page load logged a 404.
   else if (req.url === "/api/local-library") json({music:[],ambience:[],skins:[]});
   // Held in memory, so the saves-folder UI works here without reading or writing a real saves/.
-  // A fresh page still gets one 404 for autosave, as it does from server.js with no file yet.
+  // A missing autosave is an empty slot, answered as server.js answers it.
   else if (req.url === "/api/saves" && req.method === "GET") json({saves:[...saves].map(([id,text])=>{const save=JSON.parse(text);return {id,sessionName:save.sessionName||"Untitled session",savedAt:save.savedAt||"",bytes:text.length};})});
   else if (/^\/api\/saves\/[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(req.url)) {
     const id=req.url.slice("/api/saves/".length);
     if (req.method === "PUT") {let raw="";for await (const part of req) raw+=part;saves.set(id,raw);json({ok:true,id,bytes:raw.length});}
     else if (req.method === "DELETE") {saves.delete(id);json({ok:true,id});}
     else if (saves.has(id)) {res.writeHead(200,{"Content-Type":"application/json"});res.end('{"trusted":true,"snapshot":'+saves.get(id)+'}');}
+    else if (id === "autosave") json({trusted:false,snapshot:null});
     else {res.writeHead(404,{"Content-Type":"application/json"});res.end('{"error":"No such save."}');}
   }
   else if (req.url === "/api/turn") {

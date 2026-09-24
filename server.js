@@ -2604,6 +2604,9 @@ async function handleSaves(req, res, id) {
     let save;
     try { save = await readSaveFile(id); }
     catch (error) {
+      // Every empty browser asks for the workspace mirror, and on a first run there is none. That is
+      // an empty slot rather than a missing thing, so it is not reported as an error in the console.
+      if (error.code === "ENOENT" && id === "autosave") { writeJson(res, 200, { trusted: false, snapshot: null }); return; }
       writeJson(res, error.code === "ENOENT" ? 404 : error.statusCode || 422, { error: error.code === "ENOENT" ? "No such save." : error.statusCode ? error.message : "That save file is not valid JSON." });
       return;
     }
