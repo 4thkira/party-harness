@@ -202,6 +202,7 @@ To edit the file yourself instead:
 | Stat check | Rolled by the harness on your computer, not by the provider. Roll-over on a 1-100 die: a high roll is a good roll. Rolling sends the result back for the story to continue, so a turn that ends in a check costs a second provider request. The roll is fixed when the check appears, so undoing and rolling it again gives the same number. See [How checks work](#how-checks-work). |
 | Undo / regenerate | Undo restores the previous exchange; regenerate retries its action with a new provider request. |
 | World state | Editable inventory, conditions, relationships, objectives, progress counters (“clocks”), and facts (“flags”). |
+| Relationship web | The grid at the top of the World tab. Each row is one character's feelings toward the others, one dimension at a time (affection, trust, respect, tension, fear, obligation). Pick a square to edit it, or a · square to start a relationship nobody has recorded yet. ≠ marks a bond that runs much stronger one way, and a heavy border marks one that changed this turn. |
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
 | Sessions | Named saves, session import/export, and readable story exports. |
@@ -211,7 +212,7 @@ To edit the file yourself instead:
 | Bookmark | Saves the current scene title, location, turn, and a short excerpt under the History tab. |
 | Portrait expressions | Add several images to a character sheet, then choose which expression is shown as that character's current portrait. |
 
-The right-hand rail is split into **Party**, **World**, **History**, and **Trace** tabs. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
+The right-hand rail is split into **Party**, **World**, **History**, and **Trace** tabs. World opens on the relationship web, then the rest of the scene's state. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
 
 ## Local music, ambience, and interface skins
 

@@ -363,6 +363,35 @@ this program. If not, see https://www.gnu.org/licenses/.
     .runtime-meter { height: 4px; margin-top: 4px; background: #c8bba8; }
     .runtime-meter > span { display: block; height: 100%; background: var(--rust); }
     .memory-pin { float: right; margin-left: 5px; padding: 1px 4px; color: var(--rust); background: transparent; border: 1px solid #aa9b87; font-size: 8px; }
+    .relationship-web { margin: 8px 0 11px; padding-bottom: 9px; border-bottom: 1px solid #aa9b87; }
+    .web-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .web-head h5 { flex: none; margin: 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+    .web-head span { min-width: 0; color: var(--muted); font-size: 9px; line-height: 1.35; text-align: right; }
+    .web-dimensions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; margin-bottom: 6px; }
+    .web-dimension { min-width: 0; padding: 4px 2px; color: var(--muted); background: transparent; border: 1px solid #a3937d; font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+    .web-dimension:hover { color: var(--rust); border-color: var(--rust); }
+    .web-dimension.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
+    .web-grid { width: 100%; table-layout: fixed; border-collapse: collapse; font-family: var(--mono); }
+    .web-grid th { padding: 3px 2px; color: var(--muted); font-size: 9px; font-weight: 400; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .web-grid thead th { text-align: center; }
+    .web-grid th[scope="row"] { padding-right: 5px; color: var(--ink); font-family: var(--serif); font-size: 12px; letter-spacing: 0; text-align: left; }
+    .web-grid .web-corner { width: 27%; }
+    .web-grid td { height: 30px; padding: 1px; }
+    .web-swatch { display: inline-block; width: 7px; height: 7px; margin-right: 3px; border: 1px solid var(--line); vertical-align: 0; }
+    .web-grid thead .web-swatch { display: block; margin: 0 auto 2px; }
+    .web-cell { position: relative; width: 100%; height: 100%; padding: 0; color: var(--ink); background: rgba(255,255,255,.28); border: 1px solid #aa9b87; font-family: var(--mono); font-size: 11px; cursor: pointer; }
+    .web-cell.up { background: color-mix(in srgb, var(--orange) var(--web-tint), rgba(255,255,255,.28)); }
+    .web-cell.down { background: color-mix(in srgb, var(--muted) var(--web-tint), rgba(255,255,255,.28)); border-style: dashed; }
+    .web-cell.empty { color: var(--muted); background: transparent; border-style: dotted; }
+    .web-cell.recent { box-shadow: inset 0 0 0 2px var(--rust); }
+    .web-cell.lopsided::after { content: "≠"; position: absolute; top: 0; right: 2px; color: var(--rust); font-size: 9px; line-height: 1.2; }
+    .web-cell:hover { border-color: var(--rust); }
+    .web-cell:focus-visible, .web-dimension:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+    .web-self { background: repeating-linear-gradient(135deg, transparent 0 4px, #b4a590 4px 5px); background-clip: content-box; }
+    .web-note { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .web-list { margin-top: 6px; }
+    .web-list summary { color: var(--rust); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+    .web-list[open] summary { margin-bottom: 5px; }
     .trace-entry { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px dashed #b4a590; font-size: 10px; line-height: 1.45; }
     .trace-entry:last-child { border-bottom: 0; }
     .trace-bad { color: #8a3f32; }
@@ -878,7 +907,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <p>Party Harness is a story space for you and a party of AI-controlled characters. Write an action, let the scene respond, and decide what happens next. You can browse and edit without a key; generating text needs a hosted provider or a running local model server; art uses a hosted image provider or a compatible local server.</p>
         <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
         <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
-        <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
+        <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. The <strong>relationship web</strong> at the top of the World tab shows how each character feels toward each of the others: rows feel, columns receive. Pick a square to edit it. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
         <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser, and are also kept as files in the saves folder beside server.js, so clearing site data or changing the port does not lose them: an empty browser restores your last workspace from there by itself. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
         <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
       </div>
@@ -2435,12 +2464,14 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
     function worldEditorDirty() { return worldEditor && JSON.stringify(readWorldEditor()) !== worldEditor.formBaseline; }
     function closeWorldEditor() { worldEditor = null; closeBackdrop("world-editor-backdrop"); }
-    function openWorldEditor(group, index = null, candidateIndex = null) {
+    // options.preset fills a new entry's fields (a web square supplies both characters);
+    // options.focus names the field to start in instead of the first one.
+    function openWorldEditor(group, index = null, candidateIndex = null, options = {}) {
       if (!WORLD_FIELDS[group]) return;
       const candidate = candidateIndex === null ? null : state.memoryCandidates[candidateIndex];
       const entry = index === null ? {} : worldEntries(group)[index];
       if (!entry) return;
-      const draft = candidate ? { ...candidate, expiresTurn: candidate.kind === "reaction" ? state.turn + 3 : 0 } : { ...entry };
+      const draft = candidate ? { ...candidate, expiresTurn: candidate.kind === "reaction" ? state.turn + 3 : 0 } : { ...entry, ...(index === null ? options.preset : null) };
       if (group === "memories" && index === null && !candidate) draft.expiresTurn = state.turn + 3;
       worldEditor = { group, index, candidateIndex, candidateText: candidate?.text, epoch: sessionEpoch, entry: structuredClone(entry), baseline: JSON.stringify(state.worldState) };
       $("world-editor-title").textContent = (index === null ? "Add / " : "Edit / ") + WORLD_LABELS[group];
@@ -2467,7 +2498,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       worldEditor.formBaseline = JSON.stringify(readWorldEditor());
       $("world-editor-status").textContent = group === "memories" ? "Reactions can expire. Relationship incidents and development remain until you revise them. Only saved memories reach the engine." : "Values and the latest correction are sent with the next turn.";
       $("delete-world-entry").hidden = index === null;
-      openBackdrop("world-editor-backdrop", "world-field-" + WORLD_FIELDS[group][0][0]);
+      const focusKey = WORLD_FIELDS[group].some(([key]) => key === options.focus) ? options.focus : WORLD_FIELDS[group][0][0];
+      openBackdrop("world-editor-backdrop", "world-field-" + focusKey);
     }
 
     function commitWorldEdit(remove = false) {
@@ -2505,7 +2537,10 @@ this program. If not, see https://www.gnu.org/licenses/.
         const after = describe(next[key], type);
         return label + ": " + (remove ? describe(entry[key], type) : entry[key] !== undefined ? describe(entry[key], type) + " → " + after : after);
       }).join("; ");
-      const correction = (remove ? "Removed " : "Player set ") + WORLD_LABELS[group] + ": " + (next.name || next.label || next.text || next.key || "") + " — " + changedFields;
+      // Relationships have no name of their own, and an edit that keeps both characters lists
+      // neither in changedFields, so without this the engine could not tell whose bond changed.
+      const subject = group === "relationships" ? characterNameById(next.sourceId) + " → " + characterNameById(next.targetId) : next.name || next.label || next.text || next.key || "";
+      const correction = (remove ? "Removed " : "Player set ") + WORLD_LABELS[group] + ": " + subject + " — " + changedFields;
       state.worldState.corrections = [...(state.worldState.corrections || []), { turn: state.turn, text: correction.slice(0, 2000) }].slice(-20);
       state.worldState = normalizeWorldState(state.worldState);
       if (candidateIndex !== null && state.memoryCandidates[candidateIndex]?.text === candidateText) state.memoryCandidates.splice(candidateIndex, 1);
@@ -2524,7 +2559,72 @@ this program. If not, see https://www.gnu.org/licenses/.
       markDirty(); renderAll();
     }
 
+    // The relationship web is a grid of directed feelings: rows are whose feelings, columns are
+    // toward whom, and one dimension shows at a time. A grid rather than a node diagram because
+    // each pair has two different directions and six dimensions, and it has to stay readable in
+    // a 290px sidebar and navigable as a table.
+    const RELATIONSHIP_HELP = {
+      affection: "How much they like or care about the other person.",
+      trust: "How far they would rely on the other person.",
+      respect: "How highly they rate the other person's judgment or ability.",
+      tension: "Friction, resentment, or unresolved conflict with the other person.",
+      fear: "How threatened or intimidated they feel by the other person.",
+      obligation: "How much they feel they owe the other person."
+    };
+    // Two directions this far apart in the shown dimension get a ≠ marker.
+    const WEB_LOPSIDED_GAP = 25;
+    let relationshipWebDimension = "affection";
+    let relationshipListOpen = false;
+    const signedValue = value => (value > 0 ? "+" : value < 0 ? "−" : "") + Math.abs(value);
+    function relationshipWebMarkup(listMarkup) {
+      const members = state.party;
+      if (members.length < 2) return '';
+      const dimension = relationshipWebDimension;
+      const relations = state.worldState.relationships;
+      const find = (sourceId, targetId) => relations.find(entry => entry.sourceId === sourceId && entry.targetId === targetId);
+      const changedThisTurn = new Set(state.relationshipTimeline.filter(item => item.turn === state.turn).map(item => item.sourceId + " " + item.targetId));
+      // Short labels: the first name, unless two characters share it (then the full name for rows
+      // and initials for the narrow columns). Screen readers always get the full name.
+      const firstName = member => String(member.name || "").trim().split(/\s+/)[0];
+      const shared = member => members.filter(other => firstName(other) === firstName(member)).length > 1;
+      const rowLabel = member => shared(member) ? member.name : firstName(member);
+      const columnLabel = member => (shared(member) ? String(member.name || "").trim().split(/\s+/).map(word => word[0]).join("") : firstName(member)).slice(0, 3).toUpperCase();
+      const swatch = member => '<i class="web-swatch" style="background:' + safeColor(member.color) + '" aria-hidden="true"></i>';
+      const cell = (source, target) => {
+        if (source.id === target.id) return '<td class="web-self"><span class="sr-only">' + escapeHtml(source.name) + ' (self)</span></td>';
+        const entry = find(source.id, target.id);
+        const direction = source.name + " → " + target.name;
+        if (!entry) {
+          const label = direction + ": nothing recorded yet. Pick to add.";
+          return '<td><button class="web-cell empty" type="button" data-web-source="' + escapeHtml(source.id) + '" data-web-target="' + escapeHtml(target.id) + '" data-help="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">·</button></td>';
+        }
+        const value = entry[dimension];
+        const reverse = find(target.id, source.id);
+        const lopsided = reverse && Math.abs(value - reverse[dimension]) >= WEB_LOPSIDED_GAP;
+        const recent = changedThisTurn.has(source.id + " " + target.id);
+        const classes = ["web-cell", value > 0 ? "up" : value < 0 ? "down" : "", lopsided ? "lopsided" : "", recent ? "recent" : ""].filter(Boolean).join(" ");
+        const label = direction + ": " + RELATIONSHIP_DIMENSIONS.map(key => key + " " + signedValue(entry[key])).join(", ") + "."
+          + (lopsided ? " Much " + (value > reverse[dimension] ? "higher" : "lower") + " than " + target.name + "'s " + dimension + " back." : "")
+          + (recent ? " Changed this turn." : "")
+          + (entry.lastReason ? " Why: " + entry.lastReason : "") + " Pick to edit.";
+        return '<td><button class="' + classes + '" type="button" style="--web-tint: ' + Math.min(45, Math.round(Math.abs(value) * 0.45)) + '%" data-web-source="' + escapeHtml(source.id) + '" data-web-target="' + escapeHtml(target.id) + '" data-help="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">' + signedValue(value) + '</button></td>';
+      };
+      const dimensions = RELATIONSHIP_DIMENSIONS.map(key => '<button class="web-dimension' + (key === dimension ? ' active' : '') + '" type="button" data-web-dimension="' + key + '" aria-pressed="' + (key === dimension) + '" data-help="' + escapeHtml(RELATIONSHIP_HELP[key]) + '">' + key + '</button>').join('');
+      const head = '<tr><th scope="col" class="web-corner"><span class="sr-only">Whose feelings, toward whom</span></th>' + members.map(member => '<th scope="col" title="' + escapeHtml(member.name) + '">' + swatch(member) + '<span aria-hidden="true">' + escapeHtml(columnLabel(member)) + '</span><span class="sr-only">' + escapeHtml(member.name) + '</span></th>').join('') + '</tr>';
+      const rows = members.map(source => '<tr><th scope="row" title="' + escapeHtml(source.name) + '">' + swatch(source) + '<span aria-hidden="true">' + escapeHtml(rowLabel(source)) + '</span><span class="sr-only">' + escapeHtml(source.name) + '</span></th>' + members.map(target => cell(source, target)).join('') + '</tr>').join('');
+      const list = relations.length ? '<details class="web-list"' + (relationshipListOpen ? ' open' : '') + '><summary>All values as a list (' + relations.length + ')</summary>' + listMarkup + '</details>' : '';
+      return '<section class="relationship-web" aria-labelledby="relationship-web-title"><div class="web-head"><h5 id="relationship-web-title">Relationship web</h5><span>' + escapeHtml(RELATIONSHIP_HELP[dimension]) + '</span></div>'
+        + '<div class="web-dimensions" role="group" aria-label="Feeling to show">' + dimensions + '</div>'
+        + '<table class="web-grid"><caption class="sr-only">' + escapeHtml(dimension) + ' between party members. Rows are whose feelings; columns are toward whom.</caption><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>'
+        + '<p class="web-note">Rows feel; columns receive. Pick a square to edit or add it. ≠ marks a bond much stronger one way; a heavy border marks a change this turn.</p>' + list + '</section>';
+    }
+    function openRelationshipCell(sourceId, targetId) {
+      const index = state.worldState.relationships.findIndex(entry => entry.sourceId === sourceId && entry.targetId === targetId);
+      openWorldEditor("relationships", index < 0 ? null : index, null, { preset: { sourceId, targetId }, focus: relationshipWebDimension });
+    }
+
     function renderWorldState() {
+      const panel = $("world-state-panel");
       const groups = [];
       const detail = (group, entry) => {
         if (group === "relationships") return characterNameById(entry.sourceId) + " → " + characterNameById(entry.targetId) + " / " + RELATIONSHIP_DIMENSIONS.map(key => key + " " + entry[key]).join(" · ");
@@ -2536,11 +2636,17 @@ this program. If not, see https://www.gnu.org/licenses/.
         const expired = entry.kind === "reaction" && entry.expiresTurn > 0 && state.turn > entry.expiresTurn;
         return entry.kind.toUpperCase() + (expired ? " / EXPIRED" : "") + " / " + characterNameById(entry.subjectId) + (entry.targetId ? " → " + characterNameById(entry.targetId) : "") + ": " + entry.text + (entry.kind === "reaction" && entry.expiresTurn ? " (through turn " + entry.expiresTurn + ")" : "");
       };
+      const entryMarkup = (group, label) => (entry, index) =>
+        '<div class="runtime-entry"><button class="memory-pin" type="button" data-world-group="' + group + '" data-world-index="' + index + '" aria-label="Edit ' + escapeHtml(label + ' ' + (entry.name || entry.label || entry.text || index + 1)) + '">EDIT</button><strong>' + escapeHtml(detail(group, entry)) + '</strong>' + ((entry.reason || entry.lastReason || entry.note) ? '<br>' + escapeHtml(entry.reason || entry.lastReason || entry.note) : '') + '</div>';
+      // Read before the panel is replaced: the toggle event that would record it arrives later.
+      const list = Array.from(panel.querySelectorAll(".web-list"))[0];
+      if (list) relationshipListOpen = list.open;
+      // With the web showing, the relationship list moves inside it rather than repeating below.
+      const web = relationshipWebMarkup(state.worldState.relationships.map(entryMarkup("relationships", WORLD_LABELS.relationships)).join(''));
       Object.entries(WORLD_LABELS).forEach(([group, label]) => {
         const entries = worldEntries(group);
-        if (!entries.length) return;
-        groups.push('<div class="runtime-group"><h5>' + label + '</h5>' + entries.map((entry, index) =>
-          '<div class="runtime-entry"><button class="memory-pin" type="button" data-world-group="' + group + '" data-world-index="' + index + '" aria-label="Edit ' + escapeHtml(label + ' ' + (entry.name || entry.label || entry.text || index + 1)) + '">EDIT</button><strong>' + escapeHtml(detail(group, entry)) + '</strong>' + ((entry.reason || entry.lastReason || entry.note) ? '<br>' + escapeHtml(entry.reason || entry.lastReason || entry.note) : '') + '</div>').join('') + '</div>');
+        if (!entries.length || (web && group === "relationships")) return;
+        groups.push('<div class="runtime-group"><h5>' + label + '</h5>' + entries.map(entryMarkup(group, label)).join('') + '</div>');
       });
       if (state.worldState.recentChecks.length) groups.push('<div class="runtime-group"><h5>Recent checks</h5>' + state.worldState.recentChecks.slice(-3).reverse().map(entry => '<div class="runtime-entry">' + escapeHtml((entry.success ? 'SUCCESS' : 'FAILURE') + ' / ' + entry.label + ': rolled ' + entry.roll + (entry.needed ? ', needed ' + entry.needed : '')) + '</div>').join('') + '</div>');
       if (state.memoryCandidates.length) {
@@ -2549,10 +2655,20 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
       const controls = '<div class="session-actions"><select id="world-add-kind" aria-label="Type of world entry">' + Object.entries(WORLD_LABELS).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join('') + '</select><button class="turn-action" type="button" id="world-add-entry">ADD</button><button class="turn-action" type="button" id="world-undo-edit" data-help="Undo the latest manual world-state correction, when available. This is separate from Undo turn." aria-description="Undo the latest manual world-state correction, when available. This is separate from Undo turn."' + (!state.worldEditUndo || turnInFlight ? ' disabled' : '') + '>UNDO EDIT</button></div>';
       const last = state.worldState.corrections?.at(-1);
-      $("world-state-panel").innerHTML = controls + (groups.join('') || '<p class="runtime-empty">No mechanical state yet. Add an entry or let the scene develop.</p>') + (last ? '<p class="runtime-empty">Latest correction / turn ' + last.turn + ': ' + escapeHtml(last.text) + '</p>' : '');
+      // Every render replaces the panel, so a focused web control would otherwise drop keyboard
+      // focus to the page on each beat, dimension switch, or edit.
+      const active = document.activeElement, focused = active && active.dataset ? { ...active.dataset } : {};
+      panel.innerHTML = controls + web + (groups.join('') || (web ? '' : '<p class="runtime-empty">No mechanical state yet. Add an entry or let the scene develop.</p>')) + (last ? '<p class="runtime-empty">Latest correction / turn ' + last.turn + ': ' + escapeHtml(last.text) + '</p>' : '');
       $("world-add-entry").addEventListener("click", () => openWorldEditor($("world-add-kind").value));
       $("world-undo-edit").addEventListener("click", undoWorldEdit);
-      const panel = $("world-state-panel");
+      panel.querySelectorAll("[data-web-dimension]").forEach(button => {
+        button.addEventListener("click", () => { relationshipWebDimension = button.dataset.webDimension; renderWorldState(); });
+        if (button.dataset.webDimension === focused.webDimension) button.focus();
+      });
+      panel.querySelectorAll("[data-web-source]").forEach(button => {
+        button.addEventListener("click", () => openRelationshipCell(button.dataset.webSource, button.dataset.webTarget));
+        if (focused.webSource && button.dataset.webSource === focused.webSource && button.dataset.webTarget === focused.webTarget) button.focus();
+      });
       panel.querySelectorAll("[data-world-group]").forEach(button => button.addEventListener("click", () => openWorldEditor(button.dataset.worldGroup, Number(button.dataset.worldIndex))));
       panel.querySelectorAll("[data-keep-memory]").forEach(button => button.addEventListener("click", () => openWorldEditor("memories", null, Number(button.dataset.keepMemory))));
       panel.querySelectorAll("[data-dismiss-memory]").forEach(button => button.addEventListener("click", () => {

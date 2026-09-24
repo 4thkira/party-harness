@@ -24,7 +24,7 @@ function harness() {
   const element = id => {
     if (!elements.has(id)) elements.set(id, { value: "", textContent: "", disabled: false,
       addEventListener() {}, focus() {}, querySelectorAll: () => [],
-      classList: { add() {}, remove() {}, toggle() {} } });
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } } });
     return elements.get(id);
   };
   const context = vm.createContext({ structuredClone, TextEncoder, URL, performance, console, AbortController, crypto: require("node:crypto"), HarnessStorage: require("./harness-storage.js"),
@@ -1097,4 +1097,101 @@ test("the workspace mirror writes the current state and reports a failed copy wi
   h.run("fetchWithTimeout = async () => ({ ok: false, status: 500, json: async () => ({ error: 'disk full' }) });");
   await h.run("flushDiskAutosave()");
   assert.match(h.run("state.diskSaveError"), /could not be written: disk full/);
+});
+
+// Three characters: Ash feels strongly toward Bo, Bo barely back, and nobody has recorded feelings
+// toward Cy yet. Bo's entry changed on the current turn.
+function webFixture() {
+  const h = harness();
+  h.run(`
+    state.party = ['Ash Vale', 'Bo', 'Cy'].map(name => ({id: name.split(' ')[0].toLowerCase(), name, color: '#5b625c', stats: [50, 50, 50], muted: false, initiative: true}));
+    const rel = (sourceId, targetId, values, lastReason = '') => ({sourceId, targetId, affection: 0, trust: 0, respect: 0, tension: 0, fear: 0, obligation: 0, ...values, lastReason});
+    state.worldState.relationships = [rel('ash', 'bo', {affection: 62, trust: 10}, 'Shared the last umbrella.'), rel('bo', 'ash', {affection: 18, trust: 12})];
+    state.relationshipTimeline = [{id: 'relation-1', turn: state.turn, sourceId: 'bo', targetId: 'ash', dimension: 'affection', delta: 4, reason: ''}];
+  `);
+  return h;
+}
+const webCell = (markup, source, target) => {
+  const match = markup.match(new RegExp('<button class="([^"]*)"[^>]*data-web-source="' + source + '" data-web-target="' + target + '"[^>]*aria-label="([^"]*)">([^<]*)</button>'));
+  return match && { classes: match[1].split(" "), label: match[2], text: match[3] };
+};
+
+test("the relationship web shows each direction, marks lopsided and fresh bonds, and replaces the flat list", () => {
+  const h = webFixture();
+  h.run("renderWorldState()");
+  const markup = h.element("world-state-panel").innerHTML;
+  const ashToBo = webCell(markup, "ash", "bo"), boToAsh = webCell(markup, "bo", "ash");
+  assert.equal(ashToBo.text, "+62");
+  assert.ok(ashToBo.classes.includes("lopsided"), "62 against 18 is a one-sided bond");
+  assert.ok(!ashToBo.classes.includes("recent"));
+  assert.match(ashToBo.label, /^Ash Vale → Bo: affection \+62, trust \+10, respect 0, tension 0, fear 0, obligation 0\. Much higher than Bo&#039;s affection back\. Why: Shared the last umbrella\./);
+  assert.ok(boToAsh.classes.includes("recent"), "changed on the current turn");
+  assert.equal(webCell(markup, "cy", "ash").text, "·", "no feelings recorded yet is not the same as zero");
+  assert.equal(webCell(markup, "ash", "ash"), null, "nobody has a relationship with themselves");
+  assert.doesNotMatch(markup, /<h5>Relationships<\/h5>/, "the flat list moves into the web instead of repeating");
+  assert.match(markup, /<details class="web-list"><summary>All values as a list \(2\)<\/summary>.*data-world-group="relationships"/);
+  // Another dimension: trust is 10 against 12, which is not lopsided.
+  h.run("relationshipWebDimension = 'trust'; renderWorldState();");
+  const trust = webCell(h.element("world-state-panel").innerHTML, "ash", "bo");
+  assert.equal(trust.text, "+10");
+  assert.ok(!trust.classes.includes("lopsided"));
+  assert.match(h.element("world-state-panel").innerHTML, /data-web-dimension="trust" aria-pressed="true"/);
+});
+
+test("a party of one has no web and keeps the plain world list", () => {
+  const h = webFixture();
+  h.run("state.party = state.party.slice(0, 1); state.worldState.relationships = []; renderWorldState();");
+  const markup = h.element("world-state-panel").innerHTML;
+  assert.doesNotMatch(markup, /relationship-web/);
+  assert.match(markup, /No mechanical state yet/);
+});
+
+test("picking a web square edits that direction, or starts one with both characters chosen", () => {
+  const h = webFixture();
+  let focused = "";
+  for (const key of ["sourceId", "trust"]) h.element("world-field-" + key).focus = () => { focused = key; };
+  h.run("relationshipWebDimension = 'trust'; openRelationshipCell('bo', 'ash');");
+  assert.equal(h.run("worldEditor.index"), 1, "the existing Bo → Ash entry");
+  assert.equal(focused, "trust", "starts in the field for the feeling on screen");
+  h.run("openRelationshipCell('cy', 'bo');");
+  assert.equal(h.run("worldEditor.index"), null);
+  const fields = h.element("world-editor-fields").innerHTML;
+  assert.match(fields, /<select id="world-field-sourceId" required>.*<option value="cy" selected>Cy<\/option>/);
+  assert.match(fields, /<select id="world-field-targetId" required>.*<option value="bo" selected>Bo<\/option>/);
+  // The ADD menu is unchanged: nobody is chosen for you.
+  h.run("openWorldEditor('relationships');");
+  assert.doesNotMatch(h.element("world-editor-fields").innerHTML, /<option value="[a-z]+" selected>/);
+});
+
+test("a relationship correction tells the engine whose bond it was", () => {
+  const h = webFixture();
+  h.run("openWorldEditor('relationships', 0);");
+  const form = { sourceId: "ash", targetId: "bo", affection: "62", trust: "40", respect: "0", tension: "0", fear: "0", obligation: "0", lastReason: "Shared the last umbrella." };
+  for (const [key, value] of Object.entries(form)) h.element("world-field-" + key).value = value;
+  h.run("commitWorldEdit();");
+  assert.equal(h.run("state.worldState.relationships[0].trust"), 40);
+  assert.equal(h.run("state.worldState.corrections.at(-1).text"), "Player set Relationships: Ash Vale → Bo — trust: 10 → 40");
+});
+
+test("re-rendering the web keeps keyboard focus and an open list", () => {
+  const h = webFixture();
+  const focused = [];
+  const button = dataset => ({ dataset, addEventListener() {}, focus() { focused.push(dataset); } });
+  h.context.document.activeElement = { dataset: { webSource: "bo", webTarget: "ash" } };
+  h.element("world-state-panel").querySelectorAll = selector =>
+    selector === "[data-web-source]" ? [button({ webSource: "ash", webTarget: "bo" }), button({ webSource: "bo", webTarget: "ash" })]
+    : selector === "[data-web-dimension]" ? [button({ webDimension: "affection" })]
+    : selector === ".web-list" ? [{ open: true }] : [];
+  h.run("renderWorldState()");
+  assert.deepEqual(focused.map(dataset => ({ ...dataset })), [{ webSource: "bo", webTarget: "ash" }]);
+  assert.match(h.element("world-state-panel").innerHTML, /<details class="web-list" open>/);
+});
+
+test("web labels stay distinct when two characters share a first name", () => {
+  const h = webFixture();
+  h.run("state.party[1].name = 'Ash Cole'; renderWorldState();");
+  const markup = h.element("world-state-panel").innerHTML;
+  assert.match(markup, /<th scope="row" title="Ash Vale">.*?<span aria-hidden="true">Ash Vale<\/span>/);
+  assert.match(markup, /<th scope="col" title="Ash Cole">.*?<span aria-hidden="true">AC<\/span>/);
+  assert.match(markup, /<th scope="row" title="Cy">.*?<span aria-hidden="true">Cy<\/span>/);
 });
