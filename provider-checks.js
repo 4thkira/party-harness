@@ -421,3 +421,55 @@ test('matched lore reaches the model after the cacheable context, bounded, and d
   const keys = Object.keys(context);
   assert.ok(keys.indexOf('storySoFar') < keys.indexOf('activeLore') && keys.indexOf('activeLore') < keys.indexOf('recentNarrative'), keys.join(','));
 });
+
+test('token usage reads every provider\'s shape, counting cached tokens inside input', () => {
+  const { usageFrom } = require('./text-providers.js');
+  // OpenAI Responses API.
+  assert.deepEqual(usageFrom({ usage: { input_tokens: 1200, output_tokens: 300, input_tokens_details: { cached_tokens: 1000 }, output_tokens_details: { reasoning_tokens: 120 } } }), { input: 1200, output: 300, cached: 1000, reasoning: 120 });
+  // Chat completions (OpenRouter, Groq, Ollama, LM Studio, Gemini, NovelAI's stream).
+  assert.deepEqual(usageFrom({ usage: { prompt_tokens: 900, completion_tokens: 200, prompt_tokens_details: { cached_tokens: 512 } } }), { input: 900, output: 200, cached: 512, reasoning: null });
+  // DeepSeek reports its cache hits in its own field.
+  assert.deepEqual(usageFrom({ usage: { prompt_tokens: 900, completion_tokens: 200, prompt_cache_hit_tokens: 640, prompt_cache_miss_tokens: 260 } }), { input: 900, output: 200, cached: 640, reasoning: null });
+  // Anthropic counts cache reads and writes outside input_tokens.
+  assert.deepEqual(usageFrom({ usage: { input_tokens: 50, output_tokens: 80, cache_read_input_tokens: 1000, cache_creation_input_tokens: 200 } }), { input: 1250, output: 80, cached: 1000, reasoning: null });
+  for (const nothing of [{}, { usage: null }, { usage: {} }, { usage: { prompt_tokens: 'many', completion_tokens: -1 } }, null]) assert.equal(usageFrom(nothing), null);
+});
+
+test('a turn reports token usage, and returns the exact exchange only when asked, without the key', { timeout: 20000 }, async t => {
+  let status = 200;
+  const fixture = http.createServer(async (req, res) => {
+    let raw = ''; for await (const part of req) raw += part;
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(status === 200
+      ? JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ narration: 'Quiet.', bubbles: [], suggestions: [] }) } }], usage: { prompt_tokens: 321, completion_tokens: 45, prompt_tokens_details: { cached_tokens: 300 } } })
+      : JSON.stringify({ error: { message: 'Model is overloaded.' } }));
+  });
+  fixture.listen(0, '127.0.0.1'); await once(fixture, 'listening');
+  t.after(() => { fixture.closeAllConnections(); fixture.close(); });
+  const port = await startHarness(t);
+  const base = `http://127.0.0.1:${fixture.address().port}/v1`;
+  const turn = async debugExchange => {
+    const response = await fetch(`http://127.0.0.1:${port}/api/turn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'Wait', debugExchange, party: [{ id: 'a', name: 'A' }], settings: { provider: 'compatible', model: 'fixture-model', apiBaseUrl: base }, apiKey: 'sk-never-shown' }) });
+    return { status: response.status, body: await response.json() };
+  };
+  const plain = await turn(false);
+  assert.equal(plain.status, 200, JSON.stringify(plain.body));
+  assert.deepEqual(plain.body.usage, { input: 321, output: 45, cached: 300, reasoning: null });
+  assert.equal(plain.body.exchanges, undefined, 'nothing extra unless asked');
+  const kept = await turn(true);
+  assert.equal(kept.body.exchanges.length, 1);
+  const [exchange] = kept.body.exchanges;
+  assert.equal(exchange.url, `http://127.0.0.1:${fixture.address().port}/v1/chat/completions`);
+  assert.equal(exchange.status, 200);
+  assert.equal(exchange.request.model, 'fixture-model');
+  assert.match(exchange.request.messages[1].content, /"playerAction":"Wait"/);
+  assert.match(exchange.response, /"prompt_tokens":321/);
+  // The key goes in a header, and headers are not recorded.
+  assert.equal(JSON.stringify(kept.body).includes('sk-never-shown'), false);
+  // A provider's refusal is where the exchange helps most.
+  status = 503;
+  const failed = await turn(true);
+  assert.equal(failed.status, 503);
+  assert.match(failed.body.error, /overloaded/);
+  assert.match(failed.body.exchanges[0].response, /Model is overloaded/);
+});

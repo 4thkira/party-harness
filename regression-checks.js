@@ -1697,3 +1697,58 @@ test("PNG cards are read from tEXt or iTXt, and a V3 card wins over the V2 copy 
   await assert.rejects(read(pngWith([["tEXt", Buffer.from("Comment\0hello", "latin1")]])), /no character card inside it/);
   await assert.rejects(h.run("cardFromPngBytes(new TextEncoder().encode('{\"name\":\"x\"}'))"), /not a PNG image/);
 });
+
+test("the trace records token usage, and keeps an exact exchange only while capture is on", async () => {
+  const h = swipeFixture();
+  h.run("fetchWithTimeout = (url, options) => new Promise(resolve => { globalThis.sentBody = options.body; globalThis.reply = resolve; }); requestLiveTurn = globalThis.realRequestLiveTurn;");
+  const exchange = { url: "http://127.0.0.1:11434/v1/chat/completions", status: 200, request: { model: "m", messages: [] }, response: "{\"ok\":true}" };
+  const answer = async (pending, body, ok = true) => {
+    h.context.reply({ ok, status: ok ? 200 : 503, json: async () => body });
+    await pending;
+  };
+  // Capture off: the request does not ask, and nothing is kept even if an exchange comes back.
+  let pending = h.run("handleTurn('wait')");
+  assert.equal(JSON.parse(h.context.sentBody).debugExchange, false);
+  await answer(pending, { narration: "Quiet.", usage: { input: 321, output: 45, cached: 300, reasoning: null }, exchanges: [exchange] });
+  assert.deepEqual({ ...h.run("state.turnTraces.at(-1).usage") }, { input: 321, output: 45, cached: 300, reasoning: null });
+  assert.equal(h.run("exchangeLog.size"), 0);
+  h.run("renderTurnTrace()");
+  let panel = h.element("turn-trace-panel").innerHTML;
+  assert.match(panel, /Tokens: 321 in \(300 cached\) \/ 45 out/);
+  assert.match(panel, /1 recorded turn used 321 in \(300 cached\) \/ 45 out tokens\./);
+  assert.doesNotMatch(panel, /VIEW EXCHANGE/);
+  // Capture on: kept in memory, viewable, and never in the saved session.
+  h.run("captureExchanges = true;");
+  pending = h.run("handleTurn('listen')");
+  assert.equal(JSON.parse(h.context.sentBody).debugExchange, true);
+  await answer(pending, { narration: "Rain.", exchanges: [exchange] });
+  const id = h.run("state.turnTraces.at(-1).id");
+  assert.equal(h.run("exchangeLog.size"), 1);
+  h.run("renderTurnTrace()");
+  panel = h.element("turn-trace-panel").innerHTML;
+  assert.match(panel, new RegExp('data-view-exchange="' + id + '"'));
+  h.run(`openExchange(${JSON.stringify(id)})`);
+  assert.match(h.element("exchange-body").innerHTML, /1\. POST http:\/\/127\.0\.0\.1:11434\/v1\/chat\/completions → HTTP 200.*<h4>Sent<\/h4><pre>\{\n  &quot;model&quot;: &quot;m&quot;/s);
+  assert.equal(h.run("JSON.stringify(sessionSnapshot()).includes('chat/completions')"), false, "exchanges are not saved");
+  // A failed turn keeps its exchange too: the provider's error is in it.
+  pending = h.run("handleTurn('try again')");
+  await answer(pending, { error: "Model is overloaded.", exchanges: [{ ...exchange, status: 503, response: "overloaded" }] }, false);
+  assert.equal(h.run("state.turnTraces.at(-1).status"), "failed");
+  assert.equal(h.run("exchangeLog.size"), 2);
+  // Usage survives a save; a malformed count does not.
+  const saved = h.run("JSON.stringify(HarnessStorage.pack(sessionSnapshot()))");
+  const loaded = swipeFixture();
+  loaded.run("applySessionSnapshot(JSON.parse(" + JSON.stringify(saved) + "));");
+  assert.equal(loaded.run("state.turnTraces[0].usage.input"), 321);
+  assert.equal(loaded.run("normalizeUsage({input: 'lots', output: -3})"), null);
+});
+
+test("a recorded exchange never carries credentials or a query string, and a huge reply is cut with a note", () => {
+  const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+  const context = vm.createContext({ URL });
+  vm.runInContext(source.slice(source.indexOf("const MAX_EXCHANGE_RESPONSE_CHARS"), source.indexOf("const openAIRequest")), context);
+  const record = vm.runInContext("exchangeRecord('http://user:pass@127.0.0.1:1234/v1/chat/completions?key=sk-x#frag', {model: 'm'}, {status: 200, body: 'y'.repeat(MAX_EXCHANGE_RESPONSE_CHARS + 5)})", context);
+  assert.equal(record.url, "http://127.0.0.1:1234/v1/chat/completions");
+  assert.equal(record.status, 200);
+  assert.match(record.response, /\n\[truncated: 262149 characters in all\]$/);
+});

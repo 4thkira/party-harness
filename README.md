@@ -216,6 +216,12 @@ To edit the file yourself instead:
 
 The right-hand rail is split into **Party**, **World**, **Lore**, **History**, and **Trace** tabs. World opens on the relationship web, then the rest of the scene's state; a number on the tab counts suggestions waiting for your review. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
 
+### Trace
+
+The **Trace** tab records each request to the text provider: how long it took, what the rules layer applied or refused, which lore went with it, and the tokens the provider reported (input, the part of it served from the provider's cache, output, and reasoning, when the provider says). The top line adds up the recorded turns, which is a quick way to see what a session is costing.
+
+Tick **Keep each turn's exact exchange** to hold on to exactly what the harness sent to the provider and what came back, including a provider's own error message when a turn fails. **VIEW EXCHANGE** shows it and **DOWNLOAD JSON** saves it. It stays in that browser tab only: it is never saved or exported with the session, it is gone on reload, and unticking the box lets go of what was held. API keys are sent in request headers and never appear in it.
+
 ### Lorebook
 
 The **Lore** tab holds reference entries about your world — places, people, factions, history, rules of magic — each with a few keywords. An entry is sent to the text provider only when one of its keywords appears in the last eight lines of the story (a speaker's name counts) or in the action you send, so a long lorebook costs nothing until it becomes relevant. Keywords match whole words in any letter case: `gate` finds "the Gate" but not "gatekeeper". Tick **Always include** for the few entries every turn should see.

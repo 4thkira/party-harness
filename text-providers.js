@@ -106,4 +106,22 @@ function normalizeResponse(response, provider) {
   if (typeof content !== 'string' || !content.trim()) throw new Error('The provider returned no usable text. Check model compatibility and structured output mode.');
   return { output_text: content };
 }
-module.exports = { PRESETS, providerName, baseUrlFor, endpointFor, buildRequest, normalizeResponse, modelsRequest, normalizeModels };
+// Token counts from any provider's response, as { input, output, cached, reasoning } with null for
+// what it did not report, or null when it reported nothing. input always includes cached tokens:
+// Anthropic counts its cache reads and writes outside input_tokens, the others inside.
+function usageFrom(response) {
+  const usage = response && typeof response === 'object' ? response.usage : null;
+  if (!usage || typeof usage !== 'object') return null;
+  const n = value => value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0 ? null : Math.round(Number(value));
+  const cacheRead = n(usage.cache_read_input_tokens), cacheWrite = n(usage.cache_creation_input_tokens);
+  const separateCache = cacheRead !== null || cacheWrite !== null;
+  const input = n(usage.input_tokens ?? usage.prompt_tokens);
+  const result = {
+    input: input === null ? null : input + (separateCache ? (cacheRead || 0) + (cacheWrite || 0) : 0),
+    output: n(usage.output_tokens ?? usage.completion_tokens),
+    cached: separateCache ? cacheRead : n(usage.input_tokens_details?.cached_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens),
+    reasoning: n(usage.output_tokens_details?.reasoning_tokens ?? usage.completion_tokens_details?.reasoning_tokens)
+  };
+  return result.input === null && result.output === null ? null : result;
+}
+module.exports = { PRESETS, providerName, baseUrlFor, endpointFor, buildRequest, normalizeResponse, modelsRequest, normalizeModels, usageFrom };

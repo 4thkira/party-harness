@@ -417,6 +417,14 @@ this program. If not, see https://www.gnu.org/licenses/.
     .web-list summary { color: var(--rust); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
     .web-list[open] summary { margin-bottom: 5px; }
     .trace-entry { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px dashed #b4a590; font-size: 10px; line-height: 1.45; }
+    .trace-capture { margin: 0 0 8px; font-size: 10px; }
+    .trace-usage { color: var(--muted); font-family: var(--mono); }
+    .trace-total { margin: 0 0 8px; padding: 5px 6px; color: var(--ink); background: rgba(255,255,255,.28); border-left: 2px solid var(--rust); font-family: var(--mono); font-size: 10px; line-height: 1.45; }
+    .exchange-modal { max-width: min(980px, calc(100vw - 24px)); }
+    .exchange-block { margin: 0 0 14px; }
+    .exchange-block h3 { margin: 0 0 6px; color: var(--rust); font-family: var(--mono); font-size: 11px; letter-spacing: .08em; overflow-wrap: anywhere; }
+    .exchange-block h4 { margin: 8px 0 4px; color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .exchange-block pre { max-height: 38vh; margin: 0; padding: 8px; overflow: auto; color: var(--ink); background: #fbf7ec; border: 1px solid var(--paper-3); font: 11px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
     .trace-entry:last-child { border-bottom: 0; }
     .trace-bad { color: #8a3f32; }
     .mode-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
@@ -781,7 +789,8 @@ this program. If not, see https://www.gnu.org/licenses/.
           </section>
           <section class="sidebar-panel" id="sidebar-panel-trace" data-sidebar-panel="trace" role="tabpanel" aria-labelledby="sidebar-tab-trace" aria-hidden="true" hidden>
             <div class="sidebar-panel-heading"><strong>Turn trace</strong><span>latest six turns</span></div>
-            <p class="sidebar-panel-note">A compact diagnostic record of provider requests, response timing, beat counts, and rejected proposals.</p>
+            <p class="sidebar-panel-note">A compact diagnostic record of provider requests, response timing, token counts, beat counts, and rejected proposals.</p>
+            <label class="check-field trace-capture"><input type="checkbox" id="trace-capture"><span>Keep each turn's exact exchange with the provider, to view or download here. Held in this tab only: never saved, gone on reload.</span></label>
             <div id="turn-trace-panel"></div>
           </section>
           <section class="sidebar-panel" id="sidebar-panel-history" data-sidebar-panel="history" role="tabpanel" aria-labelledby="sidebar-tab-history" aria-hidden="true" hidden>
@@ -1040,6 +1049,15 @@ this program. If not, see https://www.gnu.org/licenses/.
   </div>
 
   <div class="dice-overlay" id="dice-overlay" role="status" aria-live="assertive"><div class="dice-card"><div id="dice-label">CHECK</div><div class="dice-value" id="dice-value">?</div><strong id="dice-outcome"></strong></div></div>
+
+  <div class="modal-backdrop" id="exchange-backdrop" role="dialog" aria-modal="true" aria-labelledby="exchange-title">
+    <div class="settings-modal exchange-modal">
+      <div class="settings-header"><div><p class="eyebrow">TURN TRACE / EXACT EXCHANGE</p><h2 id="exchange-title">Provider exchange</h2></div><button type="button" class="settings-close" id="close-exchange" aria-label="Close provider exchange">×</button></div>
+      <p class="settings-note">Exactly what the harness sent to the text provider and what came back, one block per request. Keys travel in request headers and are not shown; the address omits any password or query string.</p>
+      <div id="exchange-body"></div>
+      <div class="modal-actions"><button class="settings-test" type="button" id="download-exchange">DOWNLOAD JSON</button><button class="cancel-button" type="button" id="done-exchange">CLOSE</button></div>
+    </div>
+  </div>
 
   <div class="modal-backdrop" id="lore-editor-backdrop" role="dialog" aria-modal="true" aria-labelledby="lore-editor-title">
     <form class="settings-modal" id="lore-editor-form">
@@ -3019,13 +3037,62 @@ this program. If not, see https://www.gnu.org/licenses/.
       }));
     }
 
+    // Token counts as the server reports them, null where the provider did not say.
+    function normalizeUsage(value) {
+      if (!value || typeof value !== "object") return null;
+      const count = raw => raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw)) || Number(raw) < 0 ? null : Math.min(1e9, Math.round(Number(raw)));
+      const usage = { input: count(value.input), output: count(value.output), cached: count(value.cached), reasoning: count(value.reasoning) };
+      return usage.input === null && usage.output === null ? null : usage;
+    }
+    const tokenCount = value => value === null || value === undefined ? "?" : value.toLocaleString();
+    function usageText(usage) {
+      return tokenCount(usage.input) + " in" + (usage.cached ? " (" + tokenCount(usage.cached) + " cached)" : "")
+        + " / " + tokenCount(usage.output) + " out" + (usage.reasoning ? " (" + tokenCount(usage.reasoning) + " reasoning)" : "");
+    }
+    // The exact provider exchanges, when the player asked to keep them. Memory only: they carry the
+    // whole prompt, so they never go into saves, exports, or files unless downloaded on purpose.
+    let captureExchanges = false;
+    let viewedExchange = null;
+    const exchangeLog = new Map();
+    const MAX_EXCHANGE_LOG = 12;
+    function keepExchange(traceId, exchanges) {
+      if (!captureExchanges || !Array.isArray(exchanges) || !exchanges.length) return;
+      exchangeLog.set(traceId, exchanges);
+      while (exchangeLog.size > MAX_EXCHANGE_LOG) exchangeLog.delete(exchangeLog.keys().next().value);
+    }
+    function openExchange(traceId) {
+      const exchanges = exchangeLog.get(traceId);
+      const trace = state.turnTraces.find(entry => entry.id === traceId);
+      if (!exchanges || !trace) return;
+      viewedExchange = { turn: trace.turn, action: trace.action, exchanges };
+      const readable = value => {
+        if (typeof value !== "string") return JSON.stringify(value, null, 2);
+        try { return JSON.stringify(JSON.parse(value), null, 2); } catch { return value; }
+      };
+      $("exchange-title").textContent = "Turn " + trace.turn + " / " + (exchanges.length === 1 ? "one request" : exchanges.length + " requests");
+      $("exchange-body").innerHTML = exchanges.map((exchange, index) => '<section class="exchange-block"><h3>' + (index + 1) + '. POST ' + escapeHtml(exchange.url) + ' → HTTP ' + escapeHtml(exchange.status)
+        + '</h3><h4>Sent</h4><pre>' + escapeHtml(readable(exchange.request)) + '</pre><h4>Received</h4><pre>' + escapeHtml(readable(exchange.response)) + '</pre></section>').join("");
+      openBackdrop("exchange-backdrop", "done-exchange");
+    }
+    function closeExchange() { viewedExchange = null; closeBackdrop("exchange-backdrop"); }
+    function downloadExchange() {
+      if (!viewedExchange) return;
+      downloadFile(sessionFileSlug() + "-turn-" + viewedExchange.turn + ".exchange.json", JSON.stringify({ format: "party-harness-exchange", version: 1, ...viewedExchange }, null, 2), "application/json");
+    }
     function renderTurnTrace() {
+      $("trace-capture").checked = captureExchanges;
+      const counted = state.turnTraces.filter(trace => trace.usage);
+      const sum = key => counted.reduce((total, trace) => total + (trace.usage[key] || 0), 0);
+      const total = counted.length ? '<p class="trace-total">' + counted.length + ' recorded turn' + (counted.length === 1 ? '' : 's') + ' used ' + escapeHtml(usageText({ input: sum("input"), output: sum("output"), cached: sum("cached"), reasoning: sum("reasoning") })) + ' tokens.</p>' : '';
       const traces = state.turnTraces.slice(-6).reverse();
-      $("turn-trace-panel").innerHTML = traces.length ? traces.map(trace => {
+      $("turn-trace-panel").innerHTML = total + (traces.length ? traces.map(trace => {
         const rejected = trace.rejected && trace.rejected.length ? '<br><span class="trace-bad">Rejected: ' + escapeHtml(trace.rejected.join('; ')) + '</span>' : '';
         const lore = trace.lore && trace.lore.length ? '<br>Lore sent: ' + escapeHtml(trace.lore.join(', ')) : '';
-        return '<div class="trace-entry"><strong>TURN ' + String(trace.turn).padStart(2, '0') + ' / ' + escapeHtml(trace.status.toUpperCase()) + '</strong><br>' + trace.durationMs + ' ms / ' + trace.requestBytes + ' request bytes / ' + trace.beatCount + ' beats<br>' + escapeHtml(trace.action) + lore + rejected + '</div>';
-      }).join("") : '<p class="runtime-empty">No provider turns recorded yet.</p>';
+        const usage = trace.usage ? '<br><span class="trace-usage">Tokens: ' + escapeHtml(usageText(trace.usage)) + '</span>' : '';
+        const view = trace.id && exchangeLog.has(trace.id) ? '<button class="memory-pin" type="button" data-view-exchange="' + escapeHtml(trace.id) + '" aria-label="View the exact exchange for turn ' + trace.turn + '">VIEW EXCHANGE</button>' : '';
+        return '<div class="trace-entry">' + view + '<strong>TURN ' + String(trace.turn).padStart(2, '0') + ' / ' + escapeHtml(trace.status.toUpperCase()) + '</strong><br>' + trace.durationMs + ' ms / ' + trace.requestBytes + ' request bytes / ' + trace.beatCount + ' beats' + usage + '<br>' + escapeHtml(trace.action) + lore + rejected + '</div>';
+      }).join("") : '<p class="runtime-empty">No provider turns recorded yet.</p>');
+      $("turn-trace-panel").querySelectorAll("[data-view-exchange]").forEach(button => button.addEventListener("click", () => openExchange(button.dataset.viewExchange)));
     }
 
     function renderPrompt() {
@@ -3113,6 +3180,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         worldState: publicWorldState(),
         recentNarrative: state.narrative.filter(line => line.kind !== "error").slice(-NARRATIVE_CONTEXT_LINES),
         activeLore: activeLore(action).included.map(entry => ({ title: entry.title, text: entry.text })),
+        debugExchange: captureExchanges,
         party: publicParty(),
         // Never forward the browser session key to a custom/remote endpoint.
         apiKey: endpoint ? "" : state.apiKey.trim(),
@@ -3147,8 +3215,10 @@ this program. If not, see https://www.gnu.org/licenses/.
         body: requestBody
       }, TIMEOUTS.turn, "turn request");
       const result = await readApiJson(response, "turn request");
-      if (!response.ok) throw new Error(result.error || "The live API request failed (" + response.status + ").");
-      return { result, requestBytes: new TextEncoder().encode(requestBody).length, lore: request.activeLore.map(entry => entry.title) };
+      const exchanges = Array.isArray(result.exchanges) ? result.exchanges : null;
+      delete result.exchanges;
+      if (!response.ok) throw Object.assign(new Error(result.error || "The live API request failed (" + response.status + ")."), { exchanges });
+      return { result, requestBytes: new TextEncoder().encode(requestBody).length, lore: request.activeLore.map(entry => entry.title), usage: normalizeUsage(result.usage), exchanges };
     }
 
     function buildImagePrompt() {
@@ -4003,12 +4073,14 @@ this program. If not, see https://www.gnu.org/licenses/.
           if (downtime.dropped.length) stateReport.rejected.push("downtime changes only relationships, as proposals; ignored " + downtime.dropped.join(", "));
           finalStatus = added.length ? "DOWNTIME / " + added.length + " RELATIONSHIP CHANGE" + (added.length === 1 ? "" : "S") + " TO REVIEW IN WORLD" : "DOWNTIME / NO RELATIONSHIP CHANGES";
         }
+        const traceId = "trace-" + crypto.randomUUID();
         state.turnTraces.push({
-          turn: state.turn - 1, action: action.trim().slice(0, 500), status: "success",
+          id: traceId, turn: state.turn - 1, action: action.trim().slice(0, 500), status: "success",
           durationMs: Math.round(performance.now() - startedAt), requestBytes,
           beatCount: sourceBeats.length || displayedBeats.length, applied: stateReport.applied, rejected: stateReport.rejected,
-          lore: Array.isArray(packet.lore) ? packet.lore : []
+          lore: Array.isArray(packet.lore) ? packet.lore : [], usage: packet.usage || null
         });
+        keepExchange(traceId, packet.exchanges);
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES);
         // This attempt is a reply now: it takes the on-screen slot, after any kept ones.
         request.checkpoint.replies = [...(request.checkpoint.replies || []), null];
@@ -4021,7 +4093,10 @@ this program. If not, see https://www.gnu.org/licenses/.
         // present an infrastructure failure as something that happened in the fiction.
         if (epoch !== sessionEpoch || activeTurnRequest !== request) return;
         updateGenerationTitle("Text", "failed");
-        state.turnTraces.push({ turn: state.turn, action: action.trim().slice(0, 500), status: "failed", durationMs: Math.round(performance.now() - startedAt), requestBytes, beatCount: 0, applied: [], rejected: [error.message] });
+        const traceId = "trace-" + crypto.randomUUID();
+        state.turnTraces.push({ id: traceId, turn: state.turn, action: action.trim().slice(0, 500), status: "failed", durationMs: Math.round(performance.now() - startedAt), requestBytes, beatCount: 0, applied: [], rejected: [error.message] });
+        // A failed request's exchange is often the most useful one: it holds the provider's own error.
+        keepExchange(traceId, error.exchanges);
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES);
         announceTurn("Harness error: " + error.message, []);
         // A failed regenerate costs nothing: the reply that was on screen comes back.
@@ -4066,7 +4141,9 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (!dialogue.length) throw new Error("The engine returned no usable party dialogue.");
         state.narrative.push({ kind: "label", text: "Party banter" });
         dialogue.forEach(beat => { const member = findPartyMember({ characterId: beat.characterId }); state.narrative.push({ kind: "speech", character: member.name, characterId: member.id, text: beat.text }); });
-        state.turnTraces.push({ turn: state.turn, action: "Party banter", status: "success", durationMs: Math.round(performance.now() - startedAt), requestBytes: packet.requestBytes, beatCount: dialogue.length, applied: [], rejected: [] });
+        const traceId = "trace-" + crypto.randomUUID();
+        state.turnTraces.push({ id: traceId, turn: state.turn, action: "Party banter", status: "success", durationMs: Math.round(performance.now() - startedAt), requestBytes: packet.requestBytes, beatCount: dialogue.length, applied: [], rejected: [], usage: packet.usage || null });
+        keepExchange(traceId, packet.exchanges);
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES); markDirty();
       } catch (error) {
         if (epoch === sessionEpoch && activeTurnRequest === request) stopTurnStatus("BANTER FAILED: " + error.message);
@@ -4564,7 +4641,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     // Modal plumbing: remember what had focus, keep Tab inside the open dialog, and let Escape
     // close whichever dialog is on top.
-    const MODAL_IDS = ["modal-backdrop", "settings-backdrop", "sessions-backdrop", "session-setup-backdrop", "world-editor-backdrop", "lore-editor-backdrop", "help-backdrop"];
+    const MODAL_IDS = ["modal-backdrop", "settings-backdrop", "sessions-backdrop", "session-setup-backdrop", "world-editor-backdrop", "lore-editor-backdrop", "exchange-backdrop", "help-backdrop"];
     const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
     let focusBeforeModal = null;
 
@@ -4606,7 +4683,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       "sessions-backdrop": () => closeSessions(),
       "session-setup-backdrop": () => closeSessionSetup(),
       "world-editor-backdrop": () => closeWorldEditor(),
-      "lore-editor-backdrop": () => closeLoreEditor()
+      "lore-editor-backdrop": () => closeLoreEditor(),
+      "exchange-backdrop": () => closeExchange()
     };
 
     // Discarding several minutes of character writing on a stray Escape is a real loss, so a
@@ -5308,7 +5386,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         requestBytes: boundedInteger(trace && trace.requestBytes, 0, 100000000), beatCount: boundedInteger(trace && trace.beatCount, 0, 20),
         applied: (Array.isArray(trace && trace.applied) ? trace.applied : []).slice(0, 30).map(value => String(value).slice(0, 300)),
         rejected: (Array.isArray(trace && trace.rejected) ? trace.rejected : []).slice(0, 30).map(value => String(value).slice(0, 300)),
-        lore: (Array.isArray(trace && trace.lore) ? trace.lore : []).slice(0, 40).map(value => String(value).slice(0, 120))
+        lore: (Array.isArray(trace && trace.lore) ? trace.lore : []).slice(0, 40).map(value => String(value).slice(0, 120)),
+        id: typeof (trace && trace.id) === "string" ? trace.id.slice(0, 100) : "", usage: normalizeUsage(trace && trace.usage)
       }));
       // Checkpoints are executable restoration data. Keep browser-owned autosaves useful, but do
       // not let an imported file install arbitrary historical snapshots into future UNDO actions.
@@ -5917,6 +5996,16 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("cancel-lore-editor").addEventListener("click", () => requestCloseModal("lore-editor-backdrop"));
     $("lore-editor-backdrop").addEventListener("click", event => { if (event.target.id === "lore-editor-backdrop") requestCloseModal("lore-editor-backdrop"); });
     $("add-lore").addEventListener("click", () => openLoreEditor());
+    $("trace-capture").addEventListener("change", event => {
+      captureExchanges = event.target.checked;
+      // Turning it off lets go of the prompts already held.
+      if (!captureExchanges) exchangeLog.clear();
+      renderTurnTrace();
+    });
+    $("download-exchange").addEventListener("click", downloadExchange);
+    $("close-exchange").addEventListener("click", closeExchange);
+    $("done-exchange").addEventListener("click", closeExchange);
+    $("exchange-backdrop").addEventListener("click", event => { if (event.target.id === "exchange-backdrop") closeExchange(); });
     $("import-lore-file").addEventListener("change", importLorebook);
     $("export-lore").addEventListener("click", exportLorebook);
     $("delete-world-entry").addEventListener("click", () => commitWorldEdit(true));

@@ -714,15 +714,34 @@ function decodeImageDataUrl(value, maxBytes) {
   return signature ? { data, contentType: signature.contentType, extension: signature.extension } : null;
 }
 
+// What the Trace tab shows when the player asks to keep the exact exchange: the body sent and the
+// reply received, byte for byte. Keys travel in headers, which are not recorded. Base URLs with
+// credentials or a query string are refused before any request, and the address is stripped of
+// both anyway, so a future route that allowed them could not leak one here.
+const MAX_EXCHANGE_RESPONSE_CHARS = 262144;
+function exchangeRecord(url, request, result) {
+  let address = String(url);
+  try { const parsed = new URL(address); parsed.username = ""; parsed.password = ""; parsed.search = ""; parsed.hash = ""; address = parsed.toString(); } catch {}
+  const body = String(result.body || "");
+  return { url: address, request, status: result.status, response: body.length > MAX_EXCHANGE_RESPONSE_CHARS ? body.slice(0, MAX_EXCHANGE_RESPONSE_CHARS) + "\n[truncated: " + body.length + " characters in all]" : body };
+}
+
 const openAIRequest = async (payload, apiKey, clientResponse, settings = {}) => {
   const provider = textProviders.providerName(settings);
-  if (provider === "openai") return upstreamRequest(UPSTREAM.openaiText, payload, apiKey, clientResponse);
+  if (provider === "openai") {
+    const result = await upstreamRequest(UPSTREAM.openaiText, payload, apiKey, clientResponse);
+    result.exchange = exchangeRecord("https://" + UPSTREAM.openaiText.hostname + UPSTREAM.openaiText.path, payload, result);
+    return result;
+  }
   const adapted = textProviders.buildRequest(payload, settings, apiKey);
   const target = { ...UPSTREAM.openaiText, label: provider + " request", protocol: adapted.url.protocol, hostname: adapted.url.hostname.replace(/^\[|\]$/g, ""), port: adapted.url.port || undefined, path: adapted.url.pathname, authHeaders: adapted.headers };
   const result = await upstreamRequest(target, adapted.body, apiKey, clientResponse);
+  result.exchange = exchangeRecord(adapted.url, adapted.body, result);
   if (result.status >= 200 && result.status < 300) {
     let response;
     try { response = JSON.parse(result.body); } catch { throw new Error(provider + " returned invalid JSON."); }
+    // Read before the reply is reduced to its text, which is all the callers need.
+    result.usage = textProviders.usageFrom(response);
     result.body = JSON.stringify(textProviders.normalizeResponse(response, provider));
   }
   return result;
@@ -773,8 +792,9 @@ function collapseNovelAIStream(body) {
 
 const novelAITextRequest = async (payload, apiKey, apiPath = "/oa/v1/chat/completions", clientResponse) => {
   const streaming = apiPath === "/oa/v1/chat/completions";
-  const result = await upstreamRequest(UPSTREAM.novelaiText, streaming ? { ...payload, stream: true } : payload,
-    apiKey, clientResponse, { path: apiPath });
+  const sent = streaming ? { ...payload, stream: true } : payload;
+  const result = await upstreamRequest(UPSTREAM.novelaiText, sent, apiKey, clientResponse, { path: apiPath });
+  result.exchange = exchangeRecord("https://" + UPSTREAM.novelaiText.hostname + apiPath, sent, result);
   if (!streaming || result.status < 200 || result.status >= 300) return result;
   const collapsed = collapseNovelAIStream(result.body);
   if (collapsed) result.body = JSON.stringify(collapsed);
@@ -1940,23 +1960,28 @@ async function handleTurn(req, res) {
         max_output_tokens: openAITokens
       };
 
+  // Every upstream call this turn makes, in order, for a player who asked to see them.
+  const exchanges = [];
+  const reply = (status, body) => writeJson(res, status, input.debugExchange === true ? { ...body, exchanges } : body);
+  const track = result => { if (result && result.exchange) exchanges.push(result.exchange); return result; };
   try {
-    let upstream = provider === "novelai"
+    let upstream = track(provider === "novelai"
       ? await novelAITextRequest(payload, apiKey, "/oa/v1/chat/completions", res)
-      : await openAIRequest(payload, apiKey, res, settings);
+      : await openAIRequest(payload, apiKey, res, settings));
     let response;
     try { response = JSON.parse(upstream.body); } catch { response = {}; }
     // Not every OpenAI-compatible model accepts the reasoning parameter. Drop it and retry once
     // rather than losing a turn over an optional knob.
     if (provider === "openai" && upstream.status === 400 && payload.reasoning && /reasoning/i.test(providerError(response, ""))) {
       delete payload.reasoning;
-      upstream = await openAIRequest(payload, apiKey, res, settings);
+      upstream = track(await openAIRequest(payload, apiKey, res, settings));
       try { response = JSON.parse(upstream.body); } catch { response = {}; }
     }
     if (upstream.status < 200 || upstream.status >= 300) {
-      writeJson(res, upstream.status, { error: providerError(response, "Text provider request failed.") });
+      reply(upstream.status, { error: providerError(response, "Text provider request failed.") });
       return;
     }
+    let usage = upstream.usage || textProviders.usageFrom(response);
     let generatedText;
     if (provider === "novelai") {
       try {
@@ -1977,13 +2002,14 @@ async function handleTurn(req, res) {
           stream: false,
           enable_thinking: false
         };
-        const fallback = await novelAITextRequest(fallbackPayload, apiKey, "/oa/v1/completions", res);
+        const fallback = track(await novelAITextRequest(fallbackPayload, apiKey, "/oa/v1/completions", res));
         let fallbackResponse;
         try { fallbackResponse = JSON.parse(fallback.body); } catch { fallbackResponse = {}; }
         if (fallback.status < 200 || fallback.status >= 300) {
-          writeJson(res, fallback.status, { error: providerError(fallbackResponse, "NovelAI text completion fallback failed.") });
+          reply(fallback.status, { error: providerError(fallbackResponse, "NovelAI text completion fallback failed.") });
           return;
         }
+        usage = textProviders.usageFrom(fallbackResponse) || usage;
         try {
           generatedText = extractNovelAIText(fallbackResponse);
         } catch (fallbackError) {
@@ -1994,9 +2020,9 @@ async function handleTurn(req, res) {
       generatedText = extractOutputText(response);
     }
     const parsed = provider === "novelai" ? parseNovelAITurn(generatedText) : parseTurnJson(generatedText);
-    writeJson(res, 200, normalizeTurn(parsed, party, mode.limit, context.scenario && context.scenario.statDefinitions));
+    reply(200, { ...normalizeTurn(parsed, party, mode.limit, context.scenario && context.scenario.statDefinitions), usage });
   } catch (error) {
-    writeJson(res, 502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to reach the text provider.") });
+    reply(502, { error: friendlyConnectionError(error, provider, textProviderOrigin(provider, settings), "Unable to reach the text provider.") });
   }
 }
 
