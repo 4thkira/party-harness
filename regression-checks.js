@@ -1415,3 +1415,118 @@ test("undoing a check result saved before checkpoints were marked still leaves t
   h.run("undoLastTurn()");
   assert.equal(h.element("response-input").value, "");
 });
+
+// Downtime answered with a scene that tries to change more than relationships.
+function downtimeFixture() {
+  const h = swipeFixture();
+  h.run(`state.party = ['Ash', 'Bo', 'Cy'].map(name => ({id: name.toLowerCase(), name, color: '#5b625c', stats: [50, 50, 50], feeling: 'calm', muted: false, initiative: true}));
+    state.playerMode = 'party-member'; state.worldState.relationships = [];`);
+  h.downtime = async (pending, deltas, extra = {}) => {
+    h.context.turnReply({ result: { narration: "They sit by the fire.", beats: [
+      { kind: "narration", text: "They sit by the fire.", stateChanges: { relationshipDeltas: deltas, inventoryChanges: [{ operation: "add", itemId: "cup", name: "Cup", quantity: 1 }], feelingUpdates: [{ characterId: "bo", feeling: "content" }], ...extra } },
+      { kind: "pause", prompt: "Anything to add?", pauseType: "player_action" },
+      { kind: "dialogue", characterId: "cy", text: "Bo, that was kind of you." }
+    ] }, requestBytes: 1 });
+    await pending;
+  };
+  return h;
+}
+
+test("downtime plays the party's own scene and holds its relationship shifts as proposals", async () => {
+  const h = downtimeFixture();
+  h.element("response-input").value = "";
+  const pending = h.run("startDowntime()");
+  assert.equal(h.run("state.actionHistory.includes(DOWNTIME_ACTION)"), false, "the player did not type it");
+  await h.downtime(pending, [
+    { sourceId: "cy", targetId: "bo", dimension: "affection", delta: 6, reason: "Bo shared the last of the tea." },
+    { sourceId: "ash", targetId: "cy", dimension: "trust", delta: 4, reason: "Ash is the player's character." }
+  ]);
+  // The whole scene plays: the pause was dropped, so the dialogue after it is shown too.
+  assert.equal(h.run("state.narrative.at(-1).text"), "Bo, that was kind of you.");
+  assert.equal(h.run("state.pendingPause"), null);
+  // Nothing but the proposals came of it.
+  assert.equal(h.run("state.worldState.relationships.length"), 0);
+  assert.equal(h.run("state.worldState.inventory.length"), 0);
+  assert.equal(h.run("state.party[1].feeling"), "calm");
+  const proposals = JSON.parse(h.run("JSON.stringify(state.relationshipProposals)"));
+  assert.deepEqual(proposals.map(entry => [entry.sourceId, entry.targetId, entry.dimension, entry.delta]), [["cy", "bo", "affection", 6]]);
+  const trace = JSON.parse(h.run("JSON.stringify(state.turnTraces.at(-1))"));
+  assert.deepEqual(trace.applied, ["proposed Cy → Bo affection +6"]);
+  assert.match(trace.rejected.join(" | "), /Ash's feelings are yours to decide/);
+  assert.match(trace.rejected.join(" | "), /ignored inventoryChanges, feelingUpdates/);
+  // The web marks the pending square and lists the proposal for review.
+  h.run("renderWorldState()");
+  const markup = h.element("world-state-panel").innerHTML;
+  assert.match(markup, /<button class="web-cell empty proposed"[^>]*data-web-source="cy" data-web-target="bo"[^>]*aria-label="Cy → Bo: nothing recorded yet\. Downtime proposes affection \+6; review it below the grid\. Pick to add\."/);
+  assert.match(markup, /From downtime \/ review first.*Cy → Bo affection \+6.*Bo shared the last of the tea\./);
+  assert.equal(h.element("world-review-count").hidden, false);
+  // Undo takes the scene and its proposals back, and types nothing into the box.
+  h.run("undoLastTurn()");
+  assert.equal(h.run("state.relationshipProposals.length"), 0);
+  assert.equal(h.element("response-input").value, "");
+});
+
+test("applying a proposal changes the relationship with its reason; dismissing drops it; UNDO EDIT reverses either", async () => {
+  const h = downtimeFixture();
+  await h.downtime(h.run("startDowntime()"), [
+    { sourceId: "cy", targetId: "bo", dimension: "affection", delta: 6, reason: "Bo shared the last of the tea." },
+    { sourceId: "bo", targetId: "cy", dimension: "tension", delta: -3, reason: "The argument from this morning eased." }
+  ]);
+  const [first, second] = JSON.parse(h.run("JSON.stringify(state.relationshipProposals.map(entry => entry.id))"));
+  h.run(`resolveRelationshipProposals([${JSON.stringify(first)}], true)`);
+  assert.equal(h.run("state.worldState.relationships.find(entry => entry.sourceId === 'cy').affection"), 6);
+  assert.equal(h.run("state.relationshipTimeline.at(-1).reason"), "Bo shared the last of the tea.");
+  assert.equal(h.run("state.relationshipProposals.length"), 1);
+  h.run("undoWorldEdit()");
+  assert.equal(h.run("state.worldState.relationships.length"), 0, "UNDO EDIT reverses an applied proposal");
+  assert.equal(h.run("state.relationshipProposals.length"), 2);
+  assert.equal(h.run("state.relationshipTimeline.length"), 0);
+  h.run(`resolveRelationshipProposals([${JSON.stringify(first)}], true)`);
+  h.run(`resolveRelationshipProposals([${JSON.stringify(second)}], false)`);
+  assert.equal(h.run("state.relationshipProposals.length"), 0);
+  assert.equal(h.run("state.worldState.relationships.length"), 1, "dismissed, not applied");
+  h.run("undoWorldEdit()");
+  assert.equal(h.run("state.relationshipProposals.length"), 1, "the dismissal is undone");
+  h.run("state.worldEditUndo = null;");
+  // The proposal list travels with the session, as suggestions do.
+  const saved = h.run("JSON.stringify(HarnessStorage.pack(sessionSnapshot()))");
+  const loaded = swipeFixture();
+  loaded.run("applySessionSnapshot(JSON.parse(" + JSON.stringify(saved) + "));");
+  assert.equal(loaded.run("state.relationshipProposals[0].reason"), "The argument from this morning eased.");
+  // Deleting a character takes their proposals with them.
+  h.run("window.confirm = () => true; editingIndex = 1; deleteCurrentCharacter();");
+  assert.equal(h.run("state.party.some(member => member.id === 'bo')"), false);
+  assert.equal(h.run("state.relationshipProposals.length"), 0);
+});
+
+test("regenerating downtime asks for downtime again and keeps the earlier scene's proposals with it", async () => {
+  const h = downtimeFixture();
+  await h.downtime(h.run("startDowntime()"), [{ sourceId: "cy", targetId: "bo", dimension: "affection", delta: 6, reason: "Tea." }]);
+  let mode = "";
+  h.run("requestLiveTurn = (action, signal, options) => new Promise((resolve, reject) => { globalThis.mode = buildTurnRequest(action, '', options).interactionMode; globalThis.turnReply = resolve; globalThis.turnFail = reject; });");
+  const again = h.run("regenerateLastTurn()");
+  mode = h.context.mode;
+  await h.downtime(again, [{ sourceId: "bo", targetId: "cy", dimension: "respect", delta: 5, reason: "Cy fixed the lamp." }]);
+  assert.equal(mode, "downtime");
+  assert.deepEqual(Array.from(h.run("state.relationshipProposals.map(entry => entry.reason)")), ["Cy fixed the lamp."]);
+  h.run("showReply(-1)");
+  assert.deepEqual(Array.from(h.run("state.relationshipProposals.map(entry => entry.reason)")), ["Tea."]);
+  // Cancelling downtime types nothing into the box either.
+  h.element("response-input").value = "";
+  h.run("startDowntime(); cancelTurn();");
+  assert.equal(h.element("response-input").value, "");
+});
+
+test("downtime needs two characters, and a proposal cannot be applied mid-turn", async () => {
+  const h = downtimeFixture();
+  h.run("state.party = state.party.slice(0, 1); renderTurnControls();");
+  assert.equal(h.element("downtime").disabled, true);
+  h.run("startDowntime()");
+  assert.equal(h.run("turnInFlight"), false);
+  const d = downtimeFixture();
+  await d.downtime(d.run("startDowntime()"), [{ sourceId: "cy", targetId: "bo", dimension: "affection", delta: 6, reason: "Tea." }]);
+  d.run("handleTurn('look around')");
+  d.run("resolveRelationshipProposals(state.relationshipProposals.map(entry => entry.id), true)");
+  assert.equal(d.run("state.relationshipProposals.length"), 1);
+  assert.equal(d.run("state.worldState.relationships.length"), 0);
+});

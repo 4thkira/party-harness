@@ -245,7 +245,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     @media (prefers-reduced-motion: reduce) { #turn-status.working::before, .loading-wheel { animation: none; } }
     /* The auto margin keeps the buttons right-aligned when the reply counter pushes them to a
        second line; beside it, they would otherwise wrap their own labels. */
-    .turn-actions { display: flex; gap: 6px; margin-left: auto; }
+    .turn-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
     .reply-flip { display: inline-flex; align-items: stretch; }
     .reply-flip[hidden] { display: none; }
     .reply-flip .turn-action { padding: 4px 8px; }
@@ -302,6 +302,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-tab { min-width: 0; padding: 7px 4px; border: 1px solid #a3937d; color: var(--muted); background: transparent; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
     .sidebar-tab:hover { color: var(--rust); border-color: var(--rust); }
     .sidebar-tab.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
+    .tab-count { margin-left: 4px; padding: 0 3px; color: var(--paper); background: var(--rust); letter-spacing: 0; }
+    .tab-count[hidden] { display: none; }
+    .sidebar-tab.active .tab-count { color: var(--rust); background: var(--paper); }
     .sidebar-tab:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
     .sidebar-panels { min-height: 0; flex: 1 1 auto; }
     .sidebar-panel { min-height: 0; height: 100%; overflow-y: auto; overflow-x: hidden; padding-right: 4px; scrollbar-gutter: stable; }
@@ -395,6 +398,9 @@ this program. If not, see https://www.gnu.org/licenses/.
     .web-cell:focus-visible, .web-dimension:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
     .web-self { background: repeating-linear-gradient(135deg, transparent 0 4px, #b4a590 4px 5px); background-clip: content-box; }
     .web-note { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .web-cell.proposed::before { content: "?"; position: absolute; top: 0; left: 2px; color: var(--rust); font-size: 9px; font-weight: 700; line-height: 1.2; }
+    .web-proposals { margin-top: 7px; }
+    .web-proposals h5 { margin: 0 0 4px; color: var(--rust); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
     .web-list { margin-top: 6px; }
     .web-list summary { color: var(--rust); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
     .web-list[open] summary { margin-bottom: 5px; }
@@ -683,6 +689,7 @@ this program. If not, see https://www.gnu.org/licenses/.
             <button class="turn-action" type="button" id="cancel-turn" hidden>CANCEL TURN</button>
             <button class="turn-action" type="button" id="bookmark-scene">☆ BOOKMARK</button>
             <button class="turn-action" type="button" id="party-banter">PARTY BANTER</button>
+            <button class="turn-action" type="button" id="downtime" title="Let the party spend some time together without you directing them. Any change in how they feel about each other comes back as a proposal to apply or dismiss in the World tab.">DOWNTIME</button>
             <button class="turn-action" type="button" id="regenerate-turn" title="Generate another reply to the same action. The reply on screen is kept; ‹ › flips between them.">↻ REGENERATE</button>
             <button class="turn-action" type="button" id="undo-turn" title="Remove the last turn, with every reply to it, and put the action back in the box">↩ UNDO TURN</button>
           </div>
@@ -737,7 +744,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <div class="sidebar-head"><h3>Party</h3><span class="party-count" id="party-count">03 / 05</span></div>
         <div class="sidebar-tabs" role="tablist" aria-label="Party sidebar views">
           <button class="sidebar-tab active" id="sidebar-tab-party" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-party" data-sidebar-tab="party" title="Party roster and selected character">PARTY</button>
-          <button class="sidebar-tab" id="sidebar-tab-world" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-world" data-sidebar-tab="world" tabindex="-1" title="Mechanical world state and memory proposals">WORLD</button>
+          <button class="sidebar-tab" id="sidebar-tab-world" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-world" data-sidebar-tab="world" tabindex="-1" title="Mechanical world state and memory proposals">WORLD<span class="tab-count" id="world-review-count" hidden></span></button>
           <button class="sidebar-tab" id="sidebar-tab-history" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-history" data-sidebar-tab="history" tabindex="-1" title="Scene bookmarks and relationship history">HISTORY</button>
           <button class="sidebar-tab" id="sidebar-tab-trace" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-trace" data-sidebar-tab="trace" tabindex="-1" title="Recent provider turns and validation results">TRACE</button>
         </div>
@@ -913,7 +920,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       <div style="padding:20px;line-height:1.65">
         <p>Party Harness is a story space for you and a party of AI-controlled characters. Write an action, let the scene respond, and decide what happens next. You can browse and edit without a key; generating text needs a hosted provider or a running local model server; art uses a hosted image provider or a compatible local server.</p>
         <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
-        <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request; the reply it replaces is kept, and ‹ › beside the turn buttons flips between the replies, each with its own consequences. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
+        <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request; the reply it replaces is kept, and ‹ › beside the turn buttons flips between the replies, each with its own consequences. <strong>Downtime</strong> lets the party spend time together without you directing them; any change in how they feel about each other waits in the World tab for you to apply or dismiss. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
         <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. The <strong>relationship web</strong> at the top of the World tab shows how each character feels toward each of the others: rows feel, columns receive. Pick a square to edit it. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
         <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser, and are also kept as files in the saves folder beside server.js, so clearing site data or changing the port does not lose them: an empty browser restores your last workspace from there by itself. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
         <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
@@ -1356,6 +1363,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         flags: {}, memories: [], corrections: []
       },
       memoryCandidates: [],
+      relationshipProposals: [],
       turnTraces: [],
       turnCheckpoints: [],
       narrativeEdit: null,
@@ -1946,6 +1954,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       }
       $("cancel-turn").hidden = !turnInFlight;
       $("party-banter").disabled = turnInFlight;
+      $("downtime").disabled = turnInFlight || state.party.length < 2;
     }
 
     function setSidebarTab(tab, moveFocus = false) {
@@ -2577,6 +2586,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (!state.worldEditUndo || turnInFlight) return;
       state.worldState = normalizeWorldState(state.worldEditUndo.worldState);
       state.memoryCandidates = structuredClone(state.worldEditUndo.memoryCandidates || []);
+      // Present when the edit was applying or dismissing downtime proposals.
+      if (state.worldEditUndo.relationshipProposals) state.relationshipProposals = normalizeRelationshipProposals(state.worldEditUndo.relationshipProposals);
+      if (state.worldEditUndo.relationshipTimeline) state.relationshipTimeline = structuredClone(state.worldEditUndo.relationshipTimeline);
       state.worldEditUndo = null;
       memoryRevision += 1;
       markDirty(); renderAll();
@@ -2604,6 +2616,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (members.length < 2) return '';
       const dimension = relationshipWebDimension;
       const relations = state.worldState.relationships;
+      const proposals = state.relationshipProposals;
       const find = (sourceId, targetId) => relations.find(entry => entry.sourceId === sourceId && entry.targetId === targetId);
       const changedThisTurn = new Set(state.relationshipTimeline.filter(item => item.turn === state.turn).map(item => item.sourceId + " " + item.targetId));
       // Short labels: the first name, unless two characters share it (then the full name for rows
@@ -2617,33 +2630,105 @@ this program. If not, see https://www.gnu.org/licenses/.
         if (source.id === target.id) return '<td class="web-self"><span class="sr-only">' + escapeHtml(source.name) + ' (self)</span></td>';
         const entry = find(source.id, target.id);
         const direction = source.name + " → " + target.name;
+        const pending = proposals.filter(item => item.sourceId === source.id && item.targetId === target.id);
+        const proposed = pending.length ? " Downtime proposes " + pending.map(item => item.dimension + " " + signedValue(item.delta)).join(", ") + "; review it below the grid." : "";
         if (!entry) {
-          const label = direction + ": nothing recorded yet. Pick to add.";
-          return '<td><button class="web-cell empty" type="button" data-web-source="' + escapeHtml(source.id) + '" data-web-target="' + escapeHtml(target.id) + '" data-help="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">·</button></td>';
+          const label = direction + ": nothing recorded yet." + proposed + " Pick to add.";
+          return '<td><button class="web-cell empty' + (pending.length ? ' proposed' : '') + '" type="button" data-web-source="' + escapeHtml(source.id) + '" data-web-target="' + escapeHtml(target.id) + '" data-help="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">·</button></td>';
         }
         const value = entry[dimension];
         const reverse = find(target.id, source.id);
         const lopsided = reverse && Math.abs(value - reverse[dimension]) >= WEB_LOPSIDED_GAP;
         const recent = changedThisTurn.has(source.id + " " + target.id);
-        const classes = ["web-cell", value > 0 ? "up" : value < 0 ? "down" : "", lopsided ? "lopsided" : "", recent ? "recent" : ""].filter(Boolean).join(" ");
+        const classes = ["web-cell", value > 0 ? "up" : value < 0 ? "down" : "", lopsided ? "lopsided" : "", recent ? "recent" : "", pending.length ? "proposed" : ""].filter(Boolean).join(" ");
         const label = direction + ": " + RELATIONSHIP_DIMENSIONS.map(key => key + " " + signedValue(entry[key])).join(", ") + "."
           + (lopsided ? " Much " + (value > reverse[dimension] ? "higher" : "lower") + " than " + target.name + "'s " + dimension + " back." : "")
           + (recent ? " Changed this turn." : "")
-          + (entry.lastReason ? " Why: " + entry.lastReason : "") + " Pick to edit.";
+          + (entry.lastReason ? " Why: " + entry.lastReason : "") + proposed + " Pick to edit.";
         return '<td><button class="' + classes + '" type="button" style="--web-tint: ' + Math.min(45, Math.round(Math.abs(value) * 0.45)) + '%" data-web-source="' + escapeHtml(source.id) + '" data-web-target="' + escapeHtml(target.id) + '" data-help="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">' + signedValue(value) + '</button></td>';
       };
       const dimensions = RELATIONSHIP_DIMENSIONS.map(key => '<button class="web-dimension' + (key === dimension ? ' active' : '') + '" type="button" data-web-dimension="' + key + '" aria-pressed="' + (key === dimension) + '" data-help="' + escapeHtml(RELATIONSHIP_HELP[key]) + '">' + key + '</button>').join('');
       const head = '<tr><th scope="col" class="web-corner"><span class="sr-only">Whose feelings, toward whom</span></th>' + members.map(member => '<th scope="col" title="' + escapeHtml(member.name) + '">' + swatch(member) + '<span aria-hidden="true">' + escapeHtml(columnLabel(member)) + '</span><span class="sr-only">' + escapeHtml(member.name) + '</span></th>').join('') + '</tr>';
       const rows = members.map(source => '<tr><th scope="row" title="' + escapeHtml(source.name) + '">' + swatch(source) + '<span aria-hidden="true">' + escapeHtml(rowLabel(source)) + '</span><span class="sr-only">' + escapeHtml(source.name) + '</span></th>' + members.map(target => cell(source, target)).join('') + '</tr>').join('');
+      const review = proposals.length ? '<div class="web-proposals"><h5>From downtime / review first</h5>' + proposals.map(entry =>
+        '<div class="runtime-entry"><strong>' + escapeHtml(describeProposal(entry)) + '</strong>' + (entry.reason ? '<br>' + escapeHtml(entry.reason) : '')
+        + '<div class="session-actions"><button class="memory-pin" type="button" data-apply-proposal="' + escapeHtml(entry.id) + '" aria-label="Apply ' + escapeHtml(describeProposal(entry)) + '">APPLY</button><button class="memory-pin" type="button" data-dismiss-proposal="' + escapeHtml(entry.id) + '" aria-label="Dismiss ' + escapeHtml(describeProposal(entry)) + '">DISMISS</button></div></div>').join('')
+        + (proposals.length > 1 ? '<div class="session-actions"><button class="turn-action" type="button" data-apply-proposal="*">APPLY ALL</button><button class="turn-action" type="button" data-dismiss-proposal="*">DISMISS ALL</button></div>' : '') + '</div>' : '';
       const list = relations.length ? '<details class="web-list"' + (relationshipListOpen ? ' open' : '') + '><summary>All values as a list (' + relations.length + ')</summary>' + listMarkup + '</details>' : '';
       return '<section class="relationship-web" aria-labelledby="relationship-web-title"><div class="web-head"><h5 id="relationship-web-title">Relationship web</h5><span>' + escapeHtml(RELATIONSHIP_HELP[dimension]) + '</span></div>'
         + '<div class="web-dimensions" role="group" aria-label="Feeling to show">' + dimensions + '</div>'
         + '<table class="web-grid"><caption class="sr-only">' + escapeHtml(dimension) + ' between party members. Rows are whose feelings; columns are toward whom.</caption><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>'
-        + '<p class="web-note">Rows feel; columns receive. Pick a square to edit or add it. ≠ marks a bond much stronger one way; a heavy border marks a change this turn.</p>' + list + '</section>';
+        + '<p class="web-note">Rows feel; columns receive. Pick a square to edit or add it. ≠ marks a bond much stronger one way; a heavy border marks a change this turn' + (proposals.length ? '; ? marks a proposed change' : '') + '.</p>' + review + list + '</section>';
     }
     function openRelationshipCell(sourceId, targetId) {
       const index = state.worldState.relationships.findIndex(entry => entry.sourceId === sourceId && entry.targetId === targetId);
       openWorldEditor("relationships", index < 0 ? null : index, null, { preset: { sourceId, targetId }, focus: relationshipWebDimension });
+    }
+
+    // DOWNTIME lets the party spend time together with nobody directing them. Whatever the scene
+    // does to their relationships comes back as proposals: nothing changes until the player applies
+    // one, and the engine never hears about a proposal as fact while it waits.
+    const DOWNTIME_ACTION = "Downtime: the party spends some unstructured time together.";
+    const MAX_RELATIONSHIP_PROPOSALS = 40;
+    function normalizeRelationshipProposals(list) {
+      return (Array.isArray(list) ? list : []).slice(-MAX_RELATIONSHIP_PROPOSALS).map(entry => ({
+        id: String(entry && entry.id || "proposal-" + crypto.randomUUID()).slice(0, 100),
+        turn: boundedInteger(entry && entry.turn, 1, 999999, 1),
+        sourceId: String(entry && entry.sourceId || "").slice(0, 64), targetId: String(entry && entry.targetId || "").slice(0, 64),
+        dimension: RELATIONSHIP_DIMENSIONS.includes(entry && entry.dimension) ? entry.dimension : "",
+        delta: boundedInteger(entry && entry.delta, -20, 20), reason: String(entry && entry.reason || "").slice(0, 300)
+      })).filter(entry => entry.dimension && entry.delta && entry.sourceId !== entry.targetId
+        && findPartyMember({ characterId: entry.sourceId }) && findPartyMember({ characterId: entry.targetId }));
+    }
+    const describeProposal = entry => characterNameById(entry.sourceId) + " → " + characterNameById(entry.targetId) + " " + entry.dimension + " " + signedValue(entry.delta);
+    // The downtime reply as played: talk and small moments only. Relationship shifts are taken out
+    // to be proposed, memory candidates stay (they are proposals already), and anything else it tried
+    // to change is dropped, as are pauses and checks, since nobody is there to answer them.
+    function downtimeReply(result) {
+      const proposals = [], dropped = new Set();
+      const keep = changes => {
+        const source = changes && typeof changes === "object" ? changes : {};
+        if (Array.isArray(source.relationshipDeltas)) proposals.push(...source.relationshipDeltas);
+        Object.entries(source).forEach(([key, list]) => { if (!["relationshipDeltas", "memoryCandidates"].includes(key) && Array.isArray(list) && list.length) dropped.add(key); });
+        return { memoryCandidates: Array.isArray(source.memoryCandidates) ? source.memoryCandidates : [] };
+      };
+      const beats = (Array.isArray(result.beats) ? result.beats : []).filter(beat => beat && beat.kind !== "pause" && beat.kind !== "check").map(beat => ({ ...beat, stateChanges: keep(beat.stateChanges) }));
+      return { result: { ...result, beats, stateChanges: keep(result.stateChanges) }, proposals, dropped: [...dropped] };
+    }
+    function proposeRelationships(changes) {
+      // In party-member mode the first character is the player's: their feelings are the player's call.
+      const player = state.playerMode === "dm" ? null : state.party[0];
+      const added = [], rejected = [];
+      changes.slice(0, 12).forEach(change => {
+        const [entry] = normalizeRelationshipProposals([{ ...change, id: "proposal-" + crypto.randomUUID(), turn: state.turn }]);
+        if (!entry) return rejected.push("invalid relationship proposal");
+        if (player && entry.sourceId === player.id) return rejected.push(player.name + "'s feelings are yours to decide, so " + describeProposal(entry) + " was not proposed");
+        added.push(entry);
+      });
+      state.relationshipProposals = [...state.relationshipProposals, ...added].slice(-MAX_RELATIONSHIP_PROPOSALS);
+      return { added, rejected };
+    }
+    // Applying goes through the same rules as a turn's own relationship change, one proposal at a
+    // time, so a refused one (a full list) stays to be tried again. UNDO EDIT reverses either choice.
+    function resolveRelationshipProposals(ids, apply) {
+      if (turnInFlight) { stopTurnStatus("REVIEW PROPOSALS AFTER THE TURN FINISHES"); return; }
+      const chosen = state.relationshipProposals.filter(entry => ids.includes(entry.id));
+      if (!chosen.length) return;
+      const undo = { worldState: structuredClone(state.worldState), memoryCandidates: structuredClone(state.memoryCandidates), relationshipProposals: structuredClone(state.relationshipProposals), relationshipTimeline: structuredClone(state.relationshipTimeline) };
+      const refused = new Set();
+      if (apply) chosen.forEach(entry => { if (applyStateChanges({ stateChanges: { relationshipDeltas: [entry] } }).rejected.length) refused.add(entry.id); });
+      state.relationshipProposals = state.relationshipProposals.filter(entry => !ids.includes(entry.id) || refused.has(entry.id));
+      // Set after applying: applyStateChanges clears the undo, which is right for the engine's
+      // changes but would leave the player's own choice here with nothing to undo.
+      state.worldEditUndo = undo;
+      if (refused.size) stopTurnStatus(refused.size + " PROPOSAL" + (refused.size === 1 ? "" : "S") + " COULD NOT BE APPLIED / SEE WORLD");
+      memoryRevision += 1;
+      markDirty();
+      renderAll();
+    }
+    function startDowntime() {
+      if (turnInFlight || state.party.length < 2) return;
+      handleTurn(DOWNTIME_ACTION, { downtime: true });
     }
 
     function renderWorldState() {
@@ -2688,6 +2773,13 @@ this program. If not, see https://www.gnu.org/licenses/.
         button.addEventListener("click", () => { relationshipWebDimension = button.dataset.webDimension; renderWorldState(); });
         if (button.dataset.webDimension === focused.webDimension) button.focus();
       });
+      const proposalIds = value => value === "*" ? state.relationshipProposals.map(entry => entry.id) : [value];
+      panel.querySelectorAll("[data-apply-proposal]").forEach(button => button.addEventListener("click", () => resolveRelationshipProposals(proposalIds(button.dataset.applyProposal), true)));
+      panel.querySelectorAll("[data-dismiss-proposal]").forEach(button => button.addEventListener("click", () => resolveRelationshipProposals(proposalIds(button.dataset.dismissProposal), false)));
+      // Proposals wait in the World tab, which may not be the one open.
+      const toReview = state.relationshipProposals.length + state.memoryCandidates.length;
+      $("world-review-count").hidden = !toReview;
+      $("world-review-count").innerHTML = toReview ? toReview + '<span class="sr-only"> to review</span>' : '';
       panel.querySelectorAll("[data-web-source]").forEach(button => {
         button.addEventListener("click", () => openRelationshipCell(button.dataset.webSource, button.dataset.webTarget));
         if (focused.webSource && button.dataset.webSource === focused.webSource && button.dataset.webTarget === focused.webTarget) button.focus();
@@ -2784,7 +2876,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     function buildTurnRequest(action, endpoint = "", options = {}) {
       return {
         action: action.trim(),
-        interactionMode: options.banter ? "banter" : "turn",
+        interactionMode: options.banter ? "banter" : options.downtime ? "downtime" : "turn",
         scene: { title: state.sceneTitle, location: state.location, turn: state.turn },
         scenario: {
           sessionName: state.sessionName,
@@ -3429,6 +3521,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         partyState: state.party.map(member => ({ id: member.id, feeling: member.feeling, stats: member.stats.slice(0, MAX_SESSION_STATS) })),
         worldState: structuredClone(state.worldState),
         memoryCandidates: structuredClone(state.memoryCandidates),
+        relationshipProposals: structuredClone(state.relationshipProposals),
         relationshipTimeline: structuredClone(state.relationshipTimeline),
         pendingPause: state.pendingPause ? structuredClone(state.pendingPause) : null,
         beatQueue: structuredClone(state.beatQueue),
@@ -3456,6 +3549,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       });
       state.worldState = normalizeWorldState(checkpoint.worldState);
       state.memoryCandidates = Array.isArray(checkpoint.memoryCandidates) ? structuredClone(checkpoint.memoryCandidates).slice(-50) : [];
+      state.relationshipProposals = normalizeRelationshipProposals(checkpoint.relationshipProposals);
       state.relationshipTimeline = Array.isArray(checkpoint.relationshipTimeline) ? structuredClone(checkpoint.relationshipTimeline).slice(-200) : state.relationshipTimeline;
       state.pendingPause = checkpoint.pendingPause ? structuredClone(checkpoint.pendingPause) : null;
       state.beatQueue = Array.isArray(checkpoint.beatQueue) ? structuredClone(checkpoint.beatQueue).slice(0, 20) : [];
@@ -3569,7 +3663,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     // wrote for them. A check result reached the box that way, where Enter would send it again.
     // The prefix covers checkpoints saved before they were marked.
     function playerTyped(checkpoint, action) {
-      return !(checkpoint && checkpoint.checkResult) && !String(action).startsWith("CHECK RESULT — ");
+      return !(checkpoint && (checkpoint.checkResult || checkpoint.downtime)) && !String(action).startsWith("CHECK RESULT — ");
     }
 
     function undoLastTurn() {
@@ -3611,7 +3705,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (!action.trim()) { stopTurnStatus("NOTHING TO REGENERATE"); return; }
       if (!checkpoint) state.turn = Math.max(1, state.turn - 1);
       renderAll();
-      const again = { regenerated: true, replies: replies && replies.length ? replies : null, previousReply };
+      const again = { regenerated: true, replies: replies && replies.length ? replies : null, previousReply, downtime: checkpoint?.downtime === true };
       // A check result's checkpoint is the check before its roll: replay that roll (same seed, same
       // number) so the transcript shows it again, then ask for a new continuation.
       if (checkpoint && checkpoint.checkResult && state.pendingPause?.pauseType === "check") resolvePendingCheck({ ...again, quiet: true });
@@ -3625,7 +3719,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       let requestBytes = 0;
       turnInFlight = true;
       $("send-button").disabled = true;
-      const request = { controller: new AbortController(), checkpoint: options.checkpoint || captureTurnCheckpoint(action), action: action.trim(), typed: !options.checkResult };
+      const request = { controller: new AbortController(), checkpoint: options.checkpoint || captureTurnCheckpoint(action), action: action.trim(), typed: !options.checkResult && !options.downtime };
+      // Remembered so REGENERATE asks for downtime again, and UNDO leaves the action box alone.
+      if (options.downtime) request.checkpoint.downtime = true;
       // A regenerate carries the turn's kept replies onto its checkpoint, and remembers which one
       // was on screen so a failure or CANCEL can put it back.
       if (options.replies) { request.checkpoint.replies = options.replies; request.previousReply = options.previousReply; }
@@ -3644,25 +3740,26 @@ this program. If not, see https://www.gnu.org/licenses/.
       // Most recent first, de-duplicated, so ArrowUp walks back through distinct actions. A CHECK
       // RESULT is the harness reporting a roll, not something the player typed, so it stays out;
       // otherwise the first ArrowUp after every check recalled the engine message.
-      if (!action.trim().startsWith("CHECK RESULT — ")) {
+      if (request.typed && !action.trim().startsWith("CHECK RESULT — ")) {
         state.actionHistory = [action.trim()].concat(state.actionHistory.filter(entry => entry !== action.trim())).slice(0, 25);
       }
       actionHistoryCursor = -1;
       state.narrative.push({ kind: "choice", text: action.trim() });
       state.bubbles = [];
       markDirty();
-      startTurnStatus(options.regenerated ? "REGENERATING…" : "GENERATING TURN…");
+      startTurnStatus(options.regenerated ? "REGENERATING…" : options.downtime ? "THE PARTY HAS SOME TIME TO THEMSELVES…" : "GENERATING TURN…");
       renderAll();
 
       try {
-        const packet = await requestLiveTurn(action, request.controller.signal);
+        const packet = await requestLiveTurn(action, request.controller.signal, { downtime: options.downtime === true });
         const result = packet.result;
         requestBytes = packet.requestBytes;
         // The player started, loaded, or imported a different session while this was in flight.
         // Appending the old session's turn to the new transcript would be worse than losing it.
         if (epoch !== sessionEpoch || activeTurnRequest !== request) return;
         // Filler narration here would disguise a real provider failure as a played turn.
-        const resultObject = result && typeof result === "object" ? result : {};
+        const downtime = options.downtime ? downtimeReply(result && typeof result === "object" ? result : {}) : null;
+        const resultObject = downtime ? downtime.result : result && typeof result === "object" ? result : {};
         const sourceBeats = Array.isArray(resultObject.beats) ? resultObject.beats.map(normalizedBeat).filter(Boolean).slice(0, 20) : [];
         const narration = String(resultObject.text || resultObject.narration || sourceBeats.filter(beat => beat.kind === "narration").map(beat => beat.text).join("\n\n") || "").trim().slice(0, 20000);
         if (!narration) throw new Error("The engine returned a turn with no narration.");
@@ -3678,6 +3775,13 @@ this program. If not, see https://www.gnu.org/licenses/.
           : [];
         if (!state.suggestions.length) state.suggestions = ["Continue carefully", "Ask the party what they think", "Change approach"];
         const stateReport = displayedBeats.stateReport;
+        if (downtime) {
+          const { added, rejected } = proposeRelationships(downtime.proposals);
+          stateReport.applied.push(...added.map(entry => "proposed " + describeProposal(entry)));
+          stateReport.rejected.push(...rejected);
+          if (downtime.dropped.length) stateReport.rejected.push("downtime changes only relationships, as proposals; ignored " + downtime.dropped.join(", "));
+          finalStatus = added.length ? "DOWNTIME / " + added.length + " RELATIONSHIP CHANGE" + (added.length === 1 ? "" : "S") + " TO REVIEW IN WORLD" : "DOWNTIME / NO RELATIONSHIP CHANGES";
+        }
         state.turnTraces.push({
           turn: state.turn - 1, action: action.trim().slice(0, 500), status: "success",
           durationMs: Math.round(performance.now() - startedAt), requestBytes,
@@ -3687,7 +3791,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         // This attempt is a reply now: it takes the on-screen slot, after any kept ones.
         request.checkpoint.replies = [...(request.checkpoint.replies || []), null];
         const replyCount = request.checkpoint.replies.length;
-        if (replyCount > 1) finalStatus = "REPLY " + replyCount + " OF " + replyCount + " / ‹ › FLIPS BETWEEN THEM";
+        if (replyCount > 1) finalStatus = "REPLY " + replyCount + " OF " + replyCount + " / " + (finalStatus || "‹ › FLIPS BETWEEN THEM");
         updateGenerationTitle("Text", "ready ✓");
         maybeSummarize();
       } catch (error) {
@@ -4434,6 +4538,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.bubbles = state.bubbles.filter(bubble => bubble.characterId !== member.id && bubble.character !== member.name);
       state.worldState.conditions = state.worldState.conditions.filter(entry => entry.characterId !== member.id);
       state.worldState.relationships = state.worldState.relationships.filter(entry => entry.sourceId !== member.id && entry.targetId !== member.id);
+      state.relationshipProposals = state.relationshipProposals.filter(entry => entry.sourceId !== member.id && entry.targetId !== member.id);
       state.worldState.inventory.forEach(entry => { if (entry.holderId === member.id) entry.holderId = ""; });
       state.worldState.objectives.forEach(entry => { if (entry.ownerId === member.id) entry.ownerId = ""; });
       state.selected = Math.max(0, Math.min(state.selected, state.party.length - 1));
@@ -4558,6 +4663,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         beatQueue: state.beatQueue,
         worldState: state.worldState,
         memoryCandidates: state.memoryCandidates,
+        relationshipProposals: state.relationshipProposals,
         turnTraces: state.turnTraces,
         sceneBookmarks: state.sceneBookmarks,
         relationshipTimeline: state.relationshipTimeline,
@@ -4830,6 +4936,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         scope: ["scene", "party", "character", "relationship", "world"].includes(entry && entry.scope) ? entry.scope : "scene",
         subjectId: String(entry && entry.subjectId || "").slice(0, 64), text: String(entry && entry.text || "").slice(0, 600), reason: String(entry && entry.reason || "").slice(0, 300)
       })).filter(entry => entry.text);
+      // Suggestions, like memory candidates: nothing changes until the player applies one.
+      state.relationshipProposals = normalizeRelationshipProposals(snapshot.relationshipProposals);
       state.sceneBookmarks = (Array.isArray(snapshot.sceneBookmarks) ? snapshot.sceneBookmarks : []).slice(-100).map(item => ({ id: String(item && item.id || "bookmark-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), title: String(item && item.title || "Bookmarked scene").slice(0, 200), location: String(item && item.location || "").slice(0, 300), excerpt: String(item && item.excerpt || "").slice(0, 500) }));
       state.relationshipTimeline = (Array.isArray(snapshot.relationshipTimeline) ? snapshot.relationshipTimeline : []).slice(-200).map(item => ({ id: String(item && item.id || "relation-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), sourceId: String(item && item.sourceId || "").slice(0, 64), targetId: String(item && item.targetId || "").slice(0, 64), dimension: RELATIONSHIP_DIMENSIONS.includes(item && item.dimension) ? item.dimension : "trust", delta: boundedInteger(item && item.delta, -20, 20), reason: String(item && item.reason || "").slice(0, 300) })).filter(item => item.sourceId && item.targetId && item.delta);
       const importedPause = normalizedBeat(snapshot.pendingPause, 0);
@@ -4902,7 +5010,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("response-input").value = typeof snapshot.actionDraft === "string" ? snapshot.actionDraft.slice(0, 20000) : "";
       state.narrativeEdit = trusted && snapshot.narrativeEdit && typeof snapshot.narrativeEdit.text === "string"
         ? { lineId: String(snapshot.narrativeEdit.lineId || "").slice(0, 100), text: snapshot.narrativeEdit.text.slice(0, 20000) } : null;
-      state.worldEditUndo = trusted && snapshot.worldEditUndo?.worldState ? { worldState: normalizeWorldState(snapshot.worldEditUndo.worldState), memoryCandidates: (snapshot.worldEditUndo.memoryCandidates || []).slice(-50).map(normalizeMemory) } : null;
+      state.worldEditUndo = trusted && snapshot.worldEditUndo?.worldState ? { worldState: normalizeWorldState(snapshot.worldEditUndo.worldState), memoryCandidates: (snapshot.worldEditUndo.memoryCandidates || []).slice(-50).map(normalizeMemory),
+        ...(Array.isArray(snapshot.worldEditUndo.relationshipProposals) ? { relationshipProposals: normalizeRelationshipProposals(snapshot.worldEditUndo.relationshipProposals) } : {}),
+        ...(Array.isArray(snapshot.worldEditUndo.relationshipTimeline) ? { relationshipTimeline: structuredClone(snapshot.worldEditUndo.relationshipTimeline).slice(-200) } : {}) } : null;
       state.dirty = trusted ? snapshot.dirty === true : true;
       // Deliberately not awaited: the session is already usable, and this only reclaims space.
       compactOversizedPortraits();
@@ -5048,6 +5158,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.beatQueue = [];
       state.worldState = emptyWorldState();
       state.memoryCandidates = [];
+      state.relationshipProposals = [];
       state.turnTraces = [];
       state.turnCheckpoints = [];
       state.sceneBookmarks = [];
@@ -5467,6 +5578,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("settings-button").addEventListener("click", () => openBackdrop("settings-backdrop", "settings-palette"));
     $("bookmark-scene").addEventListener("click", bookmarkScene);
     $("party-banter").addEventListener("click", handleBanter);
+    $("downtime").addEventListener("click", startDowntime);
     $("history-panel").addEventListener("click", event => { const button = event.target.closest("[data-remove-bookmark]"); if (!button) return; state.sceneBookmarks = state.sceneBookmarks.filter(item => item.id !== button.dataset.removeBookmark); markDirty(); renderHistory(); });
     [["music", "musicTrack"], ["ambience", "ambienceTrack"]].forEach(([kind, key]) => {
       $(kind + "-toggle").addEventListener("click", () => toggleLocalAudio(kind));

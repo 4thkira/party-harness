@@ -209,6 +209,7 @@ To edit the file yourself instead:
 | Story text formatting | Markdown mode safely renders emphasis, headings, lists, and inline code; Plain text keeps the original markers visible. |
 | Column dividers | On desktop, drag the narrow dividers between Story, Image, and Party to choose how much room each gets. Arrow keys nudge a focused divider; double-click resets both. The proportions travel with saves and exports. |
 | Party banter | Requests a short in-character exchange without advancing the turn or applying world-state changes. It is still a provider request. |
+| Downtime | Lets the party spend some time together with nobody directing them: a short scene of the characters talking and doing small things, driven by their own personalities and relationships. It cannot move the plot, change items or facts, or stop for a choice or check. If it changes how the characters feel about each other, each change comes back as a proposal in the World tab (the tab shows a count) to **APPLY** or **DISMISS**, and ? marks its square on the relationship web; nothing changes until you choose, and **UNDO EDIT** reverses the choice. In party-member mode your own character's feelings are never proposed. Downtime is a turn: undo, regenerate, and ‹ › work on it. |
 | Bookmark | Saves the current scene title, location, turn, and a short excerpt under the History tab. |
 | Portrait expressions | Add several images to a character sheet, then choose which expression is shown as that character's current portrait. |
 

@@ -373,3 +373,27 @@ test('saves are kept as files, and only the harness\'s own files are trusted as 
   assert.equal(fs.existsSync(file), false);
   assert.equal((await call('GET', 'saves/session-abc')).status, 404);
 });
+
+test('DOWNTIME asks for the party\'s own time, and only a downtime request says so', { timeout: 20000 }, async t => {
+  const instructions = [];
+  const fixture = http.createServer(async (req, res) => {
+    let raw = ''; for await (const part of req) raw += part;
+    const body = JSON.parse(raw);
+    instructions.push(body.messages.filter(message => message.role === 'system').map(message => message.content).join('\n'));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ narration: 'They talk.', bubbles: [], suggestions: [] }) } }] }));
+  });
+  fixture.listen(0, '127.0.0.1'); await once(fixture, 'listening');
+  t.after(() => { fixture.closeAllConnections(); fixture.close(); });
+  const port = await startHarness(t);
+  const settings = { provider: 'ollama', model: 'fixture-model', apiBaseUrl: `http://127.0.0.1:${fixture.address().port}/v1` };
+  for (const interactionMode of ['downtime', 'turn', 'banter', 'something-else']) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/turn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'Downtime', interactionMode, party: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], settings }) });
+    assert.equal(response.status, 200, interactionMode);
+  }
+  const [downtime, turn, banter, unknown] = instructions;
+  assert.match(downtime, /This request is DOWNTIME: the player has stepped back and nobody is directing the party\./);
+  assert.match(downtime, /The player reviews these before they apply\./);
+  for (const other of [turn, banter, unknown]) assert.doesNotMatch(other, /This request is DOWNTIME/);
+  assert.match(banter, /This request is PARTY BANTER/);
+});

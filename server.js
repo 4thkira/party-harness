@@ -1392,6 +1392,9 @@ function buildInstructions(settings, interactionMode = "turn") {
     "Return only the requested JSON structure."
   ];
   if (interactionMode === "banter") contract.push("This request is PARTY BANTER: return two to eight dialogue beats as a brief in-character aside. Do not advance the scene, resolve actions, reveal new facts, add pauses or checks, or propose any state changes. Muted characters remain silent.");
+  // The harness enforces this too: it drops pauses, checks, and every change except relationship
+  // deltas (which it holds as proposals for the player) and memory candidates.
+  if (interactionMode === "downtime") contract.push("This request is DOWNTIME: the player has stepped back and nobody is directing the party. Show the party members spending unstructured time together -- conversation, small shared activities, quiet moments -- driven by their own personalities, goals, feelings, and relationships. Use two to six narration and dialogue beats. Do not advance the main plot, resolve objectives, reveal new facts about the world, move the scene elsewhere, or add pauses or checks. Relationships may shift where the scene earns it: put each shift as a small relationshipDelta on the beat where it happens, with a reason naming what happened. The player reviews these before they apply. Leave every other stateChanges array empty except memoryCandidates. In FIRST PARTY MEMBER mode the player's character may be present and others may speak to or about them, but give that character no dialogue, actions, thoughts, or relationship changes of their own.");
 
   // Set by the player through the harness UI, not by the prose prompt. An author's direction can
   // shape voice and content; it does not get to turn a muted character back on or ignore a chosen
@@ -1875,7 +1878,7 @@ async function handleTurn(req, res) {
     recentNarrative: Array.isArray(input.recentNarrative) ? input.recentNarrative.slice(-48) : [],
     playerAction: input.action.trim()
   };
-  context.interactionMode = input.interactionMode === "banter" ? "banter" : "turn";
+  context.interactionMode = ["banter", "downtime"].includes(input.interactionMode) ? input.interactionMode : "turn";
 
   const mode = bubbleMode(context.settings);
   const narrativeTokens = settings.responseLength === "long" ? 1400 : settings.responseLength === "short" ? 650 : 950;
