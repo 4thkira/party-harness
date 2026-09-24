@@ -1,6 +1,6 @@
 # Party Harness
 
-A local browser app for roleplaying with a customizable party of AI characters. Write an action, follow the scene, and let characters react in their own voices. Edit their sheets, correct the story, track relationships and inventory, and optionally generate scene art.
+A local browser app for roleplaying with a customizable party of AI characters. Write an action, follow the scene, and let characters react in their own voices. Edit their sheets, correct the story, keep track of inventory and the web of relationships between characters, and optionally generate scene art. Give the party some downtime and they spend it their own way, with any change in how they feel about each other waiting for your approval. A lorebook keeps your world's details on hand, and character cards and lorebooks made for SillyTavern import directly.
 
 It is not an online service and never asks you to sign in. You run it yourself, so your story stays as private as you want it — see [Local by design](#local-by-design).
 
@@ -23,12 +23,12 @@ If you have never used a computer program like this before, that is okay. Here i
 1. Download the ZIP file from the [Releases page](https://github.com/4thkira/party-harness/releases). A ZIP file is just a box containing the program's files.
 2. Open the ZIP file and choose **Extract all**. This makes a normal folder. Keep all of the files inside that folder together.
 3. Install [Node.js](https://nodejs.org/) if you do not already have it. Node.js is the small helper that lets Party Harness run. You only need to install it once.
-4. Open the new folder. On Windows, double-click **Start Party Harness.cmd**. A black window may appear. Leave it open; it is the program's engine.
+4. Open the new folder. On Windows, double-click **Start Party Harness.cmd**. A black window may appear. Leave it open; it is the program's engine. On a Mac or Linux computer there is no double-click launcher: open the **Terminal** app, type `cd ` (with a space after it), drag the Party Harness folder onto the Terminal window, and press Return. Then type `node server.js` and press Return. That Terminal window is the engine; leave it open the same way.
 5. Open your web browser — Chrome, Edge, Firefox, or another browser — and go to **http://127.0.0.1:8787/**. This address means “the program running on this computer.”
 6. Inside Party Harness, open **SETTINGS**. Choose where the AI's text should come from and enter that service's API key if it asks for one. Then press **CHECK CONNECTION + LIST MODELS** and pick a model from the list. An API key is a password-like code from that service; Party Harness does not provide one.
-7. Click **NEW SESSION**, choose a scenario, type what you want your character or the party to do, and click **SEND TURN**.
+7. Click **NEW SESSION**, choose a scenario, and press **CREATE SESSION**. Then type what you want your character or the party to do in the box at the bottom and click **SEND TURN**.
 
-If you only want to look around first, you can open the app and edit characters without an API key. You need a working text connection when you want the AI to write a response. When you are finished, close the black window or press **Ctrl+C** in it. Next time, double-click **Start Party Harness.cmd** again.
+If you only want to look around first, you can open the app and edit characters without an API key. You need a working text connection when you want the AI to write a response. When you are finished, close the black window or press **Ctrl+C** in it. Your story saves itself as you play, so closing the window does not lose it. Next time, double-click **Start Party Harness.cmd** (or run `node server.js`) again.
 
 ### API keys, explained gently
 
@@ -42,11 +42,11 @@ An **API key** is a private code that proves to a provider that you are allowed 
 4. Create a new key, then copy it immediately. Many providers show the full key only once.
 5. Paste it into the matching API key box in **SETTINGS → Text generation connection**. Do not put quotation marks around it.
 6. Press **CHECK CONNECTION + LIST MODELS**. If the key works, the **Model** box offers the models your provider lets you use; pick one. A model is the particular AI you are asking to write. If the check says the key was rejected, copy it again from the provider's website.
-7. Save or close Settings, then try **SEND TURN**.
+7. To keep the key for next time, press **SAVE KEY TO .ENV**. Then press **DONE** to close Settings and try **SEND TURN**.
 
 Some providers require payment information or charge based on how much text you generate. Some give new accounts a small amount of free use, and some do not. Read the provider's own pricing and usage pages before creating a key. Party Harness cannot tell you whether a key has money or permission behind it.
 
-Never post an API key in a screenshot, chat message, GitHub issue, or public file. If you accidentally share one, go back to the provider's API-key page and delete or revoke it, then make a new one. Your Party Harness key box is temporary: keys typed there disappear when you refresh the page.
+Never post an API key in a screenshot, chat message, GitHub issue, or public file. If you accidentally share one, go back to the provider's API-key page and delete or revoke it, then make a new one. Your Party Harness key box is temporary: keys typed there disappear when you refresh the page, unless you press **SAVE KEY TO .ENV**.
 
 ### What is a `.env` file?
 
@@ -71,9 +71,9 @@ OpenRouter is a website that gives you one connection for many different AI mode
 1. Go to [OpenRouter](https://openrouter.ai/) and create an account.
 2. Open OpenRouter's [API key page](https://openrouter.ai/settings/keys), create a key, and copy it. Treat this key like a password. Do not paste it into a public post.
 3. In Party Harness, open **SETTINGS → Text generation connection** and choose **OpenRouter**.
-4. Paste the key into the API key box. The provider API base URL should be `https://openrouter.ai/api/v1`; leave **Custom roleplay backend URL** blank.
+4. Paste the key into the API key box. You do not need to type OpenRouter's web address; Party Harness fills it in. Leave **Custom roleplay backend URL** blank.
 5. Press **CHECK CONNECTION + LIST MODELS**, then pick a model in the **Model** box, or type an exact model ID from OpenRouter's [models page](https://openrouter.ai/models). A model ID looks like `company/model-name`.
-6. Save or close Settings, start a new session, and click **SEND TURN**.
+6. Optionally press **SAVE KEY TO .ENV** so you never have to paste the key again. Press **DONE**, start a new session, and click **SEND TURN**.
 
 The model name is not your account name, your API key, or the model's friendly title. Copy the model ID exactly. If you change models later, replace only the model ID; you can keep the same OpenRouter key.
 
@@ -85,7 +85,7 @@ To try it:
 
 1. Create an OpenRouter account and API key as described above. “Free model” means the model request costs $0; you may still need an OpenRouter account and key so the service knows who is making the request.
 2. In Party Harness, choose **OpenRouter** in **SETTINGS → Text generation connection**.
-3. Paste your OpenRouter key. Leave the provider API base URL at `https://openrouter.ai/api/v1` and leave **Custom roleplay backend URL** blank.
+3. Paste your OpenRouter key and leave **Custom roleplay backend URL** blank.
 4. Enter exactly `openrouter/free` in the **Model** box.
 5. Try a short, simple turn first. Free models can be busy, slower, less consistent, or temporarily unavailable.
 
@@ -137,7 +137,7 @@ You do not need to understand every setting before you begin. For a first test, 
 2. Read the party list. The first character is the one you play in **Party-member mode**. If you would rather direct everyone from outside the story, choose **Unseen DM**.
 3. Type one clear action. For example: `I enter the old greenhouse, look around carefully, and ask Rowan what they know about this place.`
 4. Click **SEND TURN** and wait. The provider may take a little while. Do not click the button repeatedly while it is working.
-5. Read the response. If the story stops at a choice or a stat check, follow the button it gives you. If you do not like what happened, **UNDO** goes back one exchange; **REGENERATE** asks the provider for a new version.
+5. Read the response. If the story stops at a choice or a stat check, follow the button it gives you. If you do not like what happened, **↩ UNDO TURN** goes back one exchange and puts your action back in the box so you can reword it. **↻ REGENERATE** asks for a new version and keeps the old one, so you can flip between them with **‹ ›** and carry on from whichever you like.
 
 You can also start with something even more direct:
 
@@ -147,24 +147,38 @@ I am new to this story. Please describe the room, introduce the party, and end b
 
 The AI cannot read your mind, so ordinary detail helps. Say what your character does, who they are talking to, and anything important they are trying to accomplish. You do not need special prompt syntax. Short turns are easier to understand and usually cheaper or faster than very large ones.
 
+### Letting the party live their own lives
+
+Once a story is under way, you do not have to steer every moment. These let the characters develop on their own, while nothing important changes without your say:
+
+- **DOWNTIME** (beside **PARTY BANTER**, under the story) gives the party some unstructured time together: talking, doing small things, getting on each other's nerves, all driven by their own personalities and history. If it changes how they feel about each other, the harness does not apply that by itself. Each change waits in the **WORLD** tab, which shows a number, until you press **APPLY** or **DISMISS**. When you play the first party member, downtime never proposes changes to your own character's feelings.
+- The **relationship web** at the top of the **WORLD** tab shows how everyone feels about everyone else. Read across a row: that is one character's feelings toward each of the others. The buttons above it switch between affection, trust, respect, tension, fear, and obligation. Click any square to set a value yourself.
+- **PARTY BANTER** asks for a short in-character exchange that changes nothing, a way to hear the party talk without spending a turn.
+- The **LORE** tab is a notebook about your world. The AI reads an entry only when its keywords come up in the story, so you can write as much as you like. See [Lorebook](#lorebook).
+
+**DOWNTIME** and **PARTY BANTER** each ask your text provider for a reply, the same as a turn. Editing the relationship web or the lorebook costs nothing.
+
 ### Things that look unusual but are normal
 
 - The black terminal window is not another copy of the app. It is the engine that keeps the webpage running, so leave it open.
 - `127.0.0.1` and `localhost` mean “this computer.” They are normal addresses for a program running privately on your machine.
-- A loading message means the harness is waiting for the selected provider. A slow response is not automatically a frozen app; use **Cancel** if you need to stop waiting.
+- A loading message means the harness is waiting for the selected provider. A slow response is not automatically a frozen app; use **CANCEL TURN** if you need to stop waiting.
 - A model ID is the provider's technical name for an AI. It may look less friendly than the name shown on the provider's website.
 - A stat check is a story moment where the harness rolls for an uncertain outcome. You are not expected to calculate anything; the screen tells you what to do.
 - A memory proposal is a suggestion for you to review. It is not silently changing your character or story.
+- A number on the **WORLD** tab counts suggestions waiting for you: memory proposals, or relationship changes from downtime. Nothing changes until you review them.
+- After you regenerate, **‹ 2 / 2 ›** appears beside the turn buttons. It means there is more than one version of the last reply, and the arrows flip between them.
+- In a long story, the oldest lines fold into **▶ Earlier scenes** at the top. Nothing is deleted; click it to read them. The AI keeps track of them through a running summary, which it updates now and then with a small extra request.
 
 ### Save your story before experimenting
 
-Party Harness saves its current work in your browser on this computer, but browser storage is not a complete backup. Before deleting browser data, changing browsers, or moving to another computer, use **Export session JSON** and keep that file somewhere safe. That file can be imported later to restore the session. **Export story (Markdown)** is good for reading or sharing a transcript, but it cannot restore the playable session.
+Party Harness saves your work automatically as you play: in your browser, and as files in the `saves` folder beside `server.js`. Clearing browser data or switching browsers does not lose it, because the harness brings your work back from that folder. Both copies are on this one computer, though, so before moving to another computer or deleting the Party Harness folder, open **SESSIONS**, press **EXPORT SESSION JSON**, and keep that file somewhere safe. **IMPORT SESSION JSON** restores it later. **EXPORT STORY (MARKDOWN)** is good for reading or sharing a transcript, but it cannot restore the playable session.
 
 It is also fine to make a “test” session while learning. Try settings and prompts there first, then create a fresh session for the story you want to keep. Generated images are not included in session exports, so save any images you want to keep separately.
 
 ### If your first turn does not work
 
-First check the three simplest things: the black server window is still open, you are using the exact `http://127.0.0.1:8787/` address, and your selected provider has the correct key and model ID. If you are using a local provider, make sure its own program is running too. Do not paste your API key into a bug report; copy the ordinary error message instead. The fuller [Troubleshooting](#troubleshooting) table covers the next things to try.
+First check the three simplest things: the black server window is still open, you are using the address it printed (normally `http://127.0.0.1:8787/`), and your selected provider has the correct key and model ID. **CHECK CONNECTION + LIST MODELS** in Settings tests the key and address for you and says in plain words what is wrong. If you are using a local provider, make sure its own program is running too. Do not paste your API key into a bug report; copy the ordinary error message instead. The fuller [Troubleshooting](#troubleshooting) table covers the next things to try.
 
 ## Start here
 
@@ -206,7 +220,7 @@ To edit the file yourself instead:
 | Lorebook | Reference entries about your world, sent only when one of their keywords comes up. See [Lorebook](#lorebook). |
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
-| Sessions | Named saves, session import/export, and readable story exports. |
+| Sessions | Named saves, session import/export, and readable story exports. See [Where your work is saved](#where-your-work-is-saved). |
 | Story text formatting | Markdown mode safely renders emphasis, headings, lists, and inline code; Plain text keeps the original markers visible. |
 | Column dividers | On desktop, drag the narrow dividers between Story, Image, and Party to choose how much room each gets. Arrow keys nudge a focused divider; double-click resets both. The proportions travel with saves and exports. |
 | Party banter | Requests a short in-character exchange without advancing the turn or applying world-state changes. It is still a provider request. |
@@ -215,6 +229,14 @@ To edit the file yourself instead:
 | Portrait expressions | Add several images to a character sheet, then choose which expression is shown as that character's current portrait. |
 
 The right-hand rail is split into **Party**, **World**, **Lore**, **History**, and **Trace** tabs. World opens on the relationship web, then the rest of the scene's state; a number on the tab counts suggestions waiting for your review. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
+
+### Where your work is saved
+
+Autosave and named saves live in this browser on this computer, and are also kept as files in a `saves/` folder beside `server.js`. The files are what bring your work back after you clear site data or open the harness in another browser or on another port: an empty browser restores the last workspace from `saves/autosave.json` on its own, and **SESSIONS** lists saves that exist only as files. Only files the harness wrote itself are restored with their connection settings; a session file copied in from elsewhere loads like an import. You can turn the files off in **SETTINGS → Local workspace persistence**. **EXPORT SESSION JSON** (in **SESSIONS**) makes a portable backup; **EXPORT STORY (MARKDOWN)** is a readable transcript, not a restorable session.
+
+Session exports exclude API keys and generated image data. Save generated art separately. Character sheets, uploaded portraits, and story text may be personal, so review your session files before sharing them.
+
+Your selected provider receives the context needed for generation, including relevant character profiles and story information. Reference images are sent when used for image generation. What that means for your privacy, and how to avoid it entirely, is covered in [Local by design](#local-by-design). The included server is intended for local use; do not deploy it as a public service without redesigning access control.
 
 ### Trace
 
@@ -230,17 +252,17 @@ What is sent each turn is capped at 6,000 characters. **Always include** entries
 
 **IMPORT** reads this harness's lorebook exports, SillyTavern World Info files, NovelAI lorebooks, and the lorebook built into a character card. Keywords written as regular expressions are skipped (the import says how many) rather than run, because a pattern from someone else's file could freeze the page. The lorebook is saved with the session; **New session** keeps it unless you untick **Keep the lorebook**.
 
+### Story text and party asides
+
+**Story formatting:** Markdown mode is on by default and is display-only. It supports <code>*italics*</code>, <code>**bold**</code>, <code>~~strikethrough~~</code>, inline code, <code># headings</code>, and <code>- lists</code> in generated narration, dialogue, bubbles, and pause text. The renderer escapes HTML before adding those safe tags, and the underlying text remains unchanged in saves and exports. Switch to Plain text when a provider's markers should remain literal.
+
+**Party asides:** Bubbles are optional short comments beside a character's portrait, separate from the full reply and transcript. A `speech` bubble is an audible aside; a `thought` bubble is an unspoken NPC reaction. They can be dismissed individually, and the prompt asks the model to leave them empty unless they add information rather than repeat the scene.
+
 ## Local music, ambience, and interface skins
 
 Create `music/`, `ambience/`, and `skins/` folders beside `server.js` (the harness also works when they are absent). Put MP3, OGG, WAV, M4A, or FLAC files in the two audio folders, then use the controls below the scene image. Music and ambience can play together at separate volumes. Browsers vary in which audio formats they decode, so MP3 and OGG are the most portable choices.
 
 Put CSS files in `skins/`, open **Settings → Appearance**, and choose **Refresh local library**. A skin is ordinary CSS loaded after the built-in styles, so it can override colors, borders, spacing, and typography. Treat a downloaded skin as code you should read before using. These three folders are ignored by Git and excluded from public release archives, keeping personal media and styling local.
-
-Autosave and named saves live in this browser on this computer, and are also kept as files in a `saves/` folder beside `server.js`. The files are what bring your work back after you clear site data or open the harness in another browser or on another port: an empty browser restores the last workspace from `saves/autosave.json` on its own, and **SESSIONS** lists saves that exist only as files. Only files the harness wrote itself are restored with their connection settings; a session file copied in from elsewhere loads like an import. You can turn the files off in **SETTINGS → Local workspace persistence**. **Export session JSON** for a portable backup; **Export story (Markdown)** is a readable transcript, not a restorable session.
-
-Session exports exclude API keys and generated image data. Save generated art separately. Character sheets, uploaded portraits, and story text may be personal, so review your session files before sharing them.
-
-Your selected provider receives the context needed for generation, including relevant character profiles and story information. Reference images are sent when used for image generation. What that means for your privacy, and how to avoid it entirely, is covered in [Local by design](#local-by-design). The included server is intended for local use; do not deploy it as a public service without redesigning access control.
 
 ## Local by design
 
@@ -306,7 +328,7 @@ Some things in a card are deliberately left out: its system prompt and post-hist
 It is a local webpage for running roleplay sessions with a party of AI characters. The webpage, character sheets, story controls, and saves run on your computer; the actual writing comes from whichever text provider you connect.
 
 **Do I have to know how to code?**
-No. On Windows, the normal routine is to double-click **Start Party Harness.cmd**, leave the black window open, and use the app in your browser. The [very simple guide](#the-very-simple-version) walks through the first setup.
+No. On Windows, the normal routine is to double-click **Start Party Harness.cmd**, leave the black window open, and use the app in your browser. On a Mac or Linux, you type one command, `node server.js`, into a Terminal window instead. The [very simple guide](#the-very-simple-version) walks through the first setup either way.
 
 **Why does a local program open in my web browser?**
 The browser is simply Party Harness's screen and controls. The address `127.0.0.1` means your own computer, not a public website.
@@ -321,10 +343,10 @@ You need a key for most hosted AI providers. You do not usually need one for a m
 Yes, with limits or extra setup. OpenRouter offers free models with lower availability and request limits, while Ollama or LM Studio can run a downloaded text model on suitable hardware. See [OpenRouter without paying](#openrouter-without-paying-use-a-free-model). Party Harness itself does not charge you.
 
 **Will Party Harness warn me before a provider charges me?**
-No. The provider controls prices, credits, limits, and billing. Party Harness sends a request when you use actions such as **SEND TURN**, **REGENERATE**, **PARTY BANTER**, profile processing, scenario generation, or **GENERATE IMAGE**. Check the provider's usage page and prices yourself.
+No. The provider controls prices, credits, limits, and billing. Party Harness sends a request when you use **SEND TURN**, **REGENERATE**, **PARTY BANTER**, **DOWNTIME**, **PROCESS WITH LLM**, scenario generation, or **GENERATE IMAGE**, and when you roll a stat check (the result goes back so the story can continue). In a long story it also sends an occasional small request to update the running summary. **CHECK CONNECTION + LIST MODELS** only asks for the model list and generates nothing. The **TRACE** tab shows the tokens each turn used when your provider reports them; the provider's own usage page shows what they cost.
 
 **Why did my API key disappear?**
-Keys pasted into the webpage are intentionally temporary and disappear after a refresh. To keep one between launches, save it privately in a [`.env` file](#what-is-a-env-file).
+Keys pasted into the webpage are intentionally temporary and disappear after a refresh. To keep one, press **SAVE KEY TO .ENV** next to the key box. Party Harness stores it in a private [`.env` file](#what-is-a-env-file) on your computer and loads it automatically from then on.
 
 **Can I use one company for text and another for images?**
 Yes. Text and image providers are separate settings. You can also turn off the generated-image area and play entirely with text.
@@ -336,13 +358,25 @@ No. Images are optional and are created only when you click **GENERATE IMAGE**. 
 In this browser, and as files in the `saves/` folder beside `server.js`. If you clear browser data or come back on a different browser or port, the harness restores your last workspace from that folder by itself, and your named saves appear in **SESSIONS** marked “saves folder only”. Exporting a session JSON is still the way to move a story to another computer.
 
 **How do I move or back up a session?**
-Use **Export session JSON**. Import that JSON file later to restore the playable session. **Export story (Markdown)** makes a readable transcript, but cannot restore the session. Generated images must be saved separately.
+Open **SESSIONS** and use **EXPORT SESSION JSON**. **IMPORT SESSION JSON** restores that file later as a playable session. **EXPORT STORY (MARKDOWN)** makes a readable transcript, but cannot restore the session. Generated images must be saved separately.
 
 **Can I add my own characters?**
-Yes. Edit the character sheets in the Party sidebar or add Markdown profiles to the `characters/` folder. The included characters are examples, not a required cast. See [Bring your own characters](#bring-your-own-characters).
+Yes. Edit the character sheets in the Party sidebar, add Markdown profiles to the `characters/` folder, or import a character card. The included characters are examples, not a required cast. See [Bring your own characters](#bring-your-own-characters).
+
+**Can I use characters and lorebooks from SillyTavern or chub?**
+Yes. Open a character sheet and choose **IMPORT CHARACTER** to bring in a character card, as JSON or PNG; its built-in lorebook comes along. Standalone lorebooks, including SillyTavern World Info and NovelAI lorebooks, go in through **IMPORT** in the **LORE** tab. Read a card from a stranger before using it: see [Bring your own characters](#bring-your-own-characters).
+
+**What do ‹ and › next to the turn buttons do?**
+They appear after you press **REGENERATE**. Each regenerate keeps the reply it replaces, so ‹ › flips between up to ten versions, and whichever one is on screen is the one the story continues from. Each version brings back exactly what happened in it, so comparing them never mixes their effects.
+
+**What is DOWNTIME?**
+A short scene where the party spends time together without you directing them. It is how characters develop their relationships on their own; any change in how they feel about each other waits in the **WORLD** tab for your approval. See [Letting the party live their own lives](#letting-the-party-live-their-own-lives).
+
+**Where did the beginning of my story go?**
+In a long story, the oldest lines fold into **▶ Earlier scenes** at the top. Click it to read them; nothing is deleted, and exports include them. The AI keeps track of them through a running summary. Anything it must never get wrong belongs in **Pinned canon** in **SESSIONS**, which is sent in full with every turn.
 
 **Is my story private?**
-The app and its browser saves are local, but a hosted provider receives the material needed to generate its response. A model running entirely on your computer is the private end-to-end option. See [Local by design](#local-by-design) for the full explanation.
+The app and its saves are local, but a hosted provider receives the material needed to generate its response. A model running entirely on your computer is the private end-to-end option. See [Local by design](#local-by-design) for the full explanation.
 
 **Does Party Harness decide what stories I am allowed to write?**
 Party Harness does not inspect, upload, or moderate your story. A hosted text or image provider can still apply its own rules to anything sent to it. Local models avoid that provider boundary.
@@ -356,10 +390,13 @@ Say what operating system you use, what you clicked, which provider and model yo
 | --- | --- |
 | “node is not recognized” | Install Node.js, then reopen the terminal or launcher. |
 | The page will not open | Keep the server terminal open and use the exact address it prints. Do not double-click the HTML file. |
-| Port already in use | Close the previous harness terminal, or set `RP_PORT` to another port before launching. A different port has separate browser saves. |
-| Key missing after refresh | Browser-entered keys are temporary. Re-enter it or use `.env` and restart. |
-| Provider rejects a request | Check the selected provider, model, key, account access, and the error text. A local-ready indicator does not validate these with the provider. |
-| A reply takes too long | Use Cancel; your action is restored. The provider may already have processed or billed the request. |
+| Port already in use | Close the previous harness terminal, or set `RP_PORT` to another port before launching. A different port starts with empty browser storage, but saves kept in the `saves/` folder come back by themselves and appear in **SESSIONS**. |
+| Key missing after refresh | Browser-entered keys are temporary. Paste it again and press **SAVE KEY TO .ENV** to keep it; no restart needed. |
+| Provider rejects a request | Press **CHECK CONNECTION + LIST MODELS** in Settings: it tests the key and address and says what is wrong in plain words. Then check the model ID and your account's access or credit. To see the provider's exact reply, tick **Keep each turn's exact exchange** in the **TRACE** tab and try again. |
+| A reply takes too long | Use **CANCEL TURN**; your action is restored (after a regenerate, the previous reply comes back instead). The provider may already have processed or billed the request. |
+| The reply is unusable or "malformed" | The model did not return the structured reply Party Harness needs. Try again, try another model (small and free models struggle most), or change the output mode as described under **Structured output compatibility** in [Text provider connections](#text-provider-connections). |
+| A lore entry never comes up | Its keyword has to appear in the last eight lines or in your action, as a whole word: `dragon` does not match "dragons", so add both. The **LORE** tab marks what is **IN PLAY** for the next turn. |
+| A PNG character card says there is no card inside it | Websites and chat apps often re-save images, which strips the hidden card data. Download the original card file again from where it was published. |
 | Save needs attention | Export your session before closing. Check browser storage availability; the last successful save is retained. |
 | My saves seem gone | Open **SESSIONS**: saves kept as files are listed there even in a new browser or on a new port. Check that the `saves/` folder is beside `server.js`, return to the same browser and address, or import an exported session JSON. |
 
@@ -400,14 +437,6 @@ All text connections cover story turns, summaries, character-profile processing,
 
 Start your local model server and load/download a model there first, then use **CHECK CONNECTION + LIST MODELS** to pick its exact model ID; the harness does not install models or start their servers. A downloaded model served locally can generate text without an external text provider. The model must handle the story context and JSON instructions; model size and context capacity affect reliability. Images and any separately selected hosted services still use network APIs.
 
-## Image provider connections
-
-The image menu supports OpenAI Images, NovelAI, Stability AI, AUTOMATIC1111/Forge, Fooocus, ComfyUI, and a Custom OpenAI-compatible images endpoint. Stability uses its Stable Image Core endpoint and supports the selected aspect ratio; it does not receive reference images. Reference image conditioning is currently an OpenAI Images feature. Local UI connections use their documented HTTP APIs: AUTOMATIC1111/Forge uses `/sdapi/v1/txt2img`, Fooocus uses the Fooocus-API extension's `/v1/generation/text-to-image`, and ComfyUI submits an API-format workflow to `/prompt` and retrieves its first output image. Local HTTP is restricted to this computer; use HTTPS for a remote server.
-
-The custom image connection expects an OpenAI-style `POST /images/generations` response containing `data[0].b64_json` or `data[0].url`. This makes it useful for local servers and gateways that expose that compatibility layer, but it is not a universal adapter for arbitrary image APIs. Stability and custom image keys use `STABILITY_API_KEY` and `COMPATIBLE_IMAGE_API_KEY` in `.env`; browser keys are memory-only. Local UI keys are optional and are only needed when you put an authenticated gateway in front of the UI.
-
-**ComfyUI setup:** in ComfyUI, export your workflow in API format. Paste it into the harness's ComfyUI workflow field, then replace the positive text node with the literal `{{prompt}}` placeholder and the negative text node with `{{negative_prompt}}` if desired. The harness keeps the workflow you provide, submits it for each image request, waits for completion, and downloads the first image output. This deliberately avoids guessing which nodes in a custom graph are checkpoints, samplers, or text encoders.
-
 The API base URL is different from the custom roleplay backend URL. For local/compatible models, fill the **Provider API base URL**, usually ending in /v1. Leave **Custom roleplay backend URL** blank. Hosted presets have fixed official URLs. HTTP is allowed only on loopback (localhost, 127.0.0.1, or ::1); use HTTPS and Custom OpenAI-compatible for a server elsewhere.
 
 New hosted presets start with an empty model field so you can enter a currently available model from your account. Switching text providers clears the browser text key, model, base URL, output-mode override, and custom roleplay backend; switching image providers also clears the image key, image base URL, ComfyUI workflow, and model so connection details cannot cross services. Enter the new connection's details. OpenAI and NovelAI retain their existing default model suggestions. Local UI presets use their usual loopback ports as placeholders. Session files retain model/compatibility settings, but imported external files cannot set a provider base URL or ComfyUI workflow. Re-enter those values after importing.
@@ -416,10 +445,16 @@ New hosted presets start with an empty model field so you can enter a currently 
 
 **NovelAI compatibility:** NovelAI's OpenAI-compatible text endpoint does not enforce the JSON schema used by OpenAI. The harness sends an explicit JSON contract, disables thinking for these structured turns, keeps structured turns within NovelAI's documented output allowance, and trims only the provider copy of oversized attached profiles or scene context. Saved sessions and exports keep their full text. It strips common reasoning wrappers and keeps a plain-prose response as narration if the model ignores the JSON shell. If NovelAI returns an empty `text` field while its OpenAI-style `logprobs` or converted logprobs contain token strings, the harness reconstructs the visible text before failing. <code>glm-4-6</code> is the default model; enter the exact model ID available to your account. If NovelAI still returns an empty choice, the error includes its stop reason and token metadata so you can tell whether to shorten the context or change the model. See NovelAI's [Generation API documentation](https://docs.novelai.net/en/scripting/generation-api/) for current model and parameter availability.
 
-**Story formatting:** Markdown mode is on by default and is display-only. It supports <code>*italics*</code>, <code>**bold**</code>, <code>~~strikethrough~~</code>, inline code, <code># headings</code>, and <code>- lists</code> in generated narration, dialogue, bubbles, and pause text. The renderer escapes HTML before adding those safe tags, and the underlying text remains unchanged in saves and exports. Switch to Plain text when a provider's markers should remain literal.
-
-**Party asides:** Bubbles are optional short comments beside a character's portrait, separate from the full reply and transcript. A `speech` bubble is an audible aside; a `thought` bubble is an unspoken NPC reaction. They can be dismissed individually, and the prompt asks the model to leave them empty unless they add information rather than repeat the scene.
-
 **CHECK CONNECTION + LIST MODELS** asks the selected provider for its model list, which confirms the harness, the address, and the key without generating anything. Embedding, speech, and image models are left out of the list. It does not test generation quality or account credit. These adapters have mock protocol tests and local HTTP integration tests; live hosted calls and actual Ollama/LM Studio model generation have not been validated in this release.
 
-API references: [Claude](https://platform.claude.com/docs/en/api/http/messages/create), [Gemini](https://ai.google.dev/gemini-api/docs/openai), [OpenRouter](https://openrouter.ai/docs/quickstart), [DeepSeek](https://api-docs.deepseek.com/guides/json_mode/), [Groq](https://console.groq.com/docs/overview), [Ollama](https://docs.ollama.com/api/openai-compatibility), [LM Studio](https://lmstudio.ai/docs/developer/openai-compat), [ComfyUI server routes](https://docs.comfy.org/development/comfyui-server/comms_routes), [AUTOMATIC1111 API](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API), [Fooocus-API](https://github.com/mrhan1993/Fooocus-API/blob/main/docs/api_doc_en.md).
+## Image provider connections
+
+The image menu supports OpenAI Images, NovelAI, Stability AI, AUTOMATIC1111/Forge, Fooocus, ComfyUI, and a Custom OpenAI-compatible images endpoint. Stability uses its Stable Image Core endpoint and supports the selected aspect ratio; it does not receive reference images. Reference image conditioning is currently an OpenAI Images feature. Local UI connections use their documented HTTP APIs: AUTOMATIC1111/Forge uses `/sdapi/v1/txt2img`, Fooocus uses the Fooocus-API extension's `/v1/generation/text-to-image`, and ComfyUI submits an API-format workflow to `/prompt` and retrieves its first output image. Local HTTP is restricted to this computer; use HTTPS for a remote server.
+
+The custom image connection expects an OpenAI-style `POST /images/generations` response containing `data[0].b64_json` or `data[0].url`. This makes it useful for local servers and gateways that expose that compatibility layer, but it is not a universal adapter for arbitrary image APIs. Stability and custom image keys use `STABILITY_API_KEY` and `COMPATIBLE_IMAGE_API_KEY` in `.env`; browser keys are memory-only. Local UI keys are optional and are only needed when you put an authenticated gateway in front of the UI.
+
+**ComfyUI setup:** in ComfyUI, export your workflow in API format. Paste it into the harness's ComfyUI workflow field, then replace the positive text node with the literal `{{prompt}}` placeholder and the negative text node with `{{negative_prompt}}` if desired. The harness keeps the workflow you provide, submits it for each image request, waits for completion, and downloads the first image output. This deliberately avoids guessing which nodes in a custom graph are checkpoints, samplers, or text encoders.
+
+## API references
+
+[Claude](https://platform.claude.com/docs/en/api/http/messages/create), [Gemini](https://ai.google.dev/gemini-api/docs/openai), [OpenRouter](https://openrouter.ai/docs/quickstart), [DeepSeek](https://api-docs.deepseek.com/guides/json_mode/), [Groq](https://console.groq.com/docs/overview), [Ollama](https://docs.ollama.com/api/openai-compatibility), [LM Studio](https://lmstudio.ai/docs/developer/openai-compat), [ComfyUI server routes](https://docs.comfy.org/development/comfyui-server/comms_routes), [AUTOMATIC1111 API](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API), [Fooocus-API](https://github.com/mrhan1993/Fooocus-API/blob/main/docs/api_doc_en.md).
