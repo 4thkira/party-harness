@@ -203,6 +203,7 @@ To edit the file yourself instead:
 | Undo / regenerate | Undo restores the previous exchange; regenerate retries its action with a new provider request. The reply it replaces is kept: ‹ › beside the turn buttons flips between up to 10 replies to the same action, and each brings back exactly what it changed in the world. If a regenerate fails or you cancel it, the previous reply comes back. Undo removes the turn with all of its replies. |
 | World state | Editable inventory, conditions, relationships, objectives, progress counters (“clocks”), and facts (“flags”). |
 | Relationship web | The grid at the top of the World tab. Each row is one character's feelings toward the others, one dimension at a time (affection, trust, respect, tension, fear, obligation). Pick a square to edit it, or a · square to start a relationship nobody has recorded yet. ≠ marks a bond that runs much stronger one way, and a heavy border marks one that changed this turn. |
+| Lorebook | Reference entries about your world, sent only when one of their keywords comes up. See [Lorebook](#lorebook). |
 | Memory proposal | A suggested reaction, relationship memory, or character development for you to review. It does not automatically rewrite a character. |
 | Pinned canon | Your explicit continuity facts. Review AI summaries and correct mistakes when needed. |
 | Sessions | Named saves, session import/export, and readable story exports. |
@@ -213,7 +214,15 @@ To edit the file yourself instead:
 | Bookmark | Saves the current scene title, location, turn, and a short excerpt under the History tab. |
 | Portrait expressions | Add several images to a character sheet, then choose which expression is shown as that character's current portrait. |
 
-The right-hand rail is split into **Party**, **World**, **History**, and **Trace** tabs. World opens on the relationship web, then the rest of the scene's state. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
+The right-hand rail is split into **Party**, **World**, **Lore**, **History**, and **Trace** tabs. World opens on the relationship web, then the rest of the scene's state; a number on the tab counts suggestions waiting for your review. History keeps scene bookmarks and records the directional relationship changes applied by generated turns.
+
+### Lorebook
+
+The **Lore** tab holds reference entries about your world — places, people, factions, history, rules of magic — each with a few keywords. An entry is sent to the text provider only when one of its keywords appears in the last eight lines of the story (a speaker's name counts) or in the action you send, so a long lorebook costs nothing until it becomes relevant. Keywords match whole words in any letter case: `gate` finds "the Gate" but not "gatekeeper". Tick **Always include** for the few entries every turn should see.
+
+What is sent each turn is capped at 6,000 characters. **Always include** entries go first, then matching entries in list order, so use ↑ ↓ to put the ones that matter most at the top. The tab shows which entries are in play for the next turn and which matched but did not fit, and the Trace tab lists the entries each turn actually sent.
+
+**IMPORT** reads this harness's lorebook exports, SillyTavern World Info files, NovelAI lorebooks, and the lorebook built into a character card. Keywords written as regular expressions are skipped (the import says how many) rather than run, because a pattern from someone else's file could freeze the page. The lorebook is saved with the session; **New session** keeps it unless you untick **Keep the lorebook**.
 
 ## Local music, ambience, and interface skins
 

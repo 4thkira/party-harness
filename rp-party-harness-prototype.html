@@ -298,13 +298,16 @@ this program. If not, see https://www.gnu.org/licenses/.
     .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 2px solid var(--line); }
     .sidebar-head h3 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
     .party-count { color: var(--rust); font-size: 11px; }
-    .sidebar-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 7px 0 6px; border-bottom: 1px solid #aa9b87; }
+    .sidebar-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 7px 0 6px; border-bottom: 1px solid #aa9b87; }
     .sidebar-tab { min-width: 0; padding: 7px 4px; border: 1px solid #a3937d; color: var(--muted); background: transparent; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
     .sidebar-tab:hover { color: var(--rust); border-color: var(--rust); }
     .sidebar-tab.active { color: var(--paper); background: var(--rust); border-color: var(--rust); }
-    .tab-count { margin-left: 4px; padding: 0 3px; color: var(--paper); background: var(--rust); letter-spacing: 0; }
+    /* A corner badge rather than inline text: five tabs share a 290px sidebar, and a count beside
+       WORLD wrapped the label onto two lines. */
+    .sidebar-tab { position: relative; }
+    .tab-count { position: absolute; top: -6px; right: -4px; min-width: 14px; padding: 1px 3px; color: var(--paper); background: var(--rust); border: 1px solid var(--paper-2); font-size: 8px; letter-spacing: 0; line-height: 1.2; }
     .tab-count[hidden] { display: none; }
-    .sidebar-tab.active .tab-count { color: var(--rust); background: var(--paper); }
+    .sidebar-tab.active .tab-count { color: var(--rust); background: var(--paper); border-color: var(--rust); }
     .sidebar-tab:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
     .sidebar-panels { min-height: 0; flex: 1 1 auto; }
     .sidebar-panel { min-height: 0; height: 100%; overflow-y: auto; overflow-x: hidden; padding-right: 4px; scrollbar-gutter: stable; }
@@ -372,6 +375,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     .runtime-meter { height: 4px; margin-top: 4px; background: #c8bba8; }
     .runtime-meter > span { display: block; height: 100%; background: var(--rust); }
     .memory-pin { float: right; margin-left: 5px; padding: 1px 4px; color: var(--rust); background: transparent; border: 1px solid #aa9b87; font-size: 8px; }
+    .memory-pin:disabled { opacity: .35; cursor: default; }
     .relationship-web { margin: 8px 0 11px; padding-bottom: 9px; border-bottom: 1px solid #aa9b87; }
     .web-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
     .web-head h5 { flex: none; margin: 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
@@ -402,6 +406,14 @@ this program. If not, see https://www.gnu.org/licenses/.
     .web-proposals { margin-top: 7px; }
     .web-proposals h5 { margin: 0 0 4px; color: var(--rust); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
     .web-list { margin-top: 6px; }
+    .lore-entry { margin: 0 0 5px; padding: 5px 6px; background: rgba(255,255,255,.28); border-left: 2px solid #aa9b87; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+    .lore-entry.in-play { border-left-color: var(--rust); background: rgba(255,255,255,.5); }
+    .lore-entry.off { opacity: .55; }
+    .lore-entry strong { color: var(--rust); font-size: 11px; }
+    .lore-keys { display: block; margin: 2px 0; color: var(--muted); font-family: var(--mono); font-size: 9px; }
+    .lore-badge { margin-left: 5px; padding: 0 3px; color: var(--paper); background: var(--rust); font-family: var(--mono); font-size: 8px; letter-spacing: .08em; }
+    .lore-badge.quiet { color: var(--muted); background: transparent; border: 1px solid #aa9b87; }
+    #lore-status:empty { display: none; }
     .web-list summary { color: var(--rust); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
     .web-list[open] summary { margin-bottom: 5px; }
     .trace-entry { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px dashed #b4a590; font-size: 10px; line-height: 1.45; }
@@ -745,6 +757,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <div class="sidebar-tabs" role="tablist" aria-label="Party sidebar views">
           <button class="sidebar-tab active" id="sidebar-tab-party" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-party" data-sidebar-tab="party" title="Party roster and selected character">PARTY</button>
           <button class="sidebar-tab" id="sidebar-tab-world" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-world" data-sidebar-tab="world" tabindex="-1" title="Mechanical world state and memory proposals">WORLD<span class="tab-count" id="world-review-count" hidden></span></button>
+          <button class="sidebar-tab" id="sidebar-tab-lore" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-lore" data-sidebar-tab="lore" tabindex="-1" title="World reference entries sent when their keywords come up">LORE</button>
           <button class="sidebar-tab" id="sidebar-tab-history" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-history" data-sidebar-tab="history" tabindex="-1" title="Scene bookmarks and relationship history">HISTORY</button>
           <button class="sidebar-tab" id="sidebar-tab-trace" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-trace" data-sidebar-tab="trace" tabindex="-1" title="Recent provider turns and validation results">TRACE</button>
         </div>
@@ -758,6 +771,13 @@ this program. If not, see https://www.gnu.org/licenses/.
             <div class="sidebar-panel-heading"><strong>World state</strong><span>scene mechanics</span></div>
             <p class="sidebar-panel-note">Track facts, clocks, inventory, relationships, and memory proposals. Changes are applied when their beat appears.</p>
             <div id="world-state-panel"></div>
+          </section>
+          <section class="sidebar-panel" id="sidebar-panel-lore" data-sidebar-panel="lore" role="tabpanel" aria-labelledby="sidebar-tab-lore" aria-hidden="true" hidden>
+            <div class="sidebar-panel-heading"><strong>Lorebook</strong><span>world reference</span></div>
+            <p class="sidebar-panel-note">Places, people, history, and rules of your world. An entry reaches the engine only when one of its keywords appears in the last few lines or in your action, so a large lorebook costs nothing until it matters. ALWAYS entries go with every turn.</p>
+            <div class="session-actions"><button class="turn-action" type="button" id="add-lore">+ ADD ENTRY</button><label class="turn-action" for="import-lore-file">IMPORT</label><input class="file-input" id="import-lore-file" type="file" accept="application/json,.json,.lorebook"><button class="turn-action" type="button" id="export-lore">EXPORT</button></div>
+            <p class="runtime-empty" id="lore-status" role="status"></p>
+            <div id="lore-panel"></div>
           </section>
           <section class="sidebar-panel" id="sidebar-panel-trace" data-sidebar-panel="trace" role="tabpanel" aria-labelledby="sidebar-tab-trace" aria-hidden="true" hidden>
             <div class="sidebar-panel-heading"><strong>Turn trace</strong><span>latest six turns</span></div>
@@ -803,6 +823,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="field"><label for="session-player-role" id="session-player-role-label">Player character / role</label><input id="session-player-role" placeholder="The first party member’s role or identity…"></div>
           <div class="field"><label for="session-opening">Opening situation</label><textarea id="session-opening" placeholder="What is happening as the first turn begins?"></textarea></div>
           <label class="check-field"><input id="session-keep-party" type="checkbox" checked><span>Keep the current party roster</span></label>
+          <label class="check-field"><input id="session-keep-lore" type="checkbox" checked><span>Keep the lorebook <span id="session-keep-lore-count"></span></span></label>
         </section>
         <section class="settings-group full">
           <div class="settings-group-title">Session stats</div>
@@ -921,7 +942,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <p>Party Harness is a story space for you and a party of AI-controlled characters. Write an action, let the scene respond, and decide what happens next. You can browse and edit without a key; generating text needs a hosted provider or a running local model server; art uses a hosted image provider or a compatible local server.</p>
         <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
         <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request; the reply it replaces is kept, and ‹ › beside the turn buttons flips between the replies, each with its own consequences. <strong>Downtime</strong> lets the party spend time together without you directing them; any change in how they feel about each other waits in the World tab for you to apply or dismiss. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
-        <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. The <strong>relationship web</strong> at the top of the World tab shows how each character feels toward each of the others: rows feel, columns receive. Pick a square to edit it. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
+        <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. The <strong>relationship web</strong> at the top of the World tab shows how each character feels toward each of the others: rows feel, columns receive. Pick a square to edit it. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p>The <strong>Lore</strong> tab keeps reference entries about your world. Each is sent only when one of its keywords comes up in the recent story or your action, so a big lorebook costs nothing until it matters.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
         <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser, and are also kept as files in the saves folder beside server.js, so clearing site data or changing the port does not lose them: an empty browser restores your last workspace from there by itself. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
         <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
       </div>
@@ -1019,6 +1040,21 @@ this program. If not, see https://www.gnu.org/licenses/.
   </div>
 
   <div class="dice-overlay" id="dice-overlay" role="status" aria-live="assertive"><div class="dice-card"><div id="dice-label">CHECK</div><div class="dice-value" id="dice-value">?</div><strong id="dice-outcome"></strong></div></div>
+
+  <div class="modal-backdrop" id="lore-editor-backdrop" role="dialog" aria-modal="true" aria-labelledby="lore-editor-title">
+    <form class="settings-modal" id="lore-editor-form">
+      <div class="settings-header"><div><p class="eyebrow">LOREBOOK</p><h2 id="lore-editor-title">Edit entry</h2></div><button type="button" class="settings-close" id="close-lore-editor" aria-label="Close lore editor">×</button></div>
+      <div class="settings-grid">
+        <div class="field"><label for="lore-title">Title</label><input id="lore-title" type="text" maxlength="120" placeholder="The Old Gate"></div>
+        <div class="field"><label for="lore-keys">Keywords <span class="hint">(comma-separated; any one brings the entry in)</span></label><input id="lore-keys" type="text" maxlength="600" placeholder="old gate, gatekeeper, north road"></div>
+        <div class="field full"><label for="lore-text">What the engine should know</label><textarea id="lore-text" maxlength="4000" placeholder="The Old Gate has been sealed since the flood. The gatekeeper answers only to a spoken name…"></textarea></div>
+        <label class="check-field"><input type="checkbox" id="lore-constant"><span>Always include (sent every turn, keywords or not)</span></label>
+        <label class="check-field"><input type="checkbox" id="lore-enabled"><span>Enabled</span></label>
+      </div>
+      <p id="lore-editor-status" role="status"></p>
+      <div class="modal-actions"><button class="cancel-button" type="button" id="delete-lore-entry">REMOVE ENTRY</button><button class="cancel-button" type="button" id="cancel-lore-editor">CANCEL</button><button class="save-button" type="submit">SAVE ENTRY</button></div>
+    </form>
+  </div>
 
   <div class="modal-backdrop" id="world-editor-backdrop" role="dialog" aria-modal="true" aria-labelledby="world-editor-title">
     <form class="settings-modal" id="world-editor-form">
@@ -1267,7 +1303,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     let persistenceRevision = 0;
     let autosaveEnabled = true;
     let changeRevision = 0;
-    const SIDEBAR_TABS = ["party", "world", "history", "trace"];
+    const SIDEBAR_TABS = ["party", "world", "lore", "history", "trace"];
     let activeSidebarTab = "party";
 
     const state = {
@@ -1364,6 +1400,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       },
       memoryCandidates: [],
       relationshipProposals: [],
+      lorebook: [],
       turnTraces: [],
       turnCheckpoints: [],
       narrativeEdit: null,
@@ -1999,6 +2036,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       renderSuggestions();
       renderPause();
       renderWorldState();
+      renderLorebook();
       renderTurnTrace();
       renderHistory();
       renderMediaControls();
@@ -2731,6 +2769,185 @@ this program. If not, see https://www.gnu.org/licenses/.
       handleTurn(DOWNTIME_ACTION, { downtime: true });
     }
 
+    // LOREBOOK: world reference the player writes or imports once, sent only when it matters. An
+    // entry goes with a request when one of its keywords appears in the last LORE_SCAN_LINES of the
+    // story (a speaker's name counts) or in the action being sent, or with every request when it is
+    // marked ALWAYS. What is sent is capped at LORE_BUDGET characters: ALWAYS entries first, then
+    // matches in list order, so the order of the list is the order of priority.
+    const MAX_LORE_ENTRIES = 200;
+    const LORE_SCAN_LINES = 8;
+    const LORE_BUDGET = 6000;
+    function normalizeLoreEntry(entry) {
+      if (!entry || typeof entry !== "object") return null;
+      const text = String(entry.text || "").trim().slice(0, 4000);
+      if (!text) return null;
+      const seen = new Set();
+      const keys = (Array.isArray(entry.keys) ? entry.keys : String(entry.keys || "").split(","))
+        .map(key => String(key).trim().slice(0, 80)).filter(key => key && !seen.has(key.toLowerCase()) && seen.add(key.toLowerCase())).slice(0, 20);
+      return {
+        id: String(entry.id || "lore-" + crypto.randomUUID()).slice(0, 100),
+        title: String(entry.title || keys[0] || "Untitled entry").trim().slice(0, 120),
+        keys, text, enabled: entry.enabled !== false, constant: entry.constant === true
+      };
+    }
+    function normalizeLorebook(list) {
+      const ids = new Set();
+      return (Array.isArray(list) ? list : []).slice(0, MAX_LORE_ENTRIES).map(normalizeLoreEntry).filter(Boolean).map(entry => {
+        if (ids.has(entry.id)) entry.id = "lore-" + crypto.randomUUID();
+        ids.add(entry.id);
+        return entry;
+      });
+    }
+    // A keyword matches as a whole word or phrase in any letter case: "gate" finds "the Gate" but not
+    // "gatekeeper". (No lookbehind, which older Safari cannot parse.)
+    const lorePatterns = new Map();
+    function lorePattern(key) {
+      if (!lorePatterns.has(key)) {
+        if (lorePatterns.size > 5000) lorePatterns.clear();
+        lorePatterns.set(key, new RegExp("(^|[^\\p{L}\\p{N}_])" + key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![\\p{L}\\p{N}_])", "iu"));
+      }
+      return lorePatterns.get(key);
+    }
+    function activeLore(action = "") {
+      const scan = state.narrative.filter(line => line.kind !== "error").slice(-LORE_SCAN_LINES)
+        .map(line => (line.character ? line.character + ": " : "") + line.text).concat(String(action)).join("\n");
+      const included = [], skipped = [];
+      let used = 0;
+      const consider = entry => {
+        if (used + entry.text.length > LORE_BUDGET) { skipped.push(entry); return; }
+        used += entry.text.length;
+        included.push(entry);
+      };
+      const enabled = state.lorebook.filter(entry => entry.enabled);
+      enabled.filter(entry => entry.constant).forEach(consider);
+      enabled.filter(entry => !entry.constant && entry.keys.some(key => lorePattern(key).test(scan))).forEach(consider);
+      return { included, skipped, used };
+    }
+    // Reads this harness's lorebook export, SillyTavern World Info, a NovelAI lorebook, or the
+    // character_book inside a character card. Keywords written as regular expressions are skipped,
+    // never compiled: an imported pattern could hang the page on every turn.
+    function loreEntriesFrom(data) {
+      const source = data && typeof data === "object" ? data : {};
+      const book = source.data?.character_book || source.character_book || source;
+      let entries = Array.isArray(source) ? source : book.entries;
+      if (entries && typeof entries === "object" && !Array.isArray(entries)) entries = Object.values(entries);
+      let skippedPatterns = 0;
+      const imported = (Array.isArray(entries) ? entries : []).map(entry => {
+        if (!entry || typeof entry !== "object") return null;
+        const rawKeys = Array.isArray(entry.keys) ? entry.keys : Array.isArray(entry.key) ? entry.key : String(entry.keys || entry.key || "").split(",");
+        const keys = rawKeys.map(key => String(key).trim()).filter(key => {
+          const pattern = /^\/.+\/[a-z]*$/i.test(key);
+          if (pattern) skippedPatterns += 1;
+          return key && !pattern;
+        });
+        return normalizeLoreEntry({
+          title: entry.title || entry.name || entry.comment || entry.displayName, keys,
+          text: entry.text ?? entry.content,
+          enabled: entry.enabled !== false && entry.disable !== true,
+          constant: entry.constant === true || entry.forceActivation === true
+        });
+      }).filter(Boolean);
+      return { entries: imported, skippedPatterns };
+    }
+
+    let loreEditing = null;
+    function readLoreEditor() {
+      return { title: $("lore-title").value, keys: $("lore-keys").value, text: $("lore-text").value, constant: $("lore-constant").checked, enabled: $("lore-enabled").checked };
+    }
+    function loreEditorDirty() { return loreEditing && JSON.stringify(readLoreEditor()) !== loreEditing.baseline; }
+    function closeLoreEditor() { loreEditing = null; closeBackdrop("lore-editor-backdrop"); }
+    function openLoreEditor(index = null) {
+      const entry = index === null ? { id: "", title: "", keys: [], text: "", enabled: true, constant: false } : state.lorebook[index];
+      if (!entry) return;
+      $("lore-editor-title").textContent = index === null ? "Add entry" : "Edit entry";
+      $("lore-title").value = entry.title;
+      $("lore-keys").value = entry.keys.join(", ");
+      $("lore-text").value = entry.text;
+      $("lore-constant").checked = entry.constant;
+      $("lore-enabled").checked = entry.enabled;
+      $("delete-lore-entry").hidden = index === null;
+      $("lore-editor-status").textContent = "";
+      loreEditing = { id: entry.id, isNew: index === null, epoch: sessionEpoch, baseline: JSON.stringify(readLoreEditor()) };
+      openBackdrop("lore-editor-backdrop", index === null ? "lore-title" : "lore-text");
+    }
+    function commitLoreEntry(remove = false) {
+      if (!loreEditing) return;
+      const fail = message => { $("lore-editor-status").textContent = message; };
+      if (loreEditing.epoch !== sessionEpoch) return fail("A different session was loaded while this was open. Your text is still here; copy it before closing.");
+      const index = loreEditing.isNew ? -1 : state.lorebook.findIndex(entry => entry.id === loreEditing.id);
+      if (!loreEditing.isNew && index < 0) return fail("This entry was removed while the editor was open. Your text is still here; copy it before closing.");
+      if (remove) state.lorebook.splice(index, 1);
+      else {
+        const entry = normalizeLoreEntry({ ...readLoreEditor(), id: loreEditing.id });
+        if (!entry) return fail("Write what the engine should know before saving.");
+        if (!entry.constant && !entry.keys.length) return fail("Add at least one keyword, or tick Always include.");
+        if (index >= 0) state.lorebook[index] = entry;
+        else if (state.lorebook.length >= MAX_LORE_ENTRIES) return fail("The lorebook is full (" + MAX_LORE_ENTRIES + " entries). Remove one first.");
+        else state.lorebook.push(entry);
+      }
+      closeLoreEditor();
+      markDirty();
+      renderAll();
+    }
+    function moveLoreEntry(index, offset) {
+      const target = index + offset;
+      if (target < 0 || target >= state.lorebook.length) return;
+      [state.lorebook[index], state.lorebook[target]] = [state.lorebook[target], state.lorebook[index]];
+      markDirty();
+      renderLorebook();
+      $("lore-panel").querySelector?.('[data-lore-move="' + target + ':' + offset + '"]:not(:disabled)')?.focus();
+    }
+    function renderLorebook() {
+      const { included, skipped, used } = activeLore();
+      const inPlay = new Set(included.map(entry => entry.id)), over = new Set(skipped.map(entry => entry.id));
+      const badge = (text, quiet = false) => '<span class="lore-badge' + (quiet ? ' quiet' : '') + '">' + text + '</span>';
+      const summary = !state.lorebook.length ? ""
+        : '<p class="runtime-empty">' + (included.length ? included.length + " in play for the next turn (" + used + " of " + LORE_BUDGET + " characters)." : "Nothing in play: no keyword appears in the last " + LORE_SCAN_LINES + " lines.")
+          + " Your action is checked too when you send it." + (skipped.length ? " " + skipped.length + " more matched but did not fit; move the ones that matter most up the list, or shorten them." : "") + '</p>';
+      $("lore-panel").innerHTML = summary + (state.lorebook.length ? state.lorebook.map((entry, index) =>
+        '<div class="lore-entry' + (inPlay.has(entry.id) ? ' in-play' : '') + (entry.enabled ? '' : ' off') + '">'
+        + '<span class="session-actions" style="float:right"><button class="memory-pin" type="button" data-lore-move="' + index + ':-1" aria-label="Move ' + escapeHtml(entry.title) + ' up"' + (index === 0 ? ' disabled' : '') + '>↑</button><button class="memory-pin" type="button" data-lore-move="' + index + ':1" aria-label="Move ' + escapeHtml(entry.title) + ' down"' + (index === state.lorebook.length - 1 ? ' disabled' : '') + '>↓</button><button class="memory-pin" type="button" data-lore-edit="' + index + '" aria-label="Edit ' + escapeHtml(entry.title) + '">EDIT</button></span>'
+        + '<strong>' + escapeHtml(entry.title) + '</strong>'
+        + (!entry.enabled ? badge("OFF", true) : inPlay.has(entry.id) ? badge("IN PLAY") : over.has(entry.id) ? badge("OVER BUDGET", true) : "") + (entry.constant ? badge("ALWAYS", true) : "")
+        + '<span class="lore-keys">' + escapeHtml(entry.keys.join(", ") || "no keywords") + '</span>'
+        + escapeHtml(entry.text.length > 160 ? entry.text.slice(0, 160) + "…" : entry.text) + '</div>').join("")
+        : '<p class="runtime-empty">No entries yet. Add one, or import a lorebook: exports from here, SillyTavern World Info, NovelAI lorebooks, and character cards with a built-in book all work.</p>');
+      $("lore-panel").querySelectorAll("[data-lore-edit]").forEach(button => button.addEventListener("click", () => openLoreEditor(Number(button.dataset.loreEdit))));
+      $("lore-panel").querySelectorAll("[data-lore-move]").forEach(button => button.addEventListener("click", () => {
+        const [index, offset] = button.dataset.loreMove.split(":").map(Number);
+        moveLoreEntry(index, offset);
+      }));
+    }
+    function importLorebook(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const status = message => { $("lore-status").textContent = message; };
+        try {
+          const { entries, skippedPatterns } = loreEntriesFrom(JSON.parse(String(reader.result)));
+          if (!entries.length) throw new Error("it has no entries with text");
+          const room = MAX_LORE_ENTRIES - state.lorebook.length;
+          const added = entries.slice(0, Math.max(0, room));
+          state.lorebook = normalizeLorebook([...state.lorebook, ...added]);
+          status("Added " + added.length + " entr" + (added.length === 1 ? "y" : "ies") + " from " + file.name + "."
+            + (entries.length > added.length ? " " + (entries.length - added.length) + " did not fit: the lorebook holds " + MAX_LORE_ENTRIES + "." : "")
+            + (skippedPatterns ? " " + skippedPatterns + " keyword" + (skippedPatterns === 1 ? " was a regular expression" : "s were regular expressions") + " and " + (skippedPatterns === 1 ? "was" : "were") + " skipped; give those entries plain keywords." : ""));
+          markDirty();
+          renderAll();
+        } catch (error) {
+          status("Could not import " + file.name + ": " + (error instanceof SyntaxError ? "it is not valid JSON" : error.message) + ".");
+        }
+        event.target.value = "";
+      };
+      reader.onerror = () => { $("lore-status").textContent = "Could not read " + file.name + ": the browser rejected the file."; event.target.value = ""; };
+      reader.readAsText(file);
+    }
+    function exportLorebook() {
+      if (!state.lorebook.length) { $("lore-status").textContent = "There is nothing to export yet."; return; }
+      downloadFile(sessionFileSlug() + ".lorebook.json", JSON.stringify({ format: "party-harness-lorebook", version: 1, entries: state.lorebook.map(({ id, ...entry }) => entry) }, null, 2), "application/json");
+    }
+
     function renderWorldState() {
       const panel = $("world-state-panel");
       const groups = [];
@@ -2805,13 +3022,14 @@ this program. If not, see https://www.gnu.org/licenses/.
       const traces = state.turnTraces.slice(-6).reverse();
       $("turn-trace-panel").innerHTML = traces.length ? traces.map(trace => {
         const rejected = trace.rejected && trace.rejected.length ? '<br><span class="trace-bad">Rejected: ' + escapeHtml(trace.rejected.join('; ')) + '</span>' : '';
-        return '<div class="trace-entry"><strong>TURN ' + String(trace.turn).padStart(2, '0') + ' / ' + escapeHtml(trace.status.toUpperCase()) + '</strong><br>' + trace.durationMs + ' ms / ' + trace.requestBytes + ' request bytes / ' + trace.beatCount + ' beats<br>' + escapeHtml(trace.action) + rejected + '</div>';
+        const lore = trace.lore && trace.lore.length ? '<br>Lore sent: ' + escapeHtml(trace.lore.join(', ')) : '';
+        return '<div class="trace-entry"><strong>TURN ' + String(trace.turn).padStart(2, '0') + ' / ' + escapeHtml(trace.status.toUpperCase()) + '</strong><br>' + trace.durationMs + ' ms / ' + trace.requestBytes + ' request bytes / ' + trace.beatCount + ' beats<br>' + escapeHtml(trace.action) + lore + rejected + '</div>';
       }).join("") : '<p class="runtime-empty">No provider turns recorded yet.</p>';
     }
 
     function renderPrompt() {
       const roster = state.party.map(member => `${member.name} [characterId: ${member.id}] (${member.role}; feeling: ${member.feeling}; strengths: ${member.strengths}; weaknesses: ${member.weaknesses}; speech: ${member.muted ? "muted" : "allowed"}; initiative: ${member.initiative === false ? "reactive" : "free"})`).join("\n");
-      $("prompt-output").textContent = `You are facilitating an ongoing party roleplay. Preserve established facts. Let characters act according to their personality, strengths, weaknesses, feelings, and relationships. Add an empty bubbles array unless a character has a short, additive aside or unspoken thought that is not already in the full reply.\n\nSESSION: ${state.sessionName}\nSCENE: ${state.sceneTitle} — ${state.location}\nTONE / GENRE: ${state.scenarioTone || "not specified"}\nPLAYER MODE: ${state.playerMode === "dm" ? "unseen DM / external facilitator" : "first listed party member"}\nPLAYER PERSPECTIVE: ${state.playerRole || "not specified"}\nSCENARIO PREMISE: ${state.scenarioPremise || "not specified"}\nOPENING SITUATION: ${state.openingSituation || "not specified"}\nWORLD / CANON NOTES: ${state.worldNotes || "none"}\nSESSION STATS: ${JSON.stringify(normalizeStatDefinitions(state.statDefinitions))}\nSESSION PROMPT / CANON NOTES: ${state.sessionPrompt || "none"}\nPINNED CANON (never contradicted; survives summarization): ${state.pinnedFacts || "none"}\nSTORY SO FAR: ${state.storySummary || "none yet"}\nMECHANICAL WORLD STATE: ${JSON.stringify(publicWorldState())}\nBUBBLE FREQUENCY: ${state.mode}\nPARTY:\n${roster}\n\nReturn an ordered beat timeline with explicit pauses, optional additive speech or thought bubbles, suggestions, and validated state-change proposals.`;
+      $("prompt-output").textContent = `You are facilitating an ongoing party roleplay. Preserve established facts. Let characters act according to their personality, strengths, weaknesses, feelings, and relationships. Add an empty bubbles array unless a character has a short, additive aside or unspoken thought that is not already in the full reply.\n\nSESSION: ${state.sessionName}\nSCENE: ${state.sceneTitle} — ${state.location}\nTONE / GENRE: ${state.scenarioTone || "not specified"}\nPLAYER MODE: ${state.playerMode === "dm" ? "unseen DM / external facilitator" : "first listed party member"}\nPLAYER PERSPECTIVE: ${state.playerRole || "not specified"}\nSCENARIO PREMISE: ${state.scenarioPremise || "not specified"}\nOPENING SITUATION: ${state.openingSituation || "not specified"}\nWORLD / CANON NOTES: ${state.worldNotes || "none"}\nSESSION STATS: ${JSON.stringify(normalizeStatDefinitions(state.statDefinitions))}\nSESSION PROMPT / CANON NOTES: ${state.sessionPrompt || "none"}\nLORE IN PLAY (keyword-matched; your next action can add more): ${activeLore().included.map(entry => entry.title).join(", ") || "none"}\nPINNED CANON (never contradicted; survives summarization): ${state.pinnedFacts || "none"}\nSTORY SO FAR: ${state.storySummary || "none yet"}\nMECHANICAL WORLD STATE: ${JSON.stringify(publicWorldState())}\nBUBBLE FREQUENCY: ${state.mode}\nPARTY:\n${roster}\n\nReturn an ordered beat timeline with explicit pauses, optional additive speech or thought bubbles, suggestions, and validated state-change proposals.`;
     }
 
     function appendRuntimePrompt() {
@@ -2893,6 +3111,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         storySummary: state.storySummary,
         worldState: publicWorldState(),
         recentNarrative: state.narrative.filter(line => line.kind !== "error").slice(-NARRATIVE_CONTEXT_LINES),
+        activeLore: activeLore(action).included.map(entry => ({ title: entry.title, text: entry.text })),
         party: publicParty(),
         // Never forward the browser session key to a custom/remote endpoint.
         apiKey: endpoint ? "" : state.apiKey.trim(),
@@ -2918,7 +3137,8 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (!endpoint && !hasUsableTextKey()) {
         throw new Error("No API key is set. Open SETTINGS and enter a key for the selected text provider, or set one in a .env file beside server.js so it persists.");
       }
-      const requestBody = JSON.stringify(buildTurnRequest(action, endpoint, options));
+      const request = buildTurnRequest(action, endpoint, options);
+      const requestBody = JSON.stringify(request);
       const response = await fetchWithTimeout(endpoint || "/api/turn", {
         signal,
         method: "POST",
@@ -2927,7 +3147,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       }, TIMEOUTS.turn, "turn request");
       const result = await readApiJson(response, "turn request");
       if (!response.ok) throw new Error(result.error || "The live API request failed (" + response.status + ").");
-      return { result, requestBytes: new TextEncoder().encode(requestBody).length };
+      return { result, requestBytes: new TextEncoder().encode(requestBody).length, lore: request.activeLore.map(entry => entry.title) };
     }
 
     function buildImagePrompt() {
@@ -3785,7 +4005,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         state.turnTraces.push({
           turn: state.turn - 1, action: action.trim().slice(0, 500), status: "success",
           durationMs: Math.round(performance.now() - startedAt), requestBytes,
-          beatCount: sourceBeats.length || displayedBeats.length, applied: stateReport.applied, rejected: stateReport.rejected
+          beatCount: sourceBeats.length || displayedBeats.length, applied: stateReport.applied, rejected: stateReport.rejected,
+          lore: Array.isArray(packet.lore) ? packet.lore : []
         });
         state.turnTraces = state.turnTraces.slice(-MAX_TURN_TRACES);
         // This attempt is a reply now: it takes the on-screen slot, after any kept ones.
@@ -4342,7 +4563,7 @@ this program. If not, see https://www.gnu.org/licenses/.
 
     // Modal plumbing: remember what had focus, keep Tab inside the open dialog, and let Escape
     // close whichever dialog is on top.
-    const MODAL_IDS = ["modal-backdrop", "settings-backdrop", "sessions-backdrop", "session-setup-backdrop", "world-editor-backdrop", "help-backdrop"];
+    const MODAL_IDS = ["modal-backdrop", "settings-backdrop", "sessions-backdrop", "session-setup-backdrop", "world-editor-backdrop", "lore-editor-backdrop", "help-backdrop"];
     const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
     let focusBeforeModal = null;
 
@@ -4383,13 +4604,15 @@ this program. If not, see https://www.gnu.org/licenses/.
       "settings-backdrop": () => closeBackdrop("settings-backdrop"),
       "sessions-backdrop": () => closeSessions(),
       "session-setup-backdrop": () => closeSessionSetup(),
-      "world-editor-backdrop": () => closeWorldEditor()
+      "world-editor-backdrop": () => closeWorldEditor(),
+      "lore-editor-backdrop": () => closeLoreEditor()
     };
 
     // Discarding several minutes of character writing on a stray Escape is a real loss, so a
     // dismissal that would throw away edits asks first. Saving and deleting never route through here.
     function requestCloseModal(id) {
       if (id === "world-editor-backdrop" && worldEditorDirty() && !window.confirm("Discard these unfinished corrections?")) return;
+      if (id === "lore-editor-backdrop" && loreEditorDirty() && !window.confirm("Discard this unsaved lore entry?")) return;
       if (id === "modal-backdrop" && modalMode === "edit" && characterFormDirty()
         && !window.confirm("Discard unsaved changes to this character?")) return;
       if (id === "session-setup-backdrop" && sessionSetupDirty()
@@ -4664,6 +4887,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         worldState: state.worldState,
         memoryCandidates: state.memoryCandidates,
         relationshipProposals: state.relationshipProposals,
+        lorebook: state.lorebook,
         turnTraces: state.turnTraces,
         sceneBookmarks: state.sceneBookmarks,
         relationshipTimeline: state.relationshipTimeline,
@@ -4938,6 +5162,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       })).filter(entry => entry.text);
       // Suggestions, like memory candidates: nothing changes until the player applies one.
       state.relationshipProposals = normalizeRelationshipProposals(snapshot.relationshipProposals);
+      state.lorebook = normalizeLorebook(snapshot.lorebook);
       state.sceneBookmarks = (Array.isArray(snapshot.sceneBookmarks) ? snapshot.sceneBookmarks : []).slice(-100).map(item => ({ id: String(item && item.id || "bookmark-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), title: String(item && item.title || "Bookmarked scene").slice(0, 200), location: String(item && item.location || "").slice(0, 300), excerpt: String(item && item.excerpt || "").slice(0, 500) }));
       state.relationshipTimeline = (Array.isArray(snapshot.relationshipTimeline) ? snapshot.relationshipTimeline : []).slice(-200).map(item => ({ id: String(item && item.id || "relation-" + crypto.randomUUID()).slice(0, 100), turn: boundedInteger(item && item.turn, 1, 999999, 1), sourceId: String(item && item.sourceId || "").slice(0, 64), targetId: String(item && item.targetId || "").slice(0, 64), dimension: RELATIONSHIP_DIMENSIONS.includes(item && item.dimension) ? item.dimension : "trust", delta: boundedInteger(item && item.delta, -20, 20), reason: String(item && item.reason || "").slice(0, 300) })).filter(item => item.sourceId && item.targetId && item.delta);
       const importedPause = normalizedBeat(snapshot.pendingPause, 0);
@@ -4948,7 +5173,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         status: trace && trace.status === "failed" ? "failed" : "success", durationMs: boundedInteger(trace && trace.durationMs, 0, 3600000),
         requestBytes: boundedInteger(trace && trace.requestBytes, 0, 100000000), beatCount: boundedInteger(trace && trace.beatCount, 0, 20),
         applied: (Array.isArray(trace && trace.applied) ? trace.applied : []).slice(0, 30).map(value => String(value).slice(0, 300)),
-        rejected: (Array.isArray(trace && trace.rejected) ? trace.rejected : []).slice(0, 30).map(value => String(value).slice(0, 300))
+        rejected: (Array.isArray(trace && trace.rejected) ? trace.rejected : []).slice(0, 30).map(value => String(value).slice(0, 300)),
+        lore: (Array.isArray(trace && trace.lore) ? trace.lore : []).slice(0, 40).map(value => String(value).slice(0, 120))
       }));
       // Checkpoints are executable restoration data. Keep browser-owned autosaves useful, but do
       // not let an imported file install arbitrary historical snapshots into future UNDO actions.
@@ -5061,7 +5287,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         opening: $("session-opening").value,
         premise: $("session-premise").value,
         worldNotes: $("session-world-notes").value,
-        keepParty: $("session-keep-party").checked
+        keepParty: $("session-keep-party").checked,
+        keepLore: $("session-keep-lore").checked
       };
     }
 
@@ -5085,6 +5312,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("session-world-notes").value = draft ? draft.worldNotes : state.worldNotes;
       renderSessionStatEditor(draft ? draft.statDefinitions : state.statDefinitions);
       $("session-keep-party").checked = draft ? draft.keepParty : true;
+      // A new session is often a new chapter in the same world, and a lorebook can be long to rebuild.
+      $("session-keep-lore").checked = draft ? draft.keepLore !== false : true;
+      $("session-keep-lore-count").textContent = "(" + state.lorebook.length + " entr" + (state.lorebook.length === 1 ? "y" : "ies") + ")";
       syncSessionPresetNote();
       renderSessionPartyPreview();
       // Baseline for the unsaved-work check, taken after the fields are populated.
@@ -5124,6 +5354,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.worldNotes = $("session-world-notes").value.trim();
       state.statDefinitions = readSessionStatDefinitions();
       state.sessionPrompt = "";
+      if (!$("session-keep-lore").checked) state.lorebook = [];
       if (!$("session-keep-party").checked) {
         const preset = SCENARIO_PRESETS[state.presetId];
         state.party = structuredClone(preset && preset.party ? preset.party : DEFAULT_PARTY);
@@ -5546,6 +5777,14 @@ this program. If not, see https://www.gnu.org/licenses/.
     // Leaving the tab writes both copies now rather than when their timers would have.
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { persistCurrentState(); if (diskAutosaveTimer) flushDiskAutosave(); } });
     $("world-editor-form").addEventListener("submit", event => { event.preventDefault(); commitWorldEdit(); });
+    $("lore-editor-form").addEventListener("submit", event => { event.preventDefault(); commitLoreEntry(); });
+    $("delete-lore-entry").addEventListener("click", () => { if (window.confirm("Remove this lore entry?")) commitLoreEntry(true); });
+    $("close-lore-editor").addEventListener("click", () => requestCloseModal("lore-editor-backdrop"));
+    $("cancel-lore-editor").addEventListener("click", () => requestCloseModal("lore-editor-backdrop"));
+    $("lore-editor-backdrop").addEventListener("click", event => { if (event.target.id === "lore-editor-backdrop") requestCloseModal("lore-editor-backdrop"); });
+    $("add-lore").addEventListener("click", () => openLoreEditor());
+    $("import-lore-file").addEventListener("change", importLorebook);
+    $("export-lore").addEventListener("click", exportLorebook);
     $("delete-world-entry").addEventListener("click", () => commitWorldEdit(true));
     $("close-world-editor").addEventListener("click", () => requestCloseModal("world-editor-backdrop"));
     $("cancel-world-editor").addEventListener("click", () => requestCloseModal("world-editor-backdrop"));

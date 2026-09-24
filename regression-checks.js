@@ -35,6 +35,7 @@ function harness() {
   run(script);
   run(`
     globalThis.actualRenderNarrative = renderNarrative;
+    globalThis.realRequestLiveTurn = requestLiveTurn;
     renderAll = renderVisual = renderNarrative = renderMemoryStatus = renderPromptPreview =
       renderDirtyMarker = announceTurn = () => {};
     scheduleCurrentStatePersistence = () => { globalThis.saved = true; };
@@ -1529,4 +1530,103 @@ test("downtime needs two characters, and a proposal cannot be applied mid-turn",
   d.run("resolveRelationshipProposals(state.relationshipProposals.map(entry => entry.id), true)");
   assert.equal(d.run("state.relationshipProposals.length"), 1);
   assert.equal(d.run("state.worldState.relationships.length"), 0);
+});
+
+function loreFixture() {
+  const h = swipeFixture();
+  h.run(`state.party = [{id: 'ash', name: 'Ash', stats: [50, 50, 50], muted: false, initiative: true}, {id: 'marta', name: 'Marta Reyes', stats: [50, 50, 50], muted: false, initiative: true}];
+    state.lorebook = normalizeLorebook([
+      {title: 'The Old Gate', keys: ['old gate', 'gatekeeper'], text: 'Sealed since the flood.'},
+      {title: 'Marta', keys: ['Marta Reyes'], text: 'Marta keeps the ferry ledger.'},
+      {title: 'Magic', keys: [], constant: true, text: 'Magic costs memories.'},
+      {title: 'Retired', keys: ['gate'], enabled: false, text: 'An outdated note about the gate.'},
+      {title: 'Dragons', keys: ['dragon'], text: 'There are no dragons left.'}
+    ]);
+    state.narrative = [{kind: 'body', text: 'Rain on the road.'}, {kind: 'body', text: 'The OLD GATE creaks.'}, {kind: 'body', text: 'Nobody mentions the dragonfly.'}];`);
+  h.titles = action => Array.from(h.run(`buildTurnRequest(${JSON.stringify(action)}).activeLore.map(entry => entry.title)`));
+  return h;
+}
+
+test("lore reaches the engine only when a keyword comes up: whole words, any case, speakers and the action included", () => {
+  const h = loreFixture();
+  // ALWAYS first, then matches in list order; "dragonfly" is not "dragon", and a disabled entry never goes.
+  assert.deepEqual(h.titles("wait"), ["Magic", "The Old Gate"]);
+  assert.deepEqual(h.titles("ask about the dragon"), ["Magic", "The Old Gate", "Dragons"]);
+  // A speaker's name counts as mentioned.
+  h.run("state.narrative.push({kind: 'speech', character: 'Marta Reyes', characterId: 'marta', text: 'Tickets, please.'});");
+  assert.deepEqual(h.titles("wait"), ["Magic", "The Old Gate", "Marta"]);
+  // Only the last few lines are scanned.
+  h.run("state.narrative.push(...Array.from({length: LORE_SCAN_LINES}, (_, i) => ({kind: 'body', text: 'Quiet ' + i})));");
+  assert.deepEqual(h.titles("wait"), ["Magic"]);
+});
+
+test("lore stops at its budget without cutting an entry, and says what did not fit", () => {
+  const h = loreFixture();
+  // Entries are at most 4000 characters, so the budget of 6000 takes more than one.
+  h.run(`state.lorebook = normalizeLorebook([
+    {title: 'Big', keys: ['gate'], text: 'x'.repeat(4000)},
+    {title: 'Also big', keys: ['gate'], text: 'w'.repeat(LORE_BUDGET - 4000 - 5)},
+    {title: 'Too much', keys: ['gate'], text: 'y'.repeat(20)},
+    {title: 'Small', keys: ['gate'], text: 'z'.repeat(5)}
+  ]); state.narrative = [{kind: 'body', text: 'The gate.'}];`);
+  assert.equal(h.run("state.lorebook[0].text.length"), 4000);
+  assert.deepEqual(h.titles("wait"), ["Big", "Also big", "Small"]);
+  h.run("renderLorebook()");
+  const panel = h.element("lore-panel").innerHTML;
+  assert.match(panel, /3 in play for the next turn \(6000 of 6000 characters\)\. .* 1 more matched but did not fit/);
+  assert.match(panel, /<strong>Too much<\/strong><span class="lore-badge quiet">OVER BUDGET<\/span>/);
+});
+
+test("lorebooks import from SillyTavern, NovelAI, character cards, and this harness, skipping pattern keywords", () => {
+  const h = loreFixture();
+  const read = data => JSON.parse(h.run(`JSON.stringify(loreEntriesFrom(${JSON.stringify(data)}))`));
+  const tavern = read({ entries: { 0: { uid: 0, key: ["harbor", "/dock(s)?/i"], comment: "Harbor", content: "The harbor freezes in winter.", constant: false, disable: false }, 1: { key: ["x"], content: "Disabled.", disable: true } } });
+  assert.deepEqual(tavern.entries.map(entry => [entry.title, entry.keys, entry.enabled]), [["Harbor", ["harbor"], true], ["x", ["x"], false]]);
+  assert.equal(tavern.skippedPatterns, 1);
+  const novel = read({ lorebookVersion: 5, entries: [{ displayName: "Guild", keys: ["guild"], text: "The guild owns the bridges.", enabled: true, forceActivation: true }] });
+  assert.deepEqual(novel.entries.map(entry => [entry.title, entry.constant]), [["Guild", true]]);
+  const card = read({ spec: "chara_card_v2", data: { name: "Vey", character_book: { entries: [{ keys: ["lighthouse"], content: "Vey grew up in the lighthouse.", enabled: true, name: "Lighthouse" }] } } });
+  assert.deepEqual(card.entries.map(entry => entry.title), ["Lighthouse"]);
+  const own = read({ format: "party-harness-lorebook", version: 1, entries: [{ title: "Tea", keys: ["tea"], text: "Tea is rationed.", enabled: true, constant: false }] });
+  assert.deepEqual(own.entries.map(entry => entry.text), ["Tea is rationed."]);
+  assert.equal(read({ entries: [{ keys: ["empty"], content: "" }] }).entries.length, 0, "an entry with no text is nothing to send");
+});
+
+test("the lore editor adds, validates, edits, and removes entries", () => {
+  const h = loreFixture();
+  const fill = values => { for (const [key, value] of Object.entries(values)) h.element("lore-" + key)[typeof value === "boolean" ? "checked" : "value"] = value; };
+  h.run("state.lorebook = []; openLoreEditor();");
+  fill({ title: "Ferry", keys: "", text: "Runs twice a day.", constant: false, enabled: true });
+  h.run("commitLoreEntry()");
+  assert.match(h.element("lore-editor-status").textContent, /Add at least one keyword, or tick Always include/);
+  fill({ keys: "ferry, Ferry, crossing" });
+  h.run("commitLoreEntry()");
+  assert.deepEqual(JSON.parse(h.run("JSON.stringify(state.lorebook.map(entry => [entry.title, entry.keys]))")), [["Ferry", ["ferry", "crossing"]]]);
+  h.run("openLoreEditor(0);");
+  fill({ text: "Runs once a day since the storm." });
+  h.run("commitLoreEntry()");
+  assert.equal(h.run("state.lorebook.length"), 1);
+  assert.equal(h.run("state.lorebook[0].text"), "Runs once a day since the storm.");
+  h.run("openLoreEditor(0); commitLoreEntry(true);");
+  assert.equal(h.run("state.lorebook.length"), 0);
+});
+
+test("lore travels with the session, and the trace says which entries a turn sent", async () => {
+  const h = loreFixture();
+  // The real request path, down to the network call, so what the trace records is what was sent.
+  let body = null;
+  h.run("fetchWithTimeout = (url, options) => new Promise(resolve => { globalThis.sentBody = options.body; globalThis.reply = resolve; }); requestLiveTurn = globalThis.realRequestLiveTurn;");
+  const pending = h.run("handleTurn('knock at the old gate')");
+  body = JSON.parse(h.context.sentBody);
+  assert.deepEqual(body.activeLore.map(entry => entry.title), ["Magic", "The Old Gate"]);
+  h.context.reply({ ok: true, status: 200, json: async () => ({ narration: "Reply A", beats: [{ kind: "narration", text: "Reply A" }] }) });
+  await pending;
+  assert.deepEqual(Array.from(h.run("state.turnTraces.at(-1).lore")), ["Magic", "The Old Gate"]);
+  h.run("renderTurnTrace()");
+  assert.match(h.element("turn-trace-panel").innerHTML, /Lore sent: Magic, The Old Gate/);
+  const saved = h.run("JSON.stringify(HarnessStorage.pack(sessionSnapshot()))");
+  const loaded = swipeFixture();
+  loaded.run("applySessionSnapshot(JSON.parse(" + JSON.stringify(saved) + "));");
+  assert.equal(loaded.run("state.lorebook.length"), 5);
+  assert.deepEqual(Array.from(loaded.run("state.turnTraces.at(-1).lore")), ["Magic", "The Old Gate"]);
 });

@@ -422,14 +422,14 @@ console.log("\nprompt cache prefix");
     const shorthand = block.indexOf("\n    " + field + ",");
     return shorthand >= 0 ? shorthand : block.indexOf("\n    " + field + ":");
   };
-  const order = ["party", "scenario", "sessionPrompt", "settings", "scene", "worldState", "storySoFar", "recentNarrative", "playerAction"]
+  const order = ["party", "scenario", "sessionPrompt", "settings", "scene", "worldState", "storySoFar", "activeLore", "recentNarrative", "playerAction"]
     .map(field => ({ field, at: at(field) }));
   const missing = order.filter(entry => entry.at < 0).map(entry => entry.field);
   check("every expected context field is present", missing.length === 0, "missing: " + missing.join(", "));
   // Providers cache on a matching prompt prefix. Anything that changes every turn placed ahead of
   // the party breaks the prefix immediately, and the attached profiles behind it -- tens of KB --
   // get re-read at full price on every turn.
-  const volatile = ["scene", "worldState", "storySoFar", "recentNarrative", "playerAction"];
+  const volatile = ["scene", "worldState", "storySoFar", "activeLore", "recentNarrative", "playerAction"];
   const staticEnd = Math.max(...order.filter(e => !volatile.includes(e.field)).map(e => e.at));
   const volatileStart = Math.min(...order.filter(e => volatile.includes(e.field)).map(e => e.at));
   check("static context fields all precede volatile ones", staticEnd < volatileStart,
