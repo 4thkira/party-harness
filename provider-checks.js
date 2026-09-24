@@ -328,3 +328,48 @@ test('SAVE KEY TO .ENV writes only provider keys, keeps the file intact, and tak
   assert.equal(form.status, 415);
   assert.doesNotMatch(envFile(), /sk-evil/);
 });
+
+test('saves are kept as files, and only the harness\'s own files are trusted as its own work', { timeout: 20000 }, async t => {
+  const fs = require('node:fs'), os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'party-harness-saves-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const file of ['server.js', 'text-providers.js', 'image-providers.js', 'harness-storage.js', 'rp-party-harness-prototype.html']) fs.copyFileSync(path.join(__dirname, file), path.join(dir, file));
+  const port = await startHarness(t, {}, dir);
+  const call = async (method, route, body, headers = {}) => {
+    const response = await fetch(`http://127.0.0.1:${port}/api/${route}`, { method, headers: body === undefined ? headers : { 'Content-Type': 'application/json', ...headers }, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+    return { status: response.status, body: await response.json() };
+  };
+  const session = { format: 'party-harness-session', version: 4, id: 'session-abc', savedAt: '2026-09-24T10:00:00.000Z', sessionName: 'The Old Gate', settings: { endpoint: 'http://127.0.0.1:9999/roleplay' }, narrative: [] };
+  assert.deepEqual((await call('GET', 'saves')).body, { saves: [] });
+  assert.equal((await call('PUT', 'saves/session-abc', session)).status, 200);
+  assert.ok(fs.existsSync(path.join(dir, 'saves', 'session-abc.json')));
+  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'saves', '.harness-key')).mode & 0o777, 0o600);
+  const listed = await call('GET', 'saves');
+  assert.deepEqual(listed.body.saves.map(save => [save.id, save.sessionName]), [['session-abc', 'The Old Gate']]);
+  const own = await call('GET', 'saves/session-abc');
+  assert.equal(own.body.trusted, true);
+  assert.deepEqual(own.body.snapshot, session);
+  // Edited by hand, or copied in from anywhere else: it loads by the import rules.
+  const file = path.join(dir, 'saves', 'session-abc.json');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('The Old Gate', 'The Old Gate, edited'));
+  assert.equal((await call('GET', 'saves/session-abc')).body.trusted, false);
+  fs.writeFileSync(path.join(dir, 'saves', 'from-a-friend.json'), JSON.stringify({ ...session, id: 'from-a-friend' }));
+  assert.equal((await call('GET', 'saves/from-a-friend')).body.trusted, false);
+  assert.equal((await call('GET', 'saves')).body.saves.length, 2);
+  for (const [method, route, body, pattern, status] of [
+    ['PUT', 'saves/session-abc', { format: 'not-a-session' }, /must be a Party Harness session/, 400],
+    ['PUT', 'saves/session-abc', '{broken', /must be a session in JSON/, 400],
+    ['GET', 'saves/..%2Fserver', undefined, /No such save/, 404],
+    ['GET', 'saves/missing', undefined, /No such save/, 404]
+  ]) {
+    const refused = await call(method, route, body);
+    assert.equal(refused.status, status, method + ' ' + route);
+    assert.match(refused.body.error, pattern);
+  }
+  assert.equal((await call('PUT', 'saves/session-abc', session, { Origin: 'http://evil.example' })).status, 403);
+  const form = await fetch(`http://127.0.0.1:${port}/api/saves/session-abc`, { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(session) });
+  assert.equal(form.status, 415);
+  assert.equal((await call('DELETE', 'saves/session-abc')).status, 200);
+  assert.equal(fs.existsSync(file), false);
+  assert.equal((await call('GET', 'saves/session-abc')).status, 404);
+});

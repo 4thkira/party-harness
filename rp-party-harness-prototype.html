@@ -794,7 +794,7 @@ this program. If not, see https://www.gnu.org/licenses/.
           <div class="settings-group-title">Browser session saves</div>
           <div class="session-actions"><button class="settings-test" type="button" id="save-session">SAVE CURRENT SESSION</button><button class="settings-test" type="button" id="load-session">LOAD SELECTED</button><button class="settings-test" type="button" id="delete-session">DELETE SELECTED</button></div>
           <select class="session-list" id="saved-session-select" size="5" aria-label="Saved sessions"></select>
-          <p class="settings-note">Saves stay in this browser. API keys are never included.</p>
+          <p class="settings-note">Saves stay in this browser and, unless turned off in Settings, as files in the saves folder. Files saved elsewhere appear here marked “saves folder only”. API keys are never included.</p>
         </section>
         <section class="settings-group full">
           <div class="settings-group-title">Pinned canon</div>
@@ -879,7 +879,7 @@ this program. If not, see https://www.gnu.org/licenses/.
         <ol><li><strong>Connect:</strong> open SETTINGS, find Text generation connection, choose a provider, and enter its API key if required. Then press CHECK CONNECTION + LIST MODELS: it confirms the key works and lets you pick a model from a list. Ollama and LM Studio can run locally without a key. Leave the custom roleplay backend URL blank.</li><li><strong>Set the scene:</strong> NEW SESSION offers presets or your own premise. Choose whether you play the first party member or direct the party as an unseen narrator (DM).</li><li><strong>Meet the party:</strong> open a character sheet to edit their name, pronouns, personality, portrait, and abilities. Party order determines who you play in party-member mode.</li><li><strong>Take a turn:</strong> write an action and SEND TURN. Enter sends; Shift+Enter adds a line. Suggestions are optional. CONTINUE reveals the next part of a response; a choice or dice check may need your input first.</li><li><strong>Keep a copy:</strong> SESSIONS lets you name saves and export a session JSON file for backup or transfer.</li></ol>
         <details><summary>What do the story controls mean?</summary><p><strong>Undo turn</strong> restores the previous exchange and your action. <strong>Regenerate</strong> tries that action again and makes another provider request. <strong>Cancel</strong> stops waiting for a reply; a provider may already have processed the request. Use the pencil beside generated text to correct it.</p><p>A <strong>beat</strong> is one part of a response. Characters can speak when it fits the scene; silence is valid. Images are optional and generated only when you request them.</p></details>
         <details><summary>World state, memory, and canon</summary><p><strong>World state</strong> tracks things such as inventory, conditions, relationships, and objectives. EDIT corrects an entry. A <strong>clock</strong> is a progress counter; a <strong>flag</strong> records a fact or event.</p><p><strong>Memory proposals</strong> are suggestions to review, not automatic personality changes. Reactions can expire; relationship memories and development can persist. <strong>Pinned canon</strong> means facts you explicitly ask the story to respect. The running summary is an AI-written recap and can be imperfect.</p></details>
-        <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser on this computer. Use the same address and port to find them again. Clearing browser site data can remove them. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
+        <details><summary>Where is my story saved?</summary><p>Autosave and named saves stay in this browser, and are also kept as files in the saves folder beside server.js, so clearing site data or changing the port does not lose them: an empty browser restores your last workspace from there by itself. Export session JSON for a portable backup; export Markdown for a readable story. Session exports exclude API keys and generated art. Save art separately if you want to keep it.</p><p>Your selected provider receives the story context needed to generate replies. Local storage does not mean offline generation. Uploaded reference images are sent when used for image generation.</p></details>
         <details><summary>Something is not working</summary><p>Keep the server terminal open. If connection fails, check SETTINGS and the terminal, confirm your provider and model, and restart after editing .env. The connection dot beside SESSIONS turns green once CHECK CONNECTION has confirmed that your provider accepts the key; it cannot tell whether your account has credit left. If saving needs attention, export your session before closing the page. See README.md in the download for setup and troubleshooting.</p></details>
       </div>
     </section>
@@ -965,6 +965,8 @@ this program. If not, see https://www.gnu.org/licenses/.
         <section class="settings-group full">
           <div class="settings-group-title">Local workspace persistence</div>
           <p class="settings-note">The active party, scenario, transcript, settings, and character profiles are autosaved in this browser on this computer. API keys and generated image data are never stored here.</p>
+          <label class="check-field"><input type="checkbox" id="settings-disk-saves"><span>Also keep saves as files in the saves folder beside server.js</span></label>
+          <p class="settings-note">Recommended. Files survive clearing browser data and changing the port, and an empty browser restores the last workspace from them. They are plain JSON, readable by anyone who can open that folder, and never include API keys.</p>
           <div class="session-actions"><button class="settings-test" type="button" id="clear-autosaved-state" data-help="Removes the active browser autosave and pauses autosaving for this visit. Export anything you want to keep first. Named library saves are separate." aria-description="Removes the active browser autosave and pauses autosaving for this visit. Export anything you want to keep first. Named library saves are separate.">CLEAR AUTOSAVED STATE</button><button class="settings-test" type="button" id="resume-autosave">RESUME AUTOSAVE</button></div>
           <p class="settings-note" id="local-persistence-status">Autosave is active for this local workspace.</p>
         </section>
@@ -997,6 +999,11 @@ this program. If not, see https://www.gnu.org/licenses/.
     function saveSoundPreferences() {
       try { localStorage.setItem(SOUND_PREF_KEY, JSON.stringify({ enabled: soundEnabled, volume: soundVolume })); } catch { /* still usable for this visit */ }
     }
+    // Keeping saves as files is a choice about this computer, like sound, so it is stored beside the
+    // sound preference instead of inside a session that can travel somewhere else.
+    const DISK_SAVES_PREF_KEY = "party-harness-disk-saves-v1";
+    let diskSavesEnabled = true;
+    try { diskSavesEnabled = localStorage.getItem(DISK_SAVES_PREF_KEY) !== "off"; } catch { /* on by default */ }
     function playPageTurn(preview = false) {
       if ((!soundEnabled && !preview) || soundVolume === 0) return;
       try {
@@ -1118,6 +1125,10 @@ this program. If not, see https://www.gnu.org/licenses/.
       "Return only the requested JSON structure."
     ].join("\n");
     const SESSION_STORAGE_KEY = "party-harness-sessions-v1";
+    // Session ids name files in saves/, so they are held to the same pattern the server enforces.
+    // "autosave" is the workspace mirror and never a library session's name.
+    const SAVE_FILE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+    const validSessionId = id => typeof id === "string" && SAVE_FILE_ID.test(id) && id !== "autosave";
     const CURRENT_STATE_STORAGE_KEY = "party-harness-current-state-v1";
     const DEFAULT_COLUMN_RATIOS = [1 / 3.15, 1.25 / 3.15, .9 / 3.15];
     // Mirrors BUBBLE_MODES in server.js so both ends enforce the same cap.
@@ -1134,7 +1145,7 @@ this program. If not, see https://www.gnu.org/licenses/.
     const NARRATIVE_CONTEXT_LINES = SUMMARY_TRIGGER + 4;
     // Requests have no natural end if the connection stalls, and a hung turn leaves SEND TURN
     // disabled with no way back except a refresh.
-    const TIMEOUTS = { turn: 180000, image: 300000, summary: 120000, profile: 180000, setup: 180000, files: 15000, models: 45000 };
+    const TIMEOUTS = { turn: 180000, image: 300000, summary: 120000, profile: 180000, setup: 180000, files: 15000, models: 45000, saves: 60000 };
     const MAX_PORTRAIT_FILE_BYTES = 6 * 1024 * 1024;
     // Reference images are resized before they are stored or sent. Keep a larger source ceiling
     // than portraits so a high-resolution style sheet has a chance to become a usable 1024px image.
@@ -1274,6 +1285,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       serverEnvActiveSettings: [],
       serverEnvFileError: "",
       serverEnvFileMisnamed: "",
+      diskSaveError: "",
       // Which .env variable holds each provider's key, as /api/health reports it.
       envKeyNames: { text: {}, image: {} },
       serverHealthError: "",
@@ -4293,13 +4305,78 @@ this program. If not, see https://www.gnu.org/licenses/.
       $("save-status").title = message;
     }
 
+    // SAVES AS FILES. Browser storage belongs to one browser at one address and port, and clearing site
+    // data deletes it. The library and the autosave are also kept in saves/ beside server.js, which
+    // survives both. The server signs what it writes there; a file it did not write loads by the
+    // same rules as an imported session.
+    let diskSaveList = [];
+    let diskAutosaveTimer = null;
+    const DISK_AUTOSAVE_DELAY_MS = 15000;
+
+    async function saveFileRequest(id, method, snapshot) {
+      const options = { method, cache: "no-store" };
+      if (snapshot) {
+        options.headers = { "Content-Type": "application/json" };
+        options.body = JSON.stringify(HarnessStorage.pack(snapshot));
+      }
+      const response = await fetchWithTimeout("/api/saves" + (id ? "/" + id : ""), options, TIMEOUTS.saves, "save file request");
+      const result = await readApiJson(response, "save file request");
+      if (!response.ok) throw Object.assign(new Error(result.error || "The save file request failed (HTTP " + response.status + ")."), { status: response.status });
+      return result;
+    }
+
+    async function refreshDiskSaveList() {
+      try {
+        const result = await saveFileRequest("", "GET");
+        diskSaveList = (Array.isArray(result.saves) ? result.saves : []).filter(save => save && SAVE_FILE_ID.test(save.id))
+          .map(save => ({ id: save.id, sessionName: String(save.sessionName || "Untitled session").slice(0, 200), savedAt: String(save.savedAt || "").slice(0, 40) }));
+      } catch { diskSaveList = []; }
+      return diskSaveList;
+    }
+
+    // At most one write every DISK_AUTOSAVE_DELAY_MS, carrying whatever is current when it runs.
+    function scheduleDiskAutosave() {
+      if (!diskSavesEnabled || !storageReady || !autosaveEnabled || diskAutosaveTimer) return;
+      diskAutosaveTimer = setTimeout(flushDiskAutosave, DISK_AUTOSAVE_DELAY_MS);
+    }
+
+    async function flushDiskAutosave() {
+      if (diskAutosaveTimer) { clearTimeout(diskAutosaveTimer); diskAutosaveTimer = null; }
+      if (!diskSavesEnabled || !storageReady || !autosaveEnabled) return;
+      try {
+        await saveFileRequest("autosave", "PUT", sessionSnapshot());
+        state.diskSaveError = "";
+      } catch (error) {
+        // Not an autosave failure: the browser copy was written. Say why the file copy was not.
+        state.diskSaveError = "The copy in saves/ could not be written: " + error.message;
+      }
+    }
+
+    // Browser storage came up empty: a new browser, a different port, or cleared site data. The last
+    // workspace may still be in saves/autosave.json, and bringing it back is why it is kept there.
+    async function restoreFromDiskAutosave() {
+      if (!diskSavesEnabled) return false;
+      let save;
+      try { save = await saveFileRequest("autosave", "GET"); } catch { return false; }
+      if (!save || !save.snapshot || typeof save.snapshot !== "object") return false;
+      const withheld = applySessionSnapshot(save.snapshot, { trusted: save.trusted === true });
+      stopTurnStatus("RESTORED FROM saves/autosave.json");
+      setPersistenceStatus("This browser had no saved workspace, so the last one was restored from saves/autosave.json."
+        + (withheld.length ? " Note: " + withheld.join("; ") + "." : ""));
+      return true;
+    }
+
     async function persistCurrentState() {
       if (!storageReady || !autosaveEnabled) return;
       const revision = ++persistenceRevision;
       const epoch = sessionEpoch;
       try {
         await HarnessStorage.put(CURRENT_STATE_STORAGE_KEY, sessionSnapshot());
-        if (revision === persistenceRevision && epoch === sessionEpoch) setPersistenceStatus("Complete workspace saved in " + HarnessStorage.mode + " at " + new Date().toLocaleTimeString() + ". Export a session for a separate backup.");
+        if (revision === persistenceRevision && epoch === sessionEpoch) {
+          setPersistenceStatus("Complete workspace saved in " + HarnessStorage.mode + " at " + new Date().toLocaleTimeString()
+            + (diskSavesEnabled ? (state.diskSaveError ? ". " + state.diskSaveError : ", and mirrored to saves/autosave.json every few seconds") : "") + ". Export a session for a separate backup.");
+        }
+        scheduleDiskAutosave();
       } catch (error) {
         if (revision === persistenceRevision && epoch === sessionEpoch) setPersistenceStatus("Autosave failed; your story is still here in memory. Export the session before closing. No prose or images were dropped to make it fit. " + error.message, true);
       }
@@ -4330,7 +4407,12 @@ this program. If not, see https://www.gnu.org/licenses/.
     function renderSavedSessions() {
       const select = $("saved-session-select");
       const sessions = readStoredSessions().sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
-      select.innerHTML = sessions.map(session => `<option value="${escapeHtml(session.id || "")}">${escapeHtml(session.sessionName || "Untitled session")} — ${escapeHtml(formatSavedDate(session.savedAt))}</option>`).join("");
+      const onDisk = new Set(diskSaveList.map(save => save.id));
+      const inBrowser = new Set(sessions.map(session => session.id));
+      // Saves that exist only as files: from another browser or port, or from before site data was cleared.
+      const fileOnly = diskSaveList.filter(save => save.id !== "autosave" && !inBrowser.has(save.id));
+      select.innerHTML = sessions.map(session => `<option value="${escapeHtml(session.id || "")}">${escapeHtml(session.sessionName || "Untitled session")} — ${escapeHtml(formatSavedDate(session.savedAt))}${onDisk.has(session.id) ? " · file" : ""}</option>`).join("")
+        + fileOnly.map(save => `<option value="file:${escapeHtml(save.id)}">${escapeHtml(save.sessionName)} — ${escapeHtml(formatSavedDate(save.savedAt))} · saves folder only</option>`).join("");
       if (state.sessionId && sessions.some(session => session.id === state.sessionId)) select.value = state.sessionId;
       // A sized select is a listbox and selects nothing on its own, which would leave LOAD and
       // DELETE disabled for every session not saved during this page load.
@@ -4402,7 +4484,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.summaryStatus = "";
       const scenario = snapshot.scenario && typeof snapshot.scenario === "object" ? snapshot.scenario : {};
       const settings = snapshot.settings && typeof snapshot.settings === "object" ? snapshot.settings : {};
-      state.sessionId = typeof snapshot.id === "string" ? snapshot.id : "";
+      state.sessionId = validSessionId(snapshot.id) ? snapshot.id : "";
       state.sessionName = String(snapshot.sessionName || snapshot.sceneTitle || "Untitled session").slice(0, 200);
       state.sceneTitle = String(snapshot.sceneTitle || "Untitled scene").slice(0, 200);
       state.location = String(snapshot.location || "UNSPECIFIED LOCATION").slice(0, 300);
@@ -4632,7 +4714,11 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
 
     function closeSessionSetup() { sessionSetupRequestToken += 1; setSessionGenerationBusy(false); sessionSetupBaseline = null; closeBackdrop("session-setup-backdrop"); }
-    function openSessions() { renderSavedSessions(); openBackdrop("sessions-backdrop", "session-prompt"); }
+    function openSessions() {
+      renderSavedSessions();
+      openBackdrop("sessions-backdrop", "session-prompt");
+      refreshDiskSaveList().then(() => { if ($("sessions-backdrop").classList.contains("open")) renderSavedSessions(); });
+    }
     function closeSessions() { closeBackdrop("sessions-backdrop"); }
 
     function createSession(event) {
@@ -4716,16 +4802,40 @@ this program. If not, see https://www.gnu.org/licenses/.
         $("sessions-status").textContent = "Could not save; browser storage may be full.";
         return;
       }
+      let fileNote = "";
+      if (diskSavesEnabled) {
+        try {
+          await saveFileRequest(state.sessionId, "PUT", snapshot);
+          fileNote = " and as saves/" + state.sessionId + ".json";
+          await refreshDiskSaveList();
+        } catch (error) { fileNote = ". The file copy failed: " + error.message; }
+      }
       $("save-session").disabled = false;
       if (epoch !== sessionEpoch) return;
       if (revision === changeRevision) markSaved();
       scheduleCurrentStatePersistence();
       renderSavedSessions();
-      $("sessions-status").textContent = `Saved “${state.sessionName}” locally.`;
+      $("sessions-status").textContent = `Saved “${state.sessionName}” in this browser${fileNote}.`;
     }
 
-    function loadSelectedSession() {
+    async function loadSelectedSession() {
       const id = $("saved-session-select").value;
+      if (id.startsWith("file:")) {
+        const fileId = id.slice(5);
+        let save;
+        try { save = await saveFileRequest(fileId, "GET"); }
+        catch (error) { $("sessions-status").textContent = "Could not load saves/" + fileId + ".json: " + error.message; return; }
+        if (!save.snapshot || typeof save.snapshot !== "object" || !confirmDiscardSession("Loading a saved session")) return;
+        // Only a file this harness wrote and signed is restored as its own work.
+        const withheld = applySessionSnapshot(save.snapshot, { trusted: save.trusted === true });
+        if (save.trusted === true) markSaved();
+        renderAll();
+        renderSavedSessions();
+        $("sessions-status").textContent = `Loaded “${state.sessionName}” from saves/${fileId}.json.`
+          + (save.trusted === true ? "" : " It was not written by this harness, so it was loaded like an imported file.")
+          + (withheld.length ? " Note: " + withheld.join("; ") + "." : "");
+        return;
+      }
       const snapshot = readStoredSessions().find(session => session.id === id);
       if (!snapshot) return;
       if (!confirmDiscardSession("Loading a saved session")) return;
@@ -4737,13 +4847,27 @@ this program. If not, see https://www.gnu.org/licenses/.
     }
 
     async function deleteSelectedSession() {
-      const id = $("saved-session-select").value;
-      const snapshot = readStoredSessions().find(session => session.id === id);
-      if (!snapshot || !window.confirm(`Delete “${snapshot.sessionName || "Untitled session"}” from this browser?`)) return;
-      const remaining = readStoredSessions().filter(session => session.id !== id);
-      if (!await writeStoredSessions(remaining)) { $("sessions-status").textContent = "Deletion could not be saved. The library entry was kept."; return; }
+      const value = $("saved-session-select").value;
+      const fileOnly = value.startsWith("file:");
+      const id = fileOnly ? value.slice(5) : value;
+      const snapshot = fileOnly ? diskSaveList.find(save => save.id === id) : readStoredSessions().find(session => session.id === id);
+      const hasFile = diskSaveList.some(save => save.id === id);
+      // A file is only removed along with the browser copy while files are being kept; a file-only
+      // save is the file, so deleting it is the whole point.
+      const removeFile = hasFile && (fileOnly || diskSavesEnabled);
+      const where = fileOnly ? "the saves folder" : removeFile ? "this browser and the saves folder" : "this browser";
+      if (!snapshot || !window.confirm(`Delete “${snapshot.sessionName || "Untitled session"}” from ${where}?`)) return;
+      if (!fileOnly) {
+        const remaining = readStoredSessions().filter(session => session.id !== id);
+        if (!await writeStoredSessions(remaining)) { $("sessions-status").textContent = "Deletion could not be saved. The library entry was kept."; return; }
+      }
+      let fileNote = "";
+      if (removeFile) {
+        try { await saveFileRequest(id, "DELETE"); } catch (error) { fileNote = " Its file could not be deleted: " + error.message; }
+        await refreshDiskSaveList();
+      }
       renderSavedSessions();
-      $("sessions-status").textContent = "Saved session deleted.";
+      $("sessions-status").textContent = "Saved session deleted." + fileNote;
     }
 
     function downloadFile(filename, contents, mimeType) {
@@ -5039,7 +5163,8 @@ this program. If not, see https://www.gnu.org/licenses/.
     });
     // Typing anything of your own ends history browsing.
     $("response-input").addEventListener("input", () => { actionHistoryCursor = -1; scheduleCurrentStatePersistence(); });
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persistCurrentState(); });
+    // Leaving the tab writes both copies now rather than when their timers would have.
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { persistCurrentState(); if (diskAutosaveTimer) flushDiskAutosave(); } });
     $("world-editor-form").addEventListener("submit", event => { event.preventDefault(); commitWorldEdit(); });
     $("delete-world-entry").addEventListener("click", () => commitWorldEdit(true));
     $("close-world-editor").addEventListener("click", () => requestCloseModal("world-editor-backdrop"));
@@ -5177,13 +5302,25 @@ this program. If not, see https://www.gnu.org/licenses/.
     $("forget-image-key").addEventListener("click", () => saveKeyToEnv("image", true));
     $("clear-autosaved-state").addEventListener("click", async () => {
       if (currentStateSaveTimer) clearTimeout(currentStateSaveTimer);
+      if (diskAutosaveTimer) { clearTimeout(diskAutosaveTimer); diskAutosaveTimer = null; }
       autosaveEnabled = false;
       try {
         await HarnessStorage.remove(CURRENT_STATE_STORAGE_KEY);
-        setPersistenceStatus("Autosave cleared and paused for this tab. Named saves are unchanged. Reload or use RESUME AUTOSAVE to enable it again.");
+        // The file copy goes too, or the next empty browser would bring back what was just cleared.
+        let fileNote = "";
+        try { await saveFileRequest("autosave", "DELETE"); } catch (error) { fileNote = " saves/autosave.json could not be removed: " + error.message; }
+        setPersistenceStatus("Autosave cleared and paused for this tab. Named saves are unchanged. Reload or use RESUME AUTOSAVE to enable it again." + fileNote);
       } catch (error) { setPersistenceStatus("Could not clear autosave: " + error.message, true); }
     });
     $("resume-autosave").addEventListener("click", () => { autosaveEnabled = true; persistCurrentState(); });
+    $("settings-disk-saves").checked = diskSavesEnabled;
+    $("settings-disk-saves").addEventListener("change", event => {
+      diskSavesEnabled = event.target.checked;
+      try { localStorage.setItem(DISK_SAVES_PREF_KEY, diskSavesEnabled ? "on" : "off"); } catch { /* still applies for this visit */ }
+      if (diskSavesEnabled) scheduleDiskAutosave();
+      else if (diskAutosaveTimer) { clearTimeout(diskAutosaveTimer); diskAutosaveTimer = null; }
+      setPersistenceStatus(diskSavesEnabled ? "Saves will also be kept as files in the saves folder." : "Saves stay in this browser only. Files already in the saves folder were left alone.");
+    });
     $("settings-form").addEventListener("submit", event => event.preventDefault());
     $("generate-image").addEventListener("click", requestGeneratedImage);
     $("sessions-button").addEventListener("click", openSessions);
@@ -5442,7 +5579,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       document.querySelector(".app").inert = true;
       try {
         await HarnessStorage.initialize();
-        const restored = restoreCurrentState();
+        const restored = restoreCurrentState() || await restoreFromDiskAutosave();
         storageReady = true;
         if (!restored) markSaved();
         renderAll();

@@ -1014,3 +1014,87 @@ test("SAVE KEY hands the key to the server, clears the browser copy, and FORGET 
   assert.equal(h.element("save-text-key").disabled, true);
   assert.equal(h.element("forget-text-key").disabled, true);
 });
+
+function fileSaveFixture(h, files = {}) {
+  // An in-memory stand-in for /api/saves: what the browser sends is exactly what it gets back.
+  h.context.requests = [];
+  h.context.files = files;
+  h.run(`writeStoredSessions = async sessions => { globalThis.library = sessions; return true; };
+    readStoredSessions = () => (globalThis.library || []).slice();
+    window.confirm = () => true;
+    fetchWithTimeout = async (url, options = {}) => {
+      requests.push([options.method || 'GET', url]);
+      const id = url.split('/')[3];
+      const reply = (status, body) => ({ ok: status < 300, status, json: async () => JSON.parse(JSON.stringify(body)) });
+      if (!id) return reply(200, { saves: Object.entries(files).map(([name, file]) => ({ id: name, sessionName: file.snapshot.sessionName, savedAt: file.snapshot.savedAt })) });
+      if (options.method === 'PUT') { files[id] = { trusted: true, snapshot: JSON.parse(options.body) }; return reply(200, { ok: true }); }
+      if (options.method === 'DELETE') { delete files[id]; return reply(200, { ok: true }); }
+      return files[id] ? reply(200, files[id]) : reply(404, { error: 'No such save.' });
+    };`);
+}
+
+test("a library save is also kept as a file, and the file copy is removed with it", async () => {
+  const h = harness();
+  fileSaveFixture(h);
+  h.run("state.sessionId = ''; state.sessionName = 'Kept as a file';");
+  await h.run("saveCurrentSession()");
+  const id = h.run("state.sessionId");
+  assert.match(id, /^session-[a-z0-9]+$/);
+  assert.equal(h.context.files[id].snapshot.sessionName, "Kept as a file");
+  assert.equal(h.context.files[id].snapshot.format, "party-harness-session");
+  assert.match(h.element("sessions-status").textContent, new RegExp("in this browser and as saves/" + id + "\\.json\\.$"));
+  h.element("saved-session-select").value = id;
+  await h.run("deleteSelectedSession()");
+  assert.equal(h.context.files[id], undefined);
+  assert.equal(h.run("readStoredSessions().length"), 0);
+});
+
+test("a save that exists only as a file is listed and loads by its signature's trust", async () => {
+  const h = harness();
+  const foreign = { format: "party-harness-session", version: 4, id: "from-a-friend", savedAt: "2026-09-01T00:00:00Z", sessionName: "Borrowed story",
+    settings: { endpoint: "http://127.0.0.1:9999/somewhere", provider: "openai" }, narrative: [{ kind: "body", text: "Borrowed prose." }], turnCheckpoints: [{ narrative: [] }] };
+  fileSaveFixture(h, { "from-a-friend": { trusted: false, snapshot: foreign }, autosave: { trusted: true, snapshot: { ...foreign, sessionName: "The workspace" } } });
+  await h.run("refreshDiskSaveList()");
+  h.element("saved-session-select").options = [];
+  h.run("renderSavedSessions()");
+  const listed = h.element("saved-session-select").innerHTML;
+  assert.match(listed, /value="file:from-a-friend">Borrowed story .* · saves folder only/);
+  assert.doesNotMatch(listed, /file:autosave/, "the workspace mirror is not a library save");
+  h.element("saved-session-select").value = "file:from-a-friend";
+  await h.run("loadSelectedSession()");
+  assert.equal(h.run("state.sessionName"), "Borrowed story");
+  // Not written by this harness: the endpoint it names is withheld, as for any imported file.
+  assert.equal(h.run("state.endpoint"), "");
+  assert.equal(h.run("state.turnCheckpoints.length"), 0);
+  assert.match(h.element("sessions-status").textContent, /loaded like an imported file.*custom backend endpoint was discarded/);
+});
+
+test("an empty browser restores the workspace from saves/autosave.json, and a signed file keeps its settings", async () => {
+  const h = harness();
+  const workspace = { format: "party-harness-session", version: 4, id: "session-home", savedAt: "2026-09-24T09:00:00Z", sessionName: "Before the data was cleared",
+    settings: { endpoint: "http://127.0.0.1:8123/my-backend" }, narrative: [{ kind: "body", text: "Still here." }], turnCheckpoints: [] };
+  fileSaveFixture(h, { autosave: { trusted: true, snapshot: workspace } });
+  assert.equal(await h.run("restoreFromDiskAutosave()"), true);
+  assert.equal(h.run("state.sessionName"), "Before the data was cleared");
+  assert.equal(h.run("state.endpoint"), "http://127.0.0.1:8123/my-backend");
+  assert.match(h.element("local-persistence-status").textContent, /restored from saves\/autosave\.json/);
+  // Nothing to restore, or files turned off: the default scene stays.
+  const empty = harness();
+  fileSaveFixture(empty);
+  assert.equal(await empty.run("restoreFromDiskAutosave()"), false);
+  const off = harness();
+  fileSaveFixture(off, { autosave: { trusted: true, snapshot: workspace } });
+  off.run("diskSavesEnabled = false;");
+  assert.equal(await off.run("restoreFromDiskAutosave()"), false);
+});
+
+test("the workspace mirror writes the current state and reports a failed copy without failing autosave", async () => {
+  const h = harness();
+  fileSaveFixture(h);
+  h.run("storageReady = true; autosaveEnabled = true; state.sessionName = 'Mirrored';");
+  await h.run("flushDiskAutosave()");
+  assert.equal(h.context.files.autosave.snapshot.sessionName, "Mirrored");
+  h.run("fetchWithTimeout = async () => ({ ok: false, status: 500, json: async () => ({ error: 'disk full' }) });");
+  await h.run("flushDiskAutosave()");
+  assert.match(h.run("state.diskSaveError"), /could not be written: disk full/);
+});

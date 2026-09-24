@@ -2455,6 +2455,135 @@ async function handleModels(req, res) {
   }
 }
 
+// SAVES AS FILES. Browser storage belongs to one browser at one address and port, and clearing site
+// data deletes it: the "my saves are gone" row in the README. The browser mirrors its library and
+// its autosave here, as ordinary files beside the harness that survive all of that.
+//
+// A file in this folder decides where SEND TURN posts and what the engine is told, exactly like an
+// imported session, and anyone can copy a file in. So the files this server writes are signed with
+// a key kept beside them, and only a file whose signature checks out is restored as the browser's
+// own work; anything else loads under the same rules as an import.
+const SAVES_DIR = path.join(__dirname, "saves");
+const SAVE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+const MAX_SAVE_BYTES = 64 * 1024 * 1024;
+const saveListCache = new Map();
+
+async function saveSigningKey(create) {
+  const file = path.join(SAVES_DIR, ".harness-key");
+  try { return Buffer.from((await fs.promises.readFile(file, "utf8")).trim(), "hex"); }
+  catch (error) { if (!create || !error || error.code !== "ENOENT") return null; }
+  await fs.promises.mkdir(SAVES_DIR, { recursive: true, mode: 0o700 });
+  const key = crypto.randomBytes(32);
+  try { await fs.promises.writeFile(file, key.toString("hex"), { mode: 0o600, flag: "wx" }); }
+  catch (error) { if (error && error.code === "EEXIST") return saveSigningKey(false); throw error; }
+  return key;
+}
+
+function signSave(key, text) {
+  return crypto.createHmac("sha256", key).update(text, "utf8").digest("hex");
+}
+
+async function readSaveFile(id) {
+  const text = (await fs.promises.readFile(path.join(SAVES_DIR, id + ".json"), "utf8")).replace(/^﻿/, "");
+  const parsed = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || parsed.format !== "party-harness-session") throw Object.assign(new Error("That file is not a Party Harness session."), { statusCode: 422 });
+  let trusted = false;
+  const key = await saveSigningKey(false);
+  if (key && key.length === 32) {
+    try {
+      const recorded = Buffer.from((await fs.promises.readFile(path.join(SAVES_DIR, id + ".sig"), "utf8")).trim(), "hex");
+      const expected = Buffer.from(signSave(key, text), "hex");
+      trusted = recorded.length === expected.length && crypto.timingSafeEqual(recorded, expected);
+    } catch { trusted = false; }
+  }
+  return { text, trusted, parsed };
+}
+
+async function writeSaveFile(id, text) {
+  await fs.promises.mkdir(SAVES_DIR, { recursive: true, mode: 0o700 });
+  const key = await saveSigningKey(true);
+  const target = path.join(SAVES_DIR, id + ".json");
+  const temporary = target + "." + crypto.randomBytes(6).toString("hex") + ".tmp";
+  // Renamed into place, so an interrupted write never leaves half a session where a whole one was.
+  await fs.promises.writeFile(temporary, text, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  try { await fs.promises.rename(temporary, target); }
+  catch (error) { await fs.promises.unlink(temporary).catch(() => {}); throw error; }
+  await fs.promises.writeFile(path.join(SAVES_DIR, id + ".sig"), signSave(key, text), { mode: 0o600 });
+}
+
+async function listSaveFiles() {
+  let names;
+  try { names = await fs.promises.readdir(SAVES_DIR); }
+  catch (error) { if (error && error.code === "ENOENT") return []; throw error; }
+  const saves = [];
+  for (const name of names) {
+    const id = name.endsWith(".json") ? name.slice(0, -5) : "";
+    if (!SAVE_ID.test(id)) continue;
+    let info;
+    try { info = await fs.promises.stat(path.join(SAVES_DIR, name)); } catch { continue; }
+    if (!info.isFile() || info.size > MAX_SAVE_BYTES) continue;
+    // Reading a session to learn its name is the expensive part, so it happens once per version.
+    const cached = saveListCache.get(id);
+    if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) { saves.push(cached.entry); continue; }
+    let parsed;
+    try { parsed = (await readSaveFile(id)).parsed; } catch { continue; }
+    const entry = { id, sessionName: String(parsed.sessionName || parsed.sceneTitle || "Untitled session").slice(0, 200), savedAt: String(parsed.savedAt || "").slice(0, 40), bytes: info.size };
+    saveListCache.set(id, { mtimeMs: info.mtimeMs, size: info.size, entry });
+    saves.push(entry);
+  }
+  return saves.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
+async function handleSaves(req, res, id) {
+  if (!id && req.method === "GET") {
+    try { writeJson(res, 200, { saves: await listSaveFiles() }); }
+    catch (error) { writeJson(res, 500, { error: "The saves folder could not be read: " + (error.message || error) }); }
+    return;
+  }
+  if (!SAVE_ID.test(id || "")) { writeJson(res, 404, { error: "No such save." }); return; }
+  if (req.method === "GET") {
+    let save;
+    try { save = await readSaveFile(id); }
+    catch (error) {
+      writeJson(res, error.code === "ENOENT" ? 404 : error.statusCode || 422, { error: error.code === "ENOENT" ? "No such save." : error.statusCode ? error.message : "That save file is not valid JSON." });
+      return;
+    }
+    // The session is passed through as written rather than parsed and re-serialized: it can be large.
+    const body = '{"trusted":' + save.trusted + ',"snapshot":' + save.text + "}";
+    if (res.writableEnded || res.destroyed) return;
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+    res.end(body);
+    return;
+  }
+  if (req.method === "PUT") {
+    if (!jsonRequest(req)) { writeJson(res, 415, { error: "JSON request body required." }); return; }
+    let text;
+    try { text = await readBody(req, MAX_SAVE_BYTES, "This session is over 64 MiB, too large to keep as a file. It is still saved in the browser."); }
+    catch (error) { writeJson(res, error.statusCode || 400, { error: error.message || "The session could not be read." }); return; }
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { writeJson(res, 400, { error: "A save must be a session in JSON." }); return; }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || parsed.format !== "party-harness-session") {
+      writeJson(res, 400, { error: "A save must be a Party Harness session." });
+      return;
+    }
+    try { await writeSaveFile(id, text); }
+    catch (error) { writeJson(res, 500, { error: "Could not write saves/" + id + ".json: " + (error.message || error) }); return; }
+    saveListCache.delete(id);
+    writeJson(res, 200, { ok: true, id, bytes: Buffer.byteLength(text) });
+    return;
+  }
+  if (req.method === "DELETE") {
+    for (const ending of [".json", ".sig"]) {
+      try { await fs.promises.unlink(path.join(SAVES_DIR, id + ending)); }
+      catch (error) { if (!error || error.code !== "ENOENT") { writeJson(res, 500, { error: "Could not delete saves/" + id + ending + ": " + (error.message || error) }); return; } }
+    }
+    saveListCache.delete(id);
+    writeJson(res, 200, { ok: true, id });
+    return;
+  }
+  writeJson(res, 405, { error: "Method not allowed." });
+}
+
 // The prototype is local-only. Refusing unexpected Host headers stops a remote page from
 // driving this server through a DNS-rebinding trick and spending a server-side API key.
 const ALLOWED_HOSTS = new Set(["127.0.0.1:" + PORT, "localhost:" + PORT, "[::1]:" + PORT]);
@@ -2623,7 +2752,7 @@ async function handleRequest(req, res) {
 
   if (req.method === "OPTIONS") {
     // Same-origin only. No Access-Control-Allow-Origin is issued, so cross-origin callers stay blocked.
-    res.writeHead(204, { "Allow": "GET,POST,OPTIONS", "Cache-Control": "no-store" });
+    res.writeHead(204, { "Allow": "GET,POST,PUT,DELETE,OPTIONS", "Cache-Control": "no-store" });
     res.end();
     return;
   }
@@ -2662,6 +2791,12 @@ async function handleRequest(req, res) {
     } catch (error) {
       writeJson(res, 500, { error: "Character files could not be listed." });
     }
+    return;
+  }
+
+  const saveRoute = /^\/api\/saves(?:\/([^/?#]*))?$/.exec(req.url);
+  if (saveRoute) {
+    await handleSaves(req, res, saveRoute[1] || "");
     return;
   }
 

@@ -20,3 +20,5 @@ ambience/
 skins/
 RP-PARTY-HARNESS-SUMMARY.md
 HARNESS-REVIEW.md
+# Session files the harness mirrors from browser storage. Personal, like the saves above.
+saves/

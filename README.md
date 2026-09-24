@@ -219,7 +219,7 @@ Create `music/`, `ambience/`, and `skins/` folders beside `server.js` (the harne
 
 Put CSS files in `skins/`, open **Settings → Appearance**, and choose **Refresh local library**. A skin is ordinary CSS loaded after the built-in styles, so it can override colors, borders, spacing, and typography. Treat a downloaded skin as code you should read before using. These three folders are ignored by Git and excluded from public release archives, keeping personal media and styling local.
 
-Autosave and named saves live in this browser on this computer. Use the same browser, address, and port to return to them. Clearing site data can erase them. **Export session JSON** for a portable backup; **Export story (Markdown)** is a readable transcript, not a restorable session.
+Autosave and named saves live in this browser on this computer, and are also kept as files in a `saves/` folder beside `server.js`. The files are what bring your work back after you clear site data or open the harness in another browser or on another port: an empty browser restores the last workspace from `saves/autosave.json` on its own, and **SESSIONS** lists saves that exist only as files. Only files the harness wrote itself are restored with their connection settings; a session file copied in from elsewhere loads like an import. You can turn the files off in **SETTINGS → Local workspace persistence**. **Export session JSON** for a portable backup; **Export story (Markdown)** is a readable transcript, not a restorable session.
 
 Session exports exclude API keys and generated image data. Save generated art separately. Character sheets, uploaded portraits, and story text may be personal, so review your session files before sharing them.
 
@@ -312,7 +312,7 @@ Yes. Text and image providers are separate settings. You can also turn off the g
 No. Images are optional and are created only when you click **GENERATE IMAGE**. See [Image generation for beginners](#image-generation-for-beginners) if you want to add them later.
 
 **Where is my story saved?**
-Autosaves and named saves live in this browser on this computer. Use the same browser, address, and port when returning. Clearing browser data can remove them.
+In this browser, and as files in the `saves/` folder beside `server.js`. If you clear browser data or come back on a different browser or port, the harness restores your last workspace from that folder by itself, and your named saves appear in **SESSIONS** marked “saves folder only”. Exporting a session JSON is still the way to move a story to another computer.
 
 **How do I move or back up a session?**
 Use **Export session JSON**. Import that JSON file later to restore the playable session. **Export story (Markdown)** makes a readable transcript, but cannot restore the session. Generated images must be saved separately.
@@ -340,7 +340,7 @@ Say what operating system you use, what you clicked, which provider and model yo
 | Provider rejects a request | Check the selected provider, model, key, account access, and the error text. A local-ready indicator does not validate these with the provider. |
 | A reply takes too long | Use Cancel; your action is restored. The provider may already have processed or billed the request. |
 | Save needs attention | Export your session before closing. Check browser storage availability; the last successful save is retained. |
-| My saves seem gone | Return to the same browser and exact address/port, or import your exported session JSON. |
+| My saves seem gone | Open **SESSIONS**: saves kept as files are listed there even in a new browser or on a new port. Check that the `saves/` folder is beside `server.js`, return to the same browser and address, or import an exported session JSON. |
 
 ## Modify or contribute
 

@@ -19,7 +19,7 @@ Search for `DEFAULT_PARTY`, `DEFAULT_STAT_DEFINITIONS`, and `DEFAULT_SYSTEM_PROM
 
 The browser sends roleplay requests to the local server, which calls the provider and normalizes structured replies. Changing that reply format requires matching server schema, normalization, and client handling. Image UI adapters are deliberately small: A1111/Forge and Fooocus send their documented JSON requests, while ComfyUI accepts a user-owned API-format workflow and only replaces explicit prompt placeholders. The custom backend field expects the roleplay contract; it is not an arbitrary OpenAI-compatible base URL.
 
-Keep API keys out of persistent state, session exports, and logs. Keep the server bound to loopback. Apply consequences only when their story beat is revealed; discard unrevealed consequences when branching. Late replies must not change a different session or overwrite newer edits. Preserve backward-compatible save imports.
+Keep API keys out of persistent state, session exports, save files, and logs. A session file in `saves/` is restored as trusted only when the server's signature over it verifies; treat anything else there like an imported file. Keep the server bound to loopback. Apply consequences only when their story beat is revealed; discard unrevealed consequences when branching. Late replies must not change a different session or overwrite newer edits. Preserve backward-compatible save imports.
 
 ## Checks
 
