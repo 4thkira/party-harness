@@ -1353,3 +1353,65 @@ test("undoing the next turn brings back the replies of the turn before it", asyn
   h.run("showReply(-1)");
   assert.equal(h.shown(), "Reply A / A");
 });
+
+// A turn that ends in a check, answered, so the next step is the player's ROLL.
+async function pendingCheckFixture() {
+  const h = swipeFixture();
+  h.run("showDiceResult = () => { globalThis.diceShown = (globalThis.diceShown || 0) + 1; };");
+  const pending = h.run("handleTurn('force the door')");
+  h.context.turnReply({ result: { narration: "The door resists.", beats: [{ kind: "narration", text: "The door resists." }, { kind: "check", prompt: "Force the door", checkStat: h.run("state.statDefinitions[0].id"), difficulty: 50 }] }, requestBytes: 1 });
+  await pending;
+  assert.equal(h.run("state.pendingPause.pauseType"), "check");
+  return h;
+}
+const checkLines = h => h.run("state.narrative.filter(line => line.kind === 'check').map(line => line.text)");
+
+test("undoing a check result returns to the check, and rolling it again gives the same number", async () => {
+  const h = await pendingCheckFixture();
+  const seed = h.run("state.pendingPause.checkSeed");
+  await h.answer(h.run("resolvePendingCheck()"), "A");
+  const [rolled] = checkLines(h);
+  assert.match(rolled, /rolled \d+, needed \d+ or over/);
+  h.element("response-input").value = "";
+  h.run("undoLastTurn()");
+  assert.equal(h.element("response-input").value, "", "the harness's CHECK RESULT message is not the player's action");
+  assert.equal(h.run("state.pendingPause && state.pendingPause.pauseType"), "check");
+  assert.equal(h.run("state.pendingPause.checkSeed"), seed);
+  assert.equal(checkLines(h).length, 0, "the roll is undone with its turn");
+  assert.equal(h.run("state.worldState.recentChecks.length"), 0);
+  await h.answer(h.run("resolvePendingCheck()"), "B");
+  assert.deepEqual(Array.from(checkLines(h)), [rolled]);
+});
+
+test("regenerating a check result replays the same roll once and keeps the earlier reply", async () => {
+  const h = await pendingCheckFixture();
+  await h.answer(h.run("resolvePendingCheck()"), "A");
+  const [rolled] = checkLines(h);
+  await h.answer(h.run("regenerateLastTurn()"), "B");
+  assert.equal(h.shown(), "Reply B / B");
+  assert.deepEqual(Array.from(checkLines(h)), [rolled], "one check line, with the same roll");
+  assert.equal(h.run("state.worldState.recentChecks.length"), 1);
+  assert.equal(h.context.diceShown, 1, "a replayed roll does not throw the dice again");
+  assert.equal(h.run("state.narrative.filter(line => line.kind === 'choice' && line.text.startsWith('CHECK RESULT')).length"), 1);
+  h.run("showReply(-1)");
+  assert.equal(h.shown(), "Reply A / A");
+});
+
+test("cancelling a check result returns to the check without typing it into the box", async () => {
+  const h = await pendingCheckFixture();
+  h.element("response-input").value = "";
+  h.run("resolvePendingCheck(); cancelTurn();");
+  assert.equal(h.element("response-input").value, "");
+  assert.equal(h.run("state.pendingPause && state.pendingPause.pauseType"), "check");
+  assert.equal(checkLines(h).length, 0);
+});
+
+test("undoing a check result saved before checkpoints were marked still leaves the box alone", async () => {
+  const h = await pendingCheckFixture();
+  await h.answer(h.run("resolvePendingCheck()"), "A");
+  // The old checkpoint was taken after the roll and had no marker.
+  h.run("const last = state.turnCheckpoints.at(-1); delete last.checkResult;");
+  h.element("response-input").value = "";
+  h.run("undoLastTurn()");
+  assert.equal(h.element("response-input").value, "");
+});

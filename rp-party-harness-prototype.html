@@ -1532,8 +1532,9 @@ this program. If not, see https://www.gnu.org/licenses/.
       } else {
         if (state.turnCheckpoints.at(-1) === request.checkpoint) state.turnCheckpoints.pop();
         restoreTurnCheckpoint(request.checkpoint);
-        if (!$("response-input").value.trim()) $("response-input").value = request.action;
-        stopTurnStatus("TURN CANCELLED / ACTION RESTORED");
+        // Only something the player typed goes back in the box; a check result is the harness talking.
+        if (request.typed && !$("response-input").value.trim()) $("response-input").value = request.action;
+        stopTurnStatus(request.typed ? "TURN CANCELLED / ACTION RESTORED" : state.pendingPause?.pauseType === "check" ? "TURN CANCELLED / CHECK READY TO ROLL" : "TURN CANCELLED");
       }
       if (editDraft && state.narrative.some(line => line.id === editDraft.lineId)) state.narrativeEdit = editDraft;
       updateGenerationTitle("Text", "cancelled");
@@ -3278,9 +3279,14 @@ this program. If not, see https://www.gnu.org/licenses/.
       return ((((mixed ^ (mixed >>> 14)) >>> 0) % 100) + 1);
     }
 
-    function resolvePendingCheck() {
+    // options pass through to handleTurn (a regenerate's kept replies); quiet skips the dice
+    // animation when the same roll is only being replayed.
+    function resolvePendingCheck(options = {}) {
       const pause = state.pendingPause;
       if (!pause || pause.pauseType !== "check" || turnInFlight) return;
+      // The turn's checkpoint is taken before the roll, so UNDO returns to the check itself: rolling
+      // it again gives the same number (the seed is in the pause), or the player can do something else.
+      const checkpoint = captureTurnCheckpoint("");
       const member = findPartyMember({ characterId: pause.characterId }) || state.party[state.selected] || state.party[0];
       const index = statIndexById(pause.checkStat);
       // Falling back to the first stat is the only thing the harness can do with a check it cannot
@@ -3306,7 +3312,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       const roll = seededRoll(seed);
       const success = roll >= target;
       const label = pause.checkLabel || pause.prompt || stat.name + " check";
-      showDiceResult(label, roll, target, success);
+      if (!options.quiet) showDiceResult(label, roll, target, success);
       // `needed` is stored, not derived at read time, so a check keeps the wording it was resolved
       // under. Sessions saved before the roll-over switch have no `needed` and a target that meant
       // the opposite; their `success` flag is still authoritative, and readers fall back to it.
@@ -3321,9 +3327,11 @@ this program. If not, see https://www.gnu.org/licenses/.
       state.narrative.push({ kind: "check", text: label + ": " + (success ? "SUCCESS" : "FAILURE") + " — rolled " + roll + ", needed " + needed + "." + substitutionNote, character: member ? member.name : "", characterId: member ? member.id : "", stat: stat.label, roll, target, needed, success });
       markDirty();
       renderAll();
-      handleTurn("CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "SUCCESS" : "FAILURE") + " (roll-over check on a 1-100 die: rolled " + roll + ", needed " + needed + ")."
+      checkpoint.action = "CHECK RESULT — " + (member ? member.name : "The party") + " attempted " + label + " using " + stat.name + " (" + stat.label + "): " + (success ? "SUCCESS" : "FAILURE") + " (roll-over check on a 1-100 die: rolled " + roll + ", needed " + needed + ")."
         + (substituted ? " The requested check stat " + (requested ? '"' + requested + '"' : "") + " is not defined in this session; " + stat.name + " was used. Use only stat ids from scenario.statDefinitions." : "")
-        + " Continue from this resolved result.", { checkResult: true });
+        + " Continue from this resolved result.";
+      checkpoint.checkResult = true;
+      handleTurn(checkpoint.action, { ...options, checkResult: true, checkpoint });
     }
 
     // Rolling memory. Once enough transcript has piled up, everything except the most recent
@@ -3557,15 +3565,22 @@ this program. If not, see https://www.gnu.org/licenses/.
       return action;
     }
 
+    // Undo and cancel put the player's own words back in the box, never a message the harness
+    // wrote for them. A check result reached the box that way, where Enter would send it again.
+    // The prefix covers checkpoints saved before they were marked.
+    function playerTyped(checkpoint, action) {
+      return !(checkpoint && checkpoint.checkResult) && !String(action).startsWith("CHECK RESULT — ");
+    }
+
     function undoLastTurn() {
       if (turnInFlight) return;
       const checkpoint = state.turnCheckpoints.pop();
       const action = checkpoint && restoreTurnCheckpoint(checkpoint) ? checkpoint.action : rewindLastTurn();
       if (!checkpoint && !action) { stopTurnStatus("NOTHING TO UNDO"); return; }
       if (!checkpoint) state.turn = Math.max(1, state.turn - 1);
-      if (action) $("response-input").value = action;
+      if (action && playerTyped(checkpoint, action)) $("response-input").value = action;
       markDirty();
-      stopTurnStatus("TURN REMOVED");
+      stopTurnStatus(state.pendingPause?.pauseType === "check" ? "TURN REMOVED / CHECK READY TO ROLL" : "TURN REMOVED");
       renderAll();
       $("response-input").focus();
     }
@@ -3596,7 +3611,11 @@ this program. If not, see https://www.gnu.org/licenses/.
       if (!action.trim()) { stopTurnStatus("NOTHING TO REGENERATE"); return; }
       if (!checkpoint) state.turn = Math.max(1, state.turn - 1);
       renderAll();
-      handleTurn(action, { regenerated: true, replies: replies && replies.length ? replies : null, previousReply });
+      const again = { regenerated: true, replies: replies && replies.length ? replies : null, previousReply };
+      // A check result's checkpoint is the check before its roll: replay that roll (same seed, same
+      // number) so the transcript shows it again, then ask for a new continuation.
+      if (checkpoint && checkpoint.checkResult && state.pendingPause?.pauseType === "check") resolvePendingCheck({ ...again, quiet: true });
+      else handleTurn(action, again);
     }
 
     async function handleTurn(action, options = {}) {
@@ -3606,7 +3625,7 @@ this program. If not, see https://www.gnu.org/licenses/.
       let requestBytes = 0;
       turnInFlight = true;
       $("send-button").disabled = true;
-      const request = { controller: new AbortController(), checkpoint: captureTurnCheckpoint(action), action: action.trim() };
+      const request = { controller: new AbortController(), checkpoint: options.checkpoint || captureTurnCheckpoint(action), action: action.trim(), typed: !options.checkResult };
       // A regenerate carries the turn's kept replies onto its checkpoint, and remembers which one
       // was on screen so a failure or CANCEL can put it back.
       if (options.replies) { request.checkpoint.replies = options.replies; request.previousReply = options.previousReply; }
